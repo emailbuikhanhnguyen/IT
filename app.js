@@ -41,184 +41,25 @@ function download(b,n){let u=URL.createObjectURL(b),a=document.createElement("a"
 let deferredPrompt;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("installBtn").classList.remove("hidden")});$("installBtn").onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null}};
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
 (async()=>{await openDB();initTypes();dashboard()})();
-// Khởi tạo IndexedDB bằng Dexie (nếu bạn đang dùng Dexie)
-const db = new Dexie("inventoryDB");
-db.version(1).stores({
-  assets: "++id, user, room, type, name, config, status, note, photo, systemInfo"
-});
 
-// Hàm lấy thông tin hệ thống từ trình duyệt
-function getSystemInfo() {
-  return {
-    deviceName: navigator.userAgent,
-    cpuCores: navigator.hardwareConcurrency || "N/A",
-    ramGB: navigator.deviceMemory || "N/A",
-    os: navigator.userAgent.includes("Android") ? "Android" : "iOS"
+// ==== Dán thông tin máy (Model/Serial/Cấu hình/IP/MAC) & tự động điền ====
+function autofillFromPastedText(text){
+  const map={MODEL:"model",SERIAL:"serial",CAUHINH:"spec",IP:"ip",MAC:"mac"};
+  let n=0;
+  text.split("\n").forEach(line=>{
+    const m=line.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
+    if(!m)return;
+    const key=m[1].trim().toUpperCase();
+    const field=map[key];
+    const val=m[2].trim();
+    if(field && val && $(field)){ $(field).value=val; n++; }
+  });
+  return n;
+}
+if($("btnAutofill")){
+  $("btnAutofill").onclick=()=>{
+    const box=$("pasteInfoBox");
+    const n=autofillFromPastedText(box.value);
+    alert(n?("Đã tự động điền "+n+" ô."):"Không nhận diện được dòng nào. Kiểm tra định dạng: MODEL: ...");
   };
 }
-
-// Xử lý chụp ảnh
-const fileInput = document.getElementById("photoInput");
-fileInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  // Chuyển ảnh sang base64 để lưu
-  const reader = new FileReader();
-  reader.onload = async () => {
-    const photoData = reader.result;
-    const systemInfo = getSystemInfo();
-
-    // Lưu vào IndexedDB
-    await db.assets.add({
-      user: "Người kiểm kê",
-      room: "Phòng Lab",
-      type: "Laptop",
-      name: "Thiết bị mới",
-      config: "",
-      status: "Đang kiểm kê",
-      note: "",
-      photo: photoData,
-      systemInfo: systemInfo
-    });
-
-    alert("✅ Đã lưu ảnh và thông tin hệ thống!");
-  };
-  reader.readAsDataURL(file);
-});
-async function showAssets() {
-  const assets = await db.assets.toArray();
-  const container = document.getElementById("assetList");
-  container.innerHTML = "";
-
-  assets.forEach(asset => {
-    const div = document.createElement("div");
-    div.innerHTML = `
-      <img src="${asset.photo}" width="150">
-      <p>CPU cores: ${asset.systemInfo.cpuCores}</p>
-      <p>RAM: ${asset.systemInfo.ramGB} GB</p>
-      <p>OS: ${asset.systemInfo.os}</p>
-    `;
-    container.appendChild(div);
-  });
-}
-
-// Gọi hàm sau khi thêm tài sản mới
-fileInput.addEventListener("change", async (e) => {
-  // ... phần lưu ảnh và systemInfo
-  await showAssets();
-});
-
-// Khởi tạo IndexedDB bằng Dexie
-const db = new Dexie("inventoryDB");
-db.version(1).stores({
-  assets: "++id, photo, systemInfo"
-});
-
-// Lưu ảnh tạm
-let photoData = null;
-
-// Xử lý chụp ảnh
-document.getElementById("photoInput").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    photoData = reader.result;
-    document.getElementById("result").innerHTML = `<img src="${photoData}" width="200">`;
-  };
-  reader.readAsDataURL(file);
-});
-
-// OCR trích xuất thông tin từ ảnh
-document.getElementById("extractBtn").addEventListener("click", async () => {
-  if (!photoData) {
-    alert("Chưa có ảnh để trích xuất!");
-    return;
-  }
-
-  const { data: { text } } = await Tesseract.recognize(photoData, 'eng');
-  console.log("Kết quả OCR:", text);
-
-  // Bóc tách thông tin
-  const info = {};
-  text.split('\n').forEach(line => {
-    if (line.includes('Device name')) info.deviceName = line.split(':')[1]?.trim();
-    if (line.includes('Processor')) info.cpu = line.split(':')[1]?.trim();
-    if (line.includes('Installed RAM')) info.ram = line.split(':')[1]?.trim();
-    if (line.includes('Storage')) info.storage = line.split(':')[1]?.trim();
-    if (line.includes('Graphics Card')) info.gpu = line.split(':')[1]?.trim();
-    if (line.includes('Edition')) info.os = line.split(':')[1]?.trim();
-  });
-
-  // Lưu vào IndexedDB
-  await db.assets.add({ photo: photoData, systemInfo: info });
-
-  // Hiển thị kết quả
-  document.getElementById("result").innerHTML += `
-    <p><b>Tên thiết bị:</b> ${info.deviceName || 'Không rõ'}</p>
-    <p><b>CPU:</b> ${info.cpu || 'Không rõ'}</p>
-    <p><b>RAM:</b> ${info.ram || 'Không rõ'}</p>
-    <p><b>Ổ cứng:</b> ${info.storage || 'Không rõ'}</p>
-    <p><b>GPU:</b> ${info.gpu || 'Không rõ'}</p>
-    <p><b>Hệ điều hành:</b> ${info.os || 'Không rõ'}</p>
-  `;
-});
-
-// Xuất JSON
-async function exportJSON() {
-  const assets = await db.assets.toArray();
-  const blob = new Blob([JSON.stringify(assets, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "inventory.json";
-  a.click();
-}
-
-// Xuất Excel (dùng SheetJS)
-async function exportExcel() {
-  const assets = await db.assets.toArray();
-
-  const data = assets.map(a => ({
-    DeviceName: a.systemInfo?.deviceName || "",
-    CPU: a.systemInfo?.cpu || "",
-    RAM: a.systemInfo?.ram || "",
-    Storage: a.systemInfo?.storage || "",
-    GPU: a.systemInfo?.gpu || "",
-    OS: a.systemInfo?.os || "",
-    Photo: a.photo ? "Có ảnh" : "Không có ảnh"
-  }));
-
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Inventory");
-
-  XLSX.writeFile(wb, "inventory.xlsx");
-}
-document.getElementById("extractBtn").addEventListener("click", async () => {
-  if (!photoData) {
-    alert("Chưa có ảnh để trích xuất!");
-    return;
-  }
-
-  const { data: { text } } = await Tesseract.recognize(photoData, 'eng');
-  console.log("Kết quả OCR:", text);
-
-  // Bóc tách thông tin
-  const info = {};
-  text.split('\n').forEach(line => {
-    if (line.includes('Processor')) info.cpu = line.split(':')[1]?.trim();
-    if (line.includes('Installed RAM')) info.ram = line.split(':')[1]?.trim();
-    if (line.includes('Model')) info.model = line.split(':')[1]?.trim();
-    if (line.includes('Edition')) info.os = line.split(':')[1]?.trim();
-  });
-
-  // Gán vào form
-  document.querySelector('input[name="Model"]').value = info.model || '';
-  document.querySelector('textarea[name="Cấu hình"]').value = `${info.cpu || ''} / ${info.ram || ''}`;
-  document.querySelector('input[name="Loại thiết bị"]').value = 'PC';
-});
-
