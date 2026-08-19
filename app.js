@@ -42,6 +42,47 @@ let deferredPrompt;window.addEventListener("beforeinstallprompt",e=>{e.preventDe
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
 (async()=>{await openDB();initTypes();dashboard()})();
 
+// ==== Copy lệnh PowerShell để lấy thông tin máy (get-info.ps1) ====
+const PS_SCRIPT = [
+  '$cs   = Get-CimInstance Win32_ComputerSystem',
+  '$bios = Get-CimInstance Win32_BIOS',
+  '$cpu  = (Get-CimInstance Win32_Processor).Name',
+  '',
+  '$ramBytes = (Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum).Sum',
+  '$ramGB    = [math]::Round($ramBytes / 1GB, 0)',
+  '',
+  '$disk   = Get-CimInstance Win32_DiskDrive | Select-Object -First 1',
+  '$diskGB = [math]::Round($disk.Size / 1GB, 0)',
+  '',
+  '$ip = Get-NetIPAddress -AddressFamily IPv4 |',
+  '      Where-Object { $_.InterfaceAlias -notmatch "Loopback" -and $_.IPAddress -notlike "169.254*" } |',
+  '      Select-Object -First 1 -ExpandProperty IPAddress',
+  '',
+  '$mac = Get-NetAdapter |',
+  '       Where-Object { $_.Status -eq "Up" } |',
+  '       Select-Object -First 1 -ExpandProperty MacAddress',
+  '',
+  'Write-Output "----- COPY TU DAY -----"',
+  'Write-Output "MODEL: $($cs.Manufacturer) $($cs.Model)"',
+  'Write-Output "SERIAL: $($bios.SerialNumber)"',
+  'Write-Output "CAUHINH: $cpu / RAM ${ramGB}GB / O cung ${diskGB}GB"',
+  'Write-Output "IP: $ip"',
+  'Write-Output "MAC: $mac"',
+  'Write-Output "----- DEN DAY -----"'
+].join("\n");
+
+if($("btnCopyPS")){
+  $("btnCopyPS").onclick=async()=>{
+    try{
+      await navigator.clipboard.writeText(PS_SCRIPT);
+      alert("Đã copy lệnh PowerShell vào clipboard.\nMở PowerShell trên máy này → Ctrl+V (hoặc chuột phải) → Enter.");
+    }catch(e){
+      // Trình duyệt/ngữ cảnh không cho phép clipboard API (VD mở qua HTTP không an toàn) -> fallback
+      prompt("Không tự copy được (thiếu quyền clipboard). Hãy tự bôi đen & Copy đoạn dưới:", PS_SCRIPT);
+    }
+  };
+}
+
 // ==== Dán thông tin máy (Model/Serial/Cấu hình/IP/MAC) & tự động điền ====
 function autofillFromPastedText(text){
   const map={MODEL:"model",SERIAL:"serial",CAUHINH:"spec",IP:"ip",MAC:"mac"};
