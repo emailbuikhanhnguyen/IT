@@ -41,3 +41,71 @@ function download(b,n){let u=URL.createObjectURL(b),a=document.createElement("a"
 let deferredPrompt;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("installBtn").classList.remove("hidden")});$("installBtn").onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null}};
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
 (async()=>{await openDB();initTypes();dashboard()})();
+// Khởi tạo IndexedDB bằng Dexie (nếu bạn đang dùng Dexie)
+const db = new Dexie("inventoryDB");
+db.version(1).stores({
+  assets: "++id, user, room, type, name, config, status, note, photo, systemInfo"
+});
+
+// Hàm lấy thông tin hệ thống từ trình duyệt
+function getSystemInfo() {
+  return {
+    deviceName: navigator.userAgent,
+    cpuCores: navigator.hardwareConcurrency || "N/A",
+    ramGB: navigator.deviceMemory || "N/A",
+    os: navigator.userAgent.includes("Android") ? "Android" : "iOS"
+  };
+}
+
+// Xử lý chụp ảnh
+const fileInput = document.getElementById("photoInput");
+fileInput.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  // Chuyển ảnh sang base64 để lưu
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const photoData = reader.result;
+    const systemInfo = getSystemInfo();
+
+    // Lưu vào IndexedDB
+    await db.assets.add({
+      user: "Người kiểm kê",
+      room: "Phòng Lab",
+      type: "Laptop",
+      name: "Thiết bị mới",
+      config: "",
+      status: "Đang kiểm kê",
+      note: "",
+      photo: photoData,
+      systemInfo: systemInfo
+    });
+
+    alert("✅ Đã lưu ảnh và thông tin hệ thống!");
+  };
+  reader.readAsDataURL(file);
+});
+async function showAssets() {
+  const assets = await db.assets.toArray();
+  const container = document.getElementById("assetList");
+  container.innerHTML = "";
+
+  assets.forEach(asset => {
+    const div = document.createElement("div");
+    div.innerHTML = `
+      <img src="${asset.photo}" width="150">
+      <p>CPU cores: ${asset.systemInfo.cpuCores}</p>
+      <p>RAM: ${asset.systemInfo.ramGB} GB</p>
+      <p>OS: ${asset.systemInfo.os}</p>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// Gọi hàm sau khi thêm tài sản mới
+fileInput.addEventListener("change", async (e) => {
+  // ... phần lưu ảnh và systemInfo
+  await showAssets();
+});
+
