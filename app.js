@@ -109,3 +109,92 @@ fileInput.addEventListener("change", async (e) => {
   await showAssets();
 });
 
+// Khởi tạo IndexedDB bằng Dexie
+const db = new Dexie("inventoryDB");
+db.version(1).stores({
+  assets: "++id, photo, systemInfo"
+});
+
+// Lưu ảnh tạm
+let photoData = null;
+
+// Xử lý chụp ảnh
+document.getElementById("photoInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    photoData = reader.result;
+    document.getElementById("result").innerHTML = `<img src="${photoData}" width="200">`;
+  };
+  reader.readAsDataURL(file);
+});
+
+// OCR trích xuất thông tin từ ảnh
+document.getElementById("extractBtn").addEventListener("click", async () => {
+  if (!photoData) {
+    alert("Chưa có ảnh để trích xuất!");
+    return;
+  }
+
+  const { data: { text } } = await Tesseract.recognize(photoData, 'eng');
+  console.log("Kết quả OCR:", text);
+
+  // Bóc tách thông tin
+  const info = {};
+  text.split('\n').forEach(line => {
+    if (line.includes('Device name')) info.deviceName = line.split(':')[1]?.trim();
+    if (line.includes('Processor')) info.cpu = line.split(':')[1]?.trim();
+    if (line.includes('Installed RAM')) info.ram = line.split(':')[1]?.trim();
+    if (line.includes('Storage')) info.storage = line.split(':')[1]?.trim();
+    if (line.includes('Graphics Card')) info.gpu = line.split(':')[1]?.trim();
+    if (line.includes('Edition')) info.os = line.split(':')[1]?.trim();
+  });
+
+  // Lưu vào IndexedDB
+  await db.assets.add({ photo: photoData, systemInfo: info });
+
+  // Hiển thị kết quả
+  document.getElementById("result").innerHTML += `
+    <p><b>Tên thiết bị:</b> ${info.deviceName || 'Không rõ'}</p>
+    <p><b>CPU:</b> ${info.cpu || 'Không rõ'}</p>
+    <p><b>RAM:</b> ${info.ram || 'Không rõ'}</p>
+    <p><b>Ổ cứng:</b> ${info.storage || 'Không rõ'}</p>
+    <p><b>GPU:</b> ${info.gpu || 'Không rõ'}</p>
+    <p><b>Hệ điều hành:</b> ${info.os || 'Không rõ'}</p>
+  `;
+});
+
+// Xuất JSON
+async function exportJSON() {
+  const assets = await db.assets.toArray();
+  const blob = new Blob([JSON.stringify(assets, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "inventory.json";
+  a.click();
+}
+
+// Xuất Excel (dùng SheetJS)
+async function exportExcel() {
+  const assets = await db.assets.toArray();
+
+  const data = assets.map(a => ({
+    DeviceName: a.systemInfo?.deviceName || "",
+    CPU: a.systemInfo?.cpu || "",
+    RAM: a.systemInfo?.ram || "",
+    Storage: a.systemInfo?.storage || "",
+    GPU: a.systemInfo?.gpu || "",
+    OS: a.systemInfo?.os || "",
+    Photo: a.photo ? "Có ảnh" : "Không có ảnh"
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+
+  XLSX.writeFile(wb, "inventory.xlsx");
+}

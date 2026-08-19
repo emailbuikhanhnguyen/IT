@@ -136,3 +136,18 @@
 
   <script src="app.js"></script>
 </body>
+<input type="file" accept="image/*" capture="environment" id="photoInput">
+<button id="extractBtn">Trích xuất thông tin</button>
+<div id="result"></div>
+<input type="file" accept="image/*" capture="environment" id="photoInput">
+<button id="extractBtn">Trích xuất thông tin</button>
+<button onclick="exportJSON()">Xuất JSON</button>
+<button onclick="exportExcel()">Xuất Excel</button>
+<div id="result"></div>
+
+<!-- Thêm thư viện OCR và Excel -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dexie@latest/dist/dexie.min.js"></script>
+<script src="app.js"></script>
+
