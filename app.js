@@ -36,7 +36,17 @@ $("exportXlsx").onclick=async()=>{let a=await all();if(!a.length)return alert("C
 $("importXlsx").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let wb=XLSX.read(await f.arrayBuffer()),rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""}),n=0;for(let r of rows){let x={code:r.code||r["Mã tài sản"]||r["Asset Code"]||"",type:r.type||r["Loại tài sản"]||r["Loại"]||"PC",assetName:r.assetName||r["Tên tài sản"]||"",model:r.model||r["Model"]||"",serial:r.serial||r["Serial"]||"",ip:r.ip||r["IP"]||"",mac:r.mac||r["MAC"]||"",spec:r.spec||r["Cấu hình"]||"",area:r.area||r["Phòng ban"]||r["Khu vực"]||"PHÒNG LAB",user:r.user||r["Người sử dụng"]||"",status:r.status||r["Tình trạng"]||"Tốt",checkStatus:r.checkStatus||r["Trạng thái kiểm kê"]||"Chưa kiểm",note:r.note||r["Ghi chú"]||"",updatedAt:new Date().toISOString()};if(x.code){await put(x);n++}}alert("Đã nhập "+n+" tài sản");renderAssets();dashboard();e.target.value=""}catch(err){alert("Không đọc được Excel: "+err.message)}};
 $("backupJson").onclick=async()=>{let b=new Blob([JSON.stringify(await all(),null,2)],{type:"application/json"});download(b,"IT_Asset_Backup.json")};
 $("restoreJson").onchange=async e=>{try{let a=JSON.parse(await e.target.files[0].text());for(let x of a)await put(x);alert("Đã khôi phục");dashboard();renderAssets()}catch(err){alert("Backup không hợp lệ")}};
-$("clearAll").onclick=async()=>{if(confirm("Xóa toàn bộ dữ liệu?")){await clearDB();dashboard();renderAssets()}};
+$("clearAll").onclick=async()=>{
+  let list=await all();
+  if(!list.length) return alert("Không có dữ liệu để xóa.");
+  if(!confirm(`Sắp XÓA TOÀN BỘ ${list.length} tài sản. Không thể hoàn tác. Tiếp tục?`)) return;
+  let typed=prompt('Để xác nhận, gõ đúng chữ XOA (viết hoa, không dấu) rồi bấm OK:');
+  if(typed!=="XOA"){ alert("Đã hủy, chưa xóa gì cả."); return; }
+  let b=new Blob([JSON.stringify(list,null,2)],{type:"application/json"});
+  download(b,"IT_Asset_Backup_truockhi_xoa_"+new Date().toISOString().slice(0,10)+".json");
+  await clearDB();dashboard();renderAssets();
+  alert("Đã xóa toàn bộ. App vừa tự tải về 1 bản backup JSON trước khi xóa, đề phòng cần khôi phục lại.");
+};
 function download(b,n){let u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
 let deferredPrompt;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("installBtn").classList.remove("hidden")});$("installBtn").onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null}};
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
