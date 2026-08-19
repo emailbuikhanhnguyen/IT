@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+<title>IT Asset Inventory</title>
+</head>
+<body>
+<header class="topbar">
+  <div><h1>IT Asset Inventory</h1><small>Kiểm kê • QR • Camera • Offline</small></div>
+  <button id="installBtn" class="ghost hidden">Cài app</button>
+</header>
+
+<main>
+<section id="dashboard" class="page active">
+  <div class="stats">
+    <div class="stat"><b id="totalCount">0</b><span>Tổng tài sản</span></div>
+    <div class="stat"><b id="checkedCount">0</b><span>Đã kiểm</span></div>
+    <div class="stat"><b id="uncheckedCount">0</b><span>Chưa kiểm</span></div>
+    <div class="stat"><b id="exceptionCount">0</b><span>Cần xử lý</span></div>
+  </div>
+  <div class="card"><h2>Trạng thái kiểm kê</h2><div id="checkStats"></div></div>
+  <div class="quick">
+    <button data-page="scan">📷 Quét QR</button>
+    <button data-page="assetForm">＋ Tạo tài sản</button>
+    <button data-page="assets">📋 Danh sách</button>
+    <button data-page="settings">⇅ Dữ liệu</button>
+  </div>
+</section>
+
+<section id="scan" class="page">
+  <div class="section-head"><h2>Kiểm kê bằng QR</h2><button data-page="dashboard">←</button></div>
+  <div class="card">
+    <p class="hint">Quét QR trên thiết bị. Sau khi mở tài sản, dùng camera để bổ sung ảnh, IP/MAC/Serial và xác nhận thực tế.</p>
+    <div id="reader"></div>
+    <div class="scan-actions">
+      <button id="startScan">▶ Bắt đầu quét</button>
+      <button id="stopScan" class="secondary">■ Dừng</button>
+    </div>
+    <div id="scanResult" class="scan-result hidden"></div>
+  </div>
+</section>
+
+<section id="assets" class="page">
+  <div class="section-head"><h2>Danh sách tài sản</h2><button data-page="assetForm">＋ Thêm</button></div>
+  <div class="filters">
+    <input id="search" placeholder="Tìm mã, serial, model, người dùng...">
+    <select id="filterArea"><option value="">Tất cả khu vực</option></select>
+    <select id="filterCheck"><option value="">Tất cả</option><option value="unchecked">Chưa kiểm</option><option value="checked">Đã kiểm</option><option value="exception">Cần xử lý</option></select>
+  </div>
+  <div id="assetList"></div>
+</section>
+
+<section id="assetForm" class="page">
+  <div class="section-head"><h2 id="formTitle">Tạo tài sản</h2><button data-page="assets">←</button></div>
+  <form id="assetFormEl" class="card">
+    <input type="hidden" id="assetId">
+    <label>Mã tài sản*<input id="code" required placeholder="LAB-PC-001"></label>
+    <label>Loại thiết bị*<select id="type" required></select></label>
+    <label>Tên tài sản<input id="assetName" placeholder="PC phòng Lab 01"></label>
+    <label>Model<input id="model" placeholder="Dell OptiPlex 7090"></label>
+    <label>Serial Number<input id="serial"></label>
+    <label>IP<input id="ip" inputmode="decimal"></label>
+    <label>MAC<input id="mac"></label>
+    <label>Cấu hình<input id="spec" placeholder="i5 / RAM 16GB / SSD 512GB"></label>
+    <label>Khu vực<input id="area" placeholder="PHÒNG LAB"></label>
+    <label>Người sử dụng<input id="user"></label>
+    <label>Tình trạng<select id="status"><option>Tốt</option><option>Đang sử dụng</option><option>Dự phòng</option><option>Hỏng</option><option>Mất</option><option>Thanh lý</option></select></label>
+    <label>Trạng thái kiểm kê<select id="checkStatus"><option>Chưa kiểm</option><option>Đã kiểm - OK</option><option>Sai thông tin</option><option>Không tìm thấy</option><option>Thiết bị mới</option></select></label>
+    <label>Ghi chú<textarea id="note" rows="3"></textarea></label>
+
+    <div class="camera-grid">
+      <button type="button" id="takePhoto">📷 Chụp ảnh thiết bị</button>
+      <label class="button secondary">🖼 Chọn ảnh<input id="photo" type="file" accept="image/*" capture="environment" hidden></label>
+    </div>
+    <img id="photoPreview" class="preview hidden">
+
+    <div class="qrbox">
+      <h3>QR tài sản</h3>
+      <div id="qrcode"></div>
+      <p id="qrText" class="muted"></p>
+      <button type="button" id="downloadQR" class="secondary">⬇ Lưu QR</button>
+    </div>
+
+    <div class="form-actions"><button type="submit">Lưu tài sản</button><button type="button" class="secondary" id="resetForm">Xóa form</button></div>
+  </form>
+</section>
+
+<section id="settings" class="page">
+  <div class="section-head"><h2>Dữ liệu</h2></div>
+  <div class="card">
+    <h3>Excel</h3>
+    <p>Import danh sách kiểm kê hiện có hoặc export kết quả sau khi đi kiểm thực tế.</p>
+    <div class="quick">
+      <button id="exportXlsx">⬇ Xuất Excel</button>
+      <label class="button secondary">⬆ Nhập Excel<input id="importXlsx" type="file" accept=".xlsx,.xls,.csv" hidden></label>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Backup</h3>
+    <div class="quick"><button id="backupJson">Sao lưu JSON</button><label class="button secondary">Khôi phục JSON<input id="restoreJson" type="file" accept=".json" hidden></label></div>
+  </div>
+  <div class="card">
+    <h3>Nguyên tắc dùng QR</h3>
+    <ol>
+      <li>Lần đầu: xác minh thiết bị → tạo mã → sinh QR → dán QR.</li>
+      <li>Lần sau: quét QR → xác nhận → cập nhật thông tin.</li>
+      <li>Không dùng QR để thay thế Serial của hãng.</li>
+    </ol>
+  </div>
+  <div class="card danger"><h3>Xóa dữ liệu</h3><button id="clearAll" class="dangerBtn">Xóa toàn bộ tài sản</button></div>
+</section>
+</main>
+
+<nav class="bottomnav">
+  <button data-page="dashboard">⌂<span>Tổng quan</span></button>
+  <button data-page="scan">⌁<span>Quét QR</span></button>
+  <button data-page="assets">▤<span>Tài sản</span></button>
+  <button data-page="settings">⚙<span>Dữ liệu</span></button>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
