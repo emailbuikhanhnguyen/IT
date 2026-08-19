@@ -235,7 +235,7 @@ window.deleteAsset = function (id) {
   db.collection(COLLECTION).doc(id).delete().catch(err => alert("Lỗi xóa: " + err.message));
 };
 
-$("assetFormEl").addEventListener("submit", async e => {
+$("assetFormEl").addEventListener("submit", e => {
   e.preventDefault();
   const code = $("code").value.trim();
   if (!code) { alert("Vui lòng nhập Mã tài sản."); return; }
@@ -261,19 +261,43 @@ $("assetFormEl").addEventListener("submit", async e => {
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
 
-  try {
-    await db.collection(COLLECTION).doc(newId).set(data, { merge: true });
-    if (oldId && oldId !== newId) {
-      await db.collection(COLLECTION).doc(oldId).delete();
-    }
+  const submitBtn = $("assetFormEl").querySelector('button[type="submit"]');
+  const originalLabel = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Đang lưu...";
+
+  // IMPORTANT: do NOT await this. With offline persistence enabled, the write
+  // is applied to the local cache synchronously and the UI (via onSnapshot)
+  // updates right away. The returned Promise only resolves after the server
+  // acknowledges the write — if the network/Firestore is unreachable (offline,
+  // blocked by firewall, rules not published yet), that Promise can hang
+  // indefinitely. Blocking the UI on it is what caused the "load mãi không
+  // xong" symptom.
+  const writeOp = db.collection(COLLECTION).doc(newId).set(data, { merge: true })
+    .then(() => (oldId && oldId !== newId) ? db.collection(COLLECTION).doc(oldId).delete() : null)
+    .catch(err => {
+      alert("Lỗi đồng bộ lên máy chủ: " + err.message +
+        "\n\nDữ liệu vẫn được lưu tạm trên máy này và sẽ tự thử lại. " +
+        "Nếu lỗi là 'permission-denied', kiểm tra lại Firestore Rules đã Publish chưa.");
+    });
+
+  // Give the local write a brief moment to land in the cache, then proceed —
+  // this keeps the UI responsive even fully offline.
+  setTimeout(() => {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalLabel;
     renderQR(code);
     $("assetId").value = newId;
     $("formTitle").textContent = "Sửa tài sản: " + code;
-    alert("Đã lưu tài sản (sẽ tự đồng bộ khi có mạng nếu đang offline).");
     goPage("assets");
-  } catch (err) {
-    alert("Lỗi lưu: " + err.message);
-  }
+  }, 150);
+
+  // Safety net: if something is truly stuck for a long time, surface it
+  // instead of failing silently.
+  const stuckTimer = setTimeout(() => {
+    console.warn("Firestore write for", newId, "has not resolved after 20s — check network/rules.");
+  }, 20000);
+  writeOp.finally(() => clearTimeout(stuckTimer));
 });
 
 /* ---------- QR generate ---------- */
