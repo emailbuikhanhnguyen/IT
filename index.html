@@ -73,6 +73,83 @@
     <label>Ghi chú<textarea id="note" rows="3"></textarea></label>
 
     <div class="camera-grid">
+<!--
+  HƯỚNG DẪN TÍCH HỢP VÀO ita-pwa
+  ================================
+  1. Trong file HTML chứa form thêm/sửa tài sản (chỗ có nút "Chụp ảnh thiết bị"),
+     dán khối HTML dưới đây ngay phía trên nút đó.
+  2. Dán khối <script> vào file JS chính của app (hoặc cuối file HTML, trước </body>).
+  3. Không cần đổi id/name của các input hiện có — script tìm ô theo đúng chữ
+     trong <label>, giống cấu trúc form trong ảnh bạn gửi (label rồi tới input).
+     Nếu label của bạn viết khác chữ (VD "Cau hinh" không dấu), sửa lại trong
+     biến FIELD_MAP bên dưới cho khớp.
+-->
+
+<div style="margin:12px 0;padding:12px;border:1px dashed #999;border-radius:8px;">
+  <label style="font-weight:bold;">Dán thông tin máy (từ get-info.ps1)</label>
+  <textarea id="pasteInfoBox" rows="5" style="width:100%;margin-top:6px;"
+    placeholder="MODEL: ...&#10;SERIAL: ...&#10;CAUHINH: ...&#10;IP: ...&#10;MAC: ..."></textarea>
+  <button type="button" id="btnAutofill" style="margin-top:6px;">⚡ Tự động điền</button>
+</div>
+
+<script>
+// Ánh xạ: khóa trong text dán vào  ->  chữ hiển thị trong <label> của form
+const FIELD_MAP = {
+  MODEL:   "Model",
+  SERIAL:  "Serial Number",
+  CAUHINH: "Cấu hình",
+  IP:      "IP",
+  MAC:     "MAC"
+};
+
+function findInputByLabelText(labelText, root) {
+  const labels = root.querySelectorAll("label");
+  for (const lbl of labels) {
+    if (lbl.textContent.trim().toLowerCase() === labelText.trim().toLowerCase()) {
+      // Ưu tiên input/textarea ngay sau label (cùng cấu trúc như form trong ảnh)
+      let el = lbl.nextElementSibling;
+      while (el && !["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) {
+        el = el.nextElementSibling;
+      }
+      if (el) return el;
+    }
+  }
+  return null;
+}
+
+function autofillFromPastedText(text, root = document) {
+  const lines = text.split("\n");
+  let filledCount = 0;
+  lines.forEach(line => {
+    const m = line.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
+    if (!m) return;
+    const key = m[1].trim().toUpperCase();
+    const value = m[2].trim();
+    const labelText = FIELD_MAP[key];
+    if (!labelText || !value) return;
+    const input = findInputByLabelText(labelText, root);
+    if (input) {
+      input.value = value;
+      // Kích hoạt sự kiện input để React/Vue/JS khác trong app nhận diện thay đổi
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      filledCount++;
+    }
+  });
+  return filledCount;
+}
+
+document.getElementById("btnAutofill").addEventListener("click", () => {
+  const box = document.getElementById("pasteInfoBox");
+  const n = autofillFromPastedText(box.value);
+  if (n === 0) {
+    alert("Không nhận diện được dòng nào. Kiểm tra lại định dạng dán vào (MODEL: ..., SERIAL: ...).");
+  } else {
+    alert("Đã tự động điền " + n + " ô.");
+  }
+});
+</script>
+
       <button type="button" id="takePhoto">📷 Chụp ảnh thiết bị</button>
       <label class="button secondary">🖼 Chọn ảnh<input id="photo" type="file" accept="image/*" capture="environment" hidden></label>
     </div>
