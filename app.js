@@ -198,3 +198,27 @@ async function exportExcel() {
 
   XLSX.writeFile(wb, "inventory.xlsx");
 }
+document.getElementById("extractBtn").addEventListener("click", async () => {
+  if (!photoData) {
+    alert("Chưa có ảnh để trích xuất!");
+    return;
+  }
+
+  const { data: { text } } = await Tesseract.recognize(photoData, 'eng');
+  console.log("Kết quả OCR:", text);
+
+  // Bóc tách thông tin
+  const info = {};
+  text.split('\n').forEach(line => {
+    if (line.includes('Processor')) info.cpu = line.split(':')[1]?.trim();
+    if (line.includes('Installed RAM')) info.ram = line.split(':')[1]?.trim();
+    if (line.includes('Model')) info.model = line.split(':')[1]?.trim();
+    if (line.includes('Edition')) info.os = line.split(':')[1]?.trim();
+  });
+
+  // Gán vào form
+  document.querySelector('input[name="Model"]').value = info.model || '';
+  document.querySelector('textarea[name="Cấu hình"]').value = `${info.cpu || ''} / ${info.ram || ''}`;
+  document.querySelector('input[name="Loại thiết bị"]').value = 'PC';
+});
+
