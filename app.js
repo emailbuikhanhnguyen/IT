@@ -377,20 +377,21 @@ $bios = Get-CimInstance Win32_BIOS
 $cpu = Get-CimInstance Win32_Processor
 $ramGB = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB)
 $disk = Get-CimInstance Win32_DiskDrive | Select-Object -First 1
-$adapters = Get-NetAdapter | Sort-Object Status -Descending
+$active = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
 Write-Output "MODEL: $($cs.Model)"
 Write-Output "SERIAL: $($bios.SerialNumber)"
 Write-Output "CAUHINH: $($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
-Write-Output "=== CARD MANG ==="
-foreach ($a in $adapters) {
-  $ipInfo = Get-NetIPAddress -InterfaceIndex $a.IfIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue
-  $ipStr = if ($ipInfo) { ($ipInfo.IPAddress -join ', ') } else { '-' }
-  Write-Output "$($a.Name) [$($a.Status)] IP=$ipStr MAC=$($a.MacAddress)"
+Write-Output "=== CARD MANG DANG KET NOI ==="
+$ipParts = @()
+$macParts = @()
+foreach ($a in $active) {
+  $ips = (Get-NetIPAddress -InterfaceIndex $a.IfIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notlike '169.254.*' }).IPAddress
+  foreach ($ip in $ips) { $ipParts += $ip }
+  $macParts += "$($a.Name)=$($a.MacAddress)"
+  Write-Output "$($a.Name): IP=$(($ips -join ', ')) MAC=$($a.MacAddress)"
 }
-$allIp = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notmatch 'Loopback'}).IPAddress -join '; '
-$allMac = ($adapters | Where-Object {$_.MacAddress} | ForEach-Object { "$($_.Name)=$($_.MacAddress)" }) -join '; '
-Write-Output "IP: $allIp"
-Write-Output "MAC: $allMac"`;
+Write-Output "IP: $((($ipParts | Select-Object -Unique)) -join '; ')"
+Write-Output "MAC: $(($macParts) -join '; ')"`;
 
 $("btnCopyPS").addEventListener("click", async () => {
   try {
@@ -404,15 +405,26 @@ $("btnCopyPS").addEventListener("click", async () => {
 $("btnAutofill").addEventListener("click", () => {
   const text = $("pasteInfoBox").value;
   if (!text.trim()) { alert("Chưa có nội dung để tự động điền."); return; }
+  if (/Write-Output|Get-CimInstance|^\s*#\s*get-info\.ps1/im.test(text)) {
+    alert("Ô này cần dán KẾT QUẢ sau khi chạy lệnh PowerShell, không phải đoạn lệnh. " +
+      "Hãy chạy lệnh trên máy Windows trước, rồi copy phần kết quả in ra (MODEL:, SERIAL:...) và dán lại vào đây.");
+    return;
+  }
   const map = { MODEL: "model", SERIAL: "serial", CAUHINH: "spec", IP: "ip", MAC: "mac" };
+  let filled = 0;
   text.split("\n").forEach(line => {
     const m = line.match(/^\s*([A-Za-z]+)\s*:\s*(.+)\s*$/);
     if (!m) return;
     const key = m[1].trim().toUpperCase();
     const val = m[2].trim();
-    if (map[key] && val) $(map[key]).value = val;
+    if (map[key] && val) { $(map[key]).value = val; filled++; }
   });
-  alert("Đã tự động điền các trường có thông tin.");
+  if (filled === 0) {
+    alert("Không nhận diện được trường nào. Kiểm tra lại nội dung dán vào có đúng định dạng " +
+      "\"MODEL: ...\", \"SERIAL: ...\", \"CAUHINH: ...\", \"IP: ...\", \"MAC: ...\" không.");
+  } else {
+    alert(`Đã tự động điền ${filled} trường.`);
+  }
 });
 
 /* ---------- QR Scanning ---------- */
