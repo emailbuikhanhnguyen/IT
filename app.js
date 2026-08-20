@@ -206,7 +206,8 @@ function renderAssetList() {
       <div>
         <h3>${escapeHtml(a.code)} ${a.assetName ? "· " + escapeHtml(a.assetName) : ""}</h3>
         <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}</div>
-        <div class="muted">${a.area ? "📍 " + escapeHtml(a.area) : ""} ${a.user ? "· 👤 " + escapeHtml(a.user) : ""}</div>
+        <div class="muted">${a.area ? "📍 " + escapeHtml(a.area) : ""} ${a.user ? "· 👤 " + escapeHtml(a.user) : ""}${a.employeeCode ? " (" + escapeHtml(a.employeeCode) + ")" : ""}</div>
+        ${a.section ? `<div class="muted">🏢 ${escapeHtml(a.section)}</div>` : ""}
         <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(a.checkStatus || CHECK_UNCHECKED)}</span>
         ${!isAdmin ? `<span class="badge view-only-tag">👁 Chỉ xem</span>` : ""}
       </div>
