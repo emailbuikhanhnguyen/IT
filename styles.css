@@ -12,3 +12,10 @@
 .psbox .hint{margin:0 0 10px}
 .psbox textarea{margin:9px 0}
 .psbox button{width:100%}
+.role-badge{font-size:10px;padding:3px 8px;border-radius:999px;background:#334155;color:#cbd5e1;white-space:nowrap}
+.role-badge.admin{background:#1d4ed8;color:#fff}
+.locked-notice{background:#fef3c7;color:#92400e;padding:10px 12px;border-radius:9px;font-size:13px;font-weight:650;margin-bottom:14px}
+.checkbox-label{display:flex;align-items:center;gap:8px;font-weight:500}
+.checkbox-label input{width:auto}
+.role-staff .admin-only{display:none!important}
+.view-only-tag{background:#e2e8f0;color:#334155}
