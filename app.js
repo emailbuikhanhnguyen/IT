@@ -378,25 +378,26 @@ $cpu = Get-CimInstance Win32_Processor
 $ramGB = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB)
 $disk = Get-CimInstance Win32_DiskDrive | Select-Object -First 1
 $active = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
-Write-Output "MODEL: $($cs.Model)"
-Write-Output "SERIAL: $($bios.SerialNumber)"
-Write-Output "CAUHINH: $($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
-Write-Output "=== CARD MANG DANG KET NOI ==="
 $ipParts = @()
 $macParts = @()
 foreach ($a in $active) {
   $ips = (Get-NetIPAddress -InterfaceIndex $a.IfIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notlike '169.254.*' }).IPAddress
   foreach ($ip in $ips) { $ipParts += $ip }
   $macParts += "$($a.Name)=$($a.MacAddress)"
-  Write-Output "$($a.Name): IP=$(($ips -join ', ')) MAC=$($a.MacAddress)"
 }
+Write-Output "===== KET QUA - COPY TU DAY ====="
+Write-Output "MODEL: $($cs.Model)"
+Write-Output "SERIAL: $($bios.SerialNumber)"
+Write-Output "CAUHINH: $($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
 Write-Output "IP: $((($ipParts | Select-Object -Unique)) -join '; ')"
-Write-Output "MAC: $(($macParts) -join '; ')"`;
+Write-Output "MAC: $(($macParts) -join '; ')"
+Write-Output "===== HET - COPY DEN DAY ====="`;
 
 $("btnCopyPS").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(PS_SCRIPT);
-    alert("Đã copy lệnh PowerShell (liệt kê tất cả card mạng). Chạy trên máy Windows cần kiểm kê rồi dán kết quả vào ô bên dưới.");
+    alert("Đã copy lệnh PowerShell. Chạy trên máy Windows cần kiểm kê, sau đó CHỈ copy đoạn nằm giữa 2 dòng " +
+      "\"===== KET QUA - COPY TU DAY =====\" và \"===== HET - COPY DEN DAY =====\", rồi dán vào ô bên dưới.");
   } catch (e) {
     prompt("Copy đoạn PowerShell sau:", PS_SCRIPT);
   }
@@ -409,6 +410,10 @@ $("btnAutofill").addEventListener("click", () => {
     alert("Ô này cần dán KẾT QUẢ sau khi chạy lệnh PowerShell, không phải đoạn lệnh. " +
       "Hãy chạy lệnh trên máy Windows trước, rồi copy phần kết quả in ra (MODEL:, SERIAL:...) và dán lại vào đây.");
     return;
+  }
+  if (!/MAC\s*:/i.test(text) || !/IP\s*:/i.test(text)) {
+    if (!confirm("Có vẻ nội dung dán vào bị thiếu dòng IP hoặc MAC (có thể do copy chưa hết). " +
+      "Bấm OK để vẫn tự động điền các trường tìm thấy, hoặc Cancel để dán lại đầy đủ hơn.")) return;
   }
   const map = { MODEL: "model", SERIAL: "serial", CAUHINH: "spec", IP: "ip", MAC: "mac" };
   let filled = 0;
