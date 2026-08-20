@@ -162,7 +162,7 @@ function renderAssetList() {
   let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
   if (q) {
     list = list.filter(a =>
-      [a.code, a.serial, a.model, a.user, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
+      [a.code, a.serial, a.model, a.deviceName, a.user, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
     );
   }
   if (checkF) list = list.filter(a => classifyCheck(a.checkStatus) === checkF);
@@ -424,11 +424,13 @@ function fillFormFromAsset(a) {
   $("group").value = a.group || "";
   $("code").value = a.code || "";
   $("type").value = a.type || ASSET_TYPES[0];
+  $("deviceName").value = a.deviceName || "";
   $("model").value = a.model || "";
   $("serial").value = a.serial || "";
   $("ip").value = a.ip || "";
   $("mac").value = a.mac || "";
   $("spec").value = a.spec || "";
+  $("winInfo").value = a.winInfo || "";
   $("status").value = a.status || "Tốt";
   $("checkStatus").value = a.checkStatus || CHECK_UNCHECKED;
   $("note").value = a.note || "";
@@ -488,11 +490,13 @@ $("assetFormEl").addEventListener("submit", e => {
     group: $("group").value.trim(),
     code,
     type: $("type").value,
+    deviceName: $("deviceName").value.trim(),
     model: $("model").value.trim(),
     serial: $("serial").value.trim(),
     ip: $("ip").value.trim(),
     mac: $("mac").value.trim(),
     spec: $("spec").value.trim(),
+    winInfo: $("winInfo").value.trim(),
     status: $("status").value,
     checkStatus: $("checkStatus").value,
     note: $("note").value.trim(),
@@ -616,6 +620,12 @@ $bios = Get-CimInstance Win32_BIOS
 $cpu = Get-CimInstance Win32_Processor
 $ramGB = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB)
 $disk = Get-CimInstance Win32_DiskDrive | Select-Object -First 1
+$os = Get-CimInstance Win32_OperatingSystem
+$verKey = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+$displayVer = (Get-ItemProperty $verKey -Name DisplayVersion -ErrorAction SilentlyContinue).DisplayVersion
+$ubr = (Get-ItemProperty $verKey -Name UBR -ErrorAction SilentlyContinue).UBR
+$edition = ($os.Caption -replace 'Microsoft ', '').Trim()
+$winInfo = "$edition $displayVer (Build $($os.BuildNumber).$ubr)"
 $active = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
 $ipParts = @()
 $macParts = @()
@@ -625,9 +635,11 @@ foreach ($a in $active) {
   $macParts += "$($a.Name)=$($a.MacAddress)"
 }
 Write-Output "===== KET QUA - COPY TU DAY ====="
+Write-Output "TENMAY: $($cs.Name)"
 Write-Output "MODEL: $($cs.Model)"
 Write-Output "SERIAL: $($bios.SerialNumber)"
 Write-Output "CAUHINH: $($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
+Write-Output "WININFO: $winInfo"
 Write-Output "IP: $((($ipParts | Select-Object -Unique)) -join '; ')"
 Write-Output "MAC: $(($macParts) -join '; ')"
 Write-Output "===== HET - COPY DEN DAY ====="`;
@@ -646,7 +658,7 @@ $("btnAutofill").addEventListener("click", () => {
   const text = $("pasteInfoBox").value;
   if (!text.trim()) { alert("Chưa có nội dung để tự động điền."); return; }
 
-  const map = { MODEL: "model", SERIAL: "serial", CAUHINH: "spec", IP: "ip", MAC: "mac" };
+  const map = { TENMAY: "deviceName", MODEL: "model", SERIAL: "serial", CAUHINH: "spec", WININFO: "winInfo", IP: "ip", MAC: "mac" };
   let filled = 0;
   text.split("\n").forEach(line => {
     const m = line.match(/^\s*([A-Za-z]+)\s*:\s*(.+)\s*$/);
@@ -729,19 +741,21 @@ const COLUMNS = [
   "group",        // Tổ/Chuyền (Group)
   "code",         // Mã tài sản
   "type",         // Loại thiết bị
+  "deviceName",   // Device name
   "model",        // Model
   "serial",       // Serial Number
   "ip",           // IP
   "mac",          // MAC
   "spec",         // Cấu hình
+  "winInfo",      // Thông tin Windows
   "status",       // Tình trạng
   "checkStatus",  // Trạng thái kiểm kê
   "note",         // Ghi chú
 ];
 const COLUMN_LABELS_VN = {
   employeeCode: "Mã nhân viên", user: "Người sử dụng", section: "Bộ phận", group: "Tổ/Chuyền",
-  code: "Mã tài sản", type: "Loại thiết bị", model: "Model", serial: "Serial",
-  ip: "IP", mac: "MAC", spec: "Cấu hình",
+  code: "Mã tài sản", type: "Loại thiết bị", deviceName: "Device name", model: "Model", serial: "Serial",
+  ip: "IP", mac: "MAC", spec: "Cấu hình", winInfo: "Thông tin Windows",
   status: "Tình trạng", checkStatus: "Trạng thái kiểm kê", note: "Ghi chú"
 };
 const HEADER_MAP = {};
