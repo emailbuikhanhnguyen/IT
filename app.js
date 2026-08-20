@@ -771,8 +771,17 @@ function onScanSuccess(decodedText) {
   resBox.classList.remove("hidden");
   const existing = assets.find(a => a.code === code);
   if (existing) {
-    resBox.innerHTML = `<b>${escapeHtml(code)}</b> — ${escapeHtml(existing.user || existing.model || "")}<br>
-      <span class="badge ${badgeClass(existing.checkStatus)}">${escapeHtml(existing.checkStatus || CHECK_UNCHECKED)}</span><br>
+    const rows = [
+      ["💻 Device name", existing.deviceName],
+      ["🔢 Serial", existing.serial],
+      ["👤 Người sử dụng", existing.user],
+      ["🆔 Mã nhân viên", existing.employeeCode],
+    ].filter(([, v]) => v)
+     .map(([label, v]) => `<div class="scan-row"><span class="muted">${label}</span> ${escapeHtml(v)}</div>`)
+     .join("");
+    resBox.innerHTML = `<b>${escapeHtml(code)}</b> — ${escapeHtml(existing.model || existing.type || "")}<br>
+      <span class="badge ${badgeClass(existing.checkStatus)}">${escapeHtml(existing.checkStatus || CHECK_UNCHECKED)}</span>
+      ${rows ? `<div class="scan-info">${rows}</div>` : ""}
       <button style="margin-top:8px" onclick="editAsset('${existing._id}')">Mở để cập nhật kiểm kê</button>`;
   } else {
     resBox.innerHTML = `<b>${escapeHtml(code)}</b> — chưa có trong hệ thống.<br>
