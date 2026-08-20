@@ -590,6 +590,17 @@ $("downloadQR").addEventListener("click", () => {
 });
 
 /* ---------- In tem tài sản (mã + thông tin + QR) ---------- */
+const DEFAULT_DOC_TITLE = document.title; // "IT Asset Inventory"
+function printWithFilename(suggestedName) {
+  // Trình duyệt dùng document.title làm tên file gợi ý khi chọn "Save as PDF".
+  document.title = (suggestedName && String(suggestedName).trim()) || DEFAULT_DOC_TITLE;
+  const restoreTitle = () => {
+    document.title = DEFAULT_DOC_TITLE;
+    window.removeEventListener("afterprint", restoreTitle);
+  };
+  window.addEventListener("afterprint", restoreTitle);
+  window.print();
+}
 function renderPrintLabel(data) {
   $("plCode").textContent = data.code || "";
   $("plTypeModel").textContent = [data.type, data.model].filter(Boolean).join(" · ");
@@ -602,20 +613,21 @@ window.printLabel = function (id) {
   const a = assets.find(x => x._id === id);
   if (!a) return;
   renderPrintLabel(a);
-  setTimeout(() => window.print(), 150); // đợi QR render xong canvas rồi mới in
+  setTimeout(() => printWithFilename(a.employeeCode || a.code), 150); // đợi QR render xong canvas rồi mới in
 };
 $("printLabelBtn").addEventListener("click", () => {
   const code = $("code").value.trim();
   if (!code) { alert("Nhập Mã tài sản trước khi in tem."); return; }
+  const employeeCode = $("employeeCode").value.trim();
   renderPrintLabel({
     code,
     type: $("type").value,
     model: $("model").value.trim(),
     user: $("user").value.trim(),
-    employeeCode: $("employeeCode").value.trim(),
+    employeeCode,
     section: $("section").value.trim()
   });
-  setTimeout(() => window.print(), 150);
+  setTimeout(() => printWithFilename(employeeCode || code), 150);
 });
 
 /* ---------- Camera / photo ---------- */
