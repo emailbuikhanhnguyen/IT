@@ -1,9 +1,7 @@
 /* employees.js — Danh sách nhân viên (nguồn: HR export, cập nhật 2026-08-20)
    Dùng để autocomplete khi chọn "Người sử dụng" trong form tài sản, tự
-   động điền Mã NV / Bộ phận / Tổ-Chuyền. KHÔNG dùng field "section" ở đây
-   để suy ra "Khu vực" (area) của tài sản — area là vị trí vật lý (ví dụ
-   "PHÒNG LAB"), còn section/group là cơ cấu tổ chức HR, hai khái niệm
-   khác nhau và không nhất thiết trùng.
+   động điền Mã NV / Bộ phận / Tổ-Chuyền. Field "section" cũng được app.js
+   dùng để tự gợi ý Mã tài sản (xem SECTION_ABBR trong app.js).
 
    Để cập nhật: xuất lại file Excel từ HR, chạy lại script trích xuất rồi
    dán mảng EMPLOYEES mới vào đây (giữ nguyên format bên dưới).

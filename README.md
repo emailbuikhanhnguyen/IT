@@ -17,7 +17,7 @@ Camera thường yêu cầu secure context. Nếu Android không mở camera qua
 
 ## QR
 QR chứa mã dạng:
-`ITASSET:LAB-PC-001`
+`ITASSET:LAP-AT-0001`
 
 Không nhét toàn bộ thông tin thiết bị vào QR. Database mới là nơi lưu thông tin.
 
@@ -34,7 +34,6 @@ Các cột có thể dùng:
 - ip
 - mac
 - spec
-- area
 - user
 - employeeCode
 - section
@@ -49,15 +48,8 @@ Có hỗ trợ tên cột tiếng Việt tương ứng như trong app.
 File `employees.js` chứa danh sách nhân viên (snapshot từ file HR export,
 291 dòng gốc → 284 dòng có Mã NV + Tên) để gõ tên là gợi ý, chọn xong tự
 điền **Mã nhân viên / Bộ phận (Section) / Tổ-Chuyền (Group)**. Ba ô này vẫn
-sửa tay được hoặc để trống — không bắt buộc, và **không** dùng để suy ra
-"Khu vực" (area) của tài sản: area là vị trí vật lý (ví dụ "PHÒNG LAB"),
-còn Section/Group là cơ cấu tổ chức HR — hai khái niệm khác nhau, tự nhập
-"Khu vực" như trước.
-
-File HR export gốc có 3 cột có thể coi là "khu vực": Phòng ban (Department),
-Bộ phận (Section), Nơi làm việc (Working Place) — app hiện chỉ lấy
-Section + Group để hiển thị kèm tên, không tự map bất kỳ cột nào trong 3
-cột đó vào "Khu vực" tài sản.
+sửa tay được hoặc để trống — không bắt buộc. Bộ phận (Section) còn được
+dùng để tự gợi ý **Mã tài sản** — xem mục bên dưới.
 
 **Cập nhật danh sách nhân viên:** khi HR xuất file mới, mở lại
 `ImportEmployeeProfile` (sheet đầu, dữ liệu từ dòng 7), lấy 4 cột
@@ -68,12 +60,8 @@ file. Nhân viên trùng tên vẫn phân biệt được vì danh sách gợi �
 kèm Mã NV.
 
 ## Dropdown gợi ý trên form tài sản
-4 ô sau đều gõ-để-gợi-ý (bấm vào ô cũng hiện sẵn danh sách, không bắt
+3 ô sau đều gõ-để-gợi-ý (bấm vào ô cũng hiện sẵn danh sách, không bắt
 buộc chọn — vẫn gõ tay hoặc để trống được):
-- **Khu vực** — gợi ý từ các khu vực đã có trong dữ liệu tài sản hiện tại
-  (tài sản đã tạo/đã import trước đó). Admin import Excel với cột "Khu
-  vực" điền sẵn thì lần sau các nhân viên đi kiểm sẽ thấy khu vực đó xuất
-  hiện trong gợi ý.
 - **Người sử dụng** — gợi ý từ `employees.js`, chọn xong tự điền kèm Mã
   NV / Bộ phận / Tổ-Chuyền.
 - **Mã nhân viên** — gợi ý từ `employees.js` theo mã, chọn xong tự điền
@@ -83,8 +71,16 @@ buộc chọn — vẫn gõ tay hoặc để trống được):
   một Bộ phận có nhiều người nên không suy ngược ra 1 nhân viên cụ thể
   được.
 
+**Mã tài sản** không còn phải gõ tay từ đầu — app tự gợi ý ngay khi chọn
+Loại thiết bị và/hoặc Bộ phận, theo dạng
+`[Viết tắt Thiết bị]-[Viết tắt Bộ phận]-[số thứ tự 4 số]`, ví dụ
+`LAP-AT-0001`. Đây vẫn chỉ là gợi ý (giống các ô ở trên) — sửa tay thoải
+mái, app sẽ không tự ghi đè lên mã đã sửa nữa. Viết tắt Loại thiết bị và
+Bộ phận được khai báo trong `app.js` (`ASSET_TYPE_ABBR`, `SECTION_ABBR`);
+Bộ phận chưa có trong bảng sẽ tự suy viết tắt từ chữ cái đầu mỗi từ.
+
 Admin có thể chuẩn bị sẵn 1 file Excel (`it-asset-inventory-...xlsx` xuất
-từ app, hoặc tự soạn theo đúng cột chuẩn ở trên) điền sẵn Khu vực/Người sử
+từ app, hoặc tự soạn theo đúng cột chuẩn ở trên) điền sẵn Người sử
 dụng/Mã nhân viên/Bộ phận cho từng mã tài sản, rồi vào **Dữ liệu → Nhập
 Excel** để import hàng loạt — không cần nhập tay từng cái.
 

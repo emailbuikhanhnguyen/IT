@@ -65,7 +65,6 @@
   <div class="section-head"><h2>Danh sách tài sản</h2><button id="assetsAddBtn" data-page="assetForm">＋ Thêm</button></div>
   <div class="filters">
     <input id="search" placeholder="Tìm mã, serial, model, người dùng...">
-    <select id="filterArea"><option value="">Tất cả khu vực</option></select>
     <select id="filterCheck"><option value="">Tất cả</option><option value="unchecked">Chưa kiểm</option><option value="checked">Đã kiểm</option><option value="exception">Cần xử lý</option></select>
   </div>
   <div id="assetList"></div>
@@ -76,7 +75,10 @@
   <form id="assetFormEl" class="card">
     <div id="lockedNotice" class="locked-notice hidden">🔒 Bạn chỉ có quyền xem tài sản này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.</div>
     <input type="hidden" id="assetId">
-    <label>Mã tài sản*<input id="code" required placeholder="LAB-PC-001"></label>
+    <label>Mã tài sản*
+      <input id="code" required placeholder="Tự gợi ý theo Loại thiết bị + Bộ phận, có thể sửa tay">
+      <span class="hint">Tự động gợi ý dạng [Thiết bị]-[Bộ phận]-[số thứ tự], ví dụ LAP-AT-0001 — vẫn gõ tay/sửa lại được.</span>
+    </label>
     <label>Loại thiết bị*<select id="type" required></select></label>
     <label>Tên tài sản<input id="assetName" placeholder="PC phòng Lab 01"></label>
     <label>Model<input id="model" placeholder="Dell OptiPlex 7090"></label>
@@ -84,10 +86,6 @@
     <label>IP<input id="ip" inputmode="decimal"></label>
     <label>MAC<input id="mac"></label>
     <label>Cấu hình<input id="spec" placeholder="i5 / RAM 16GB / SSD 512GB"></label>
-    <label class="autocomplete-field">Khu vực
-      <input id="area" autocomplete="off" placeholder="Gõ hoặc bấm vào ô để chọn khu vực đã có...">
-      <div id="areaSuggest" class="suggest-list hidden"></div>
-    </label>
     <label class="autocomplete-field">Người sử dụng
       <input id="user" autocomplete="off" placeholder="Gõ tên để tìm trong danh sách nhân viên...">
       <div id="userSuggest" class="suggest-list hidden"></div>

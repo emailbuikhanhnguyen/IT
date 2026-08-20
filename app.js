@@ -116,7 +116,6 @@ function stopSync() {
 function renderAll() {
   renderDashboard();
   renderAssetList();
-  updateAreaFilter();
 }
 
 /* ---------- Dashboard ---------- */
@@ -140,21 +139,8 @@ function renderDashboard() {
   $("exceptionCount").textContent = exception;
 
   const pct = total ? Math.round((checked / total) * 100) : 0;
-  const areas = {};
-  assets.forEach(a => {
-    const ar = a.area || "(Chưa có khu vực)";
-    if (!areas[ar]) areas[ar] = { total: 0, checked: 0 };
-    areas[ar].total++;
-    if (classifyCheck(a.checkStatus) === "checked") areas[ar].checked++;
-  });
   let html = `<div class="hint">Tổng tiến độ: ${checked}/${total} (${pct}%)</div>
     <div class="bar"><i style="width:${pct}%"></i></div>`;
-  Object.keys(areas).sort().forEach(ar => {
-    const info = areas[ar];
-    const p = info.total ? Math.round((info.checked / info.total) * 100) : 0;
-    html += `<div class="hint">${escapeHtml(ar)}: ${info.checked}/${info.total} (${p}%)</div>
-      <div class="bar"><i style="width:${p}%"></i></div>`;
-  });
   if (!total) html = `<div class="empty">Chưa có tài sản nào. Bấm "＋ Tạo tài sản" để bắt đầu.</div>`;
   $("checkStats").innerHTML = html;
 }
@@ -162,13 +148,6 @@ function renderDashboard() {
 /* ---------- Asset list ---------- */
 function escapeHtml(s) {
   return String(s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-function updateAreaFilter() {
-  const sel = $("filterArea");
-  const current = sel.value;
-  const areasSet = Array.from(new Set(assets.map(a => a.area).filter(Boolean))).sort();
-  sel.innerHTML = '<option value="">Tất cả khu vực</option>' + areasSet.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join("");
-  if (areasSet.includes(current)) sel.value = current;
 }
 function badgeClass(status) {
   const c = classifyCheck(status);
@@ -178,7 +157,6 @@ function badgeClass(status) {
 }
 function renderAssetList() {
   const q = ($("search").value || "").trim().toLowerCase();
-  const areaF = $("filterArea").value;
   const checkF = $("filterCheck").value;
 
   let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
@@ -187,7 +165,6 @@ function renderAssetList() {
       [a.code, a.serial, a.model, a.user, a.assetName, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
     );
   }
-  if (areaF) list = list.filter(a => a.area === areaF);
   if (checkF) list = list.filter(a => classifyCheck(a.checkStatus) === checkF);
 
   if (!list.length) {
@@ -206,7 +183,7 @@ function renderAssetList() {
       <div>
         <h3>${escapeHtml(a.code)} ${a.assetName ? "· " + escapeHtml(a.assetName) : ""}</h3>
         <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}</div>
-        <div class="muted">${a.area ? "📍 " + escapeHtml(a.area) : ""} ${a.user ? "· 👤 " + escapeHtml(a.user) : ""}${a.employeeCode ? " (" + escapeHtml(a.employeeCode) + ")" : ""}</div>
+        <div class="muted">${a.user ? "👤 " + escapeHtml(a.user) : ""}${a.employeeCode ? " (" + escapeHtml(a.employeeCode) + ")" : ""}</div>
         ${a.section ? `<div class="muted">🏢 ${escapeHtml(a.section)}</div>` : ""}
         <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(a.checkStatus || CHECK_UNCHECKED)}</span>
         ${!isAdmin ? `<span class="badge view-only-tag">👁 Chỉ xem</span>` : ""}
@@ -220,10 +197,9 @@ function renderAssetList() {
   }).join("");
 }
 $("search").addEventListener("input", renderAssetList);
-$("filterArea").addEventListener("change", renderAssetList);
 $("filterCheck").addEventListener("change", renderAssetList);
 
-/* ---------- Autocomplete dropdowns (Khu vực / Người sử dụng / Mã NV / Bộ phận) ----------
+/* ---------- Autocomplete dropdowns (Người sử dụng / Mã NV / Bộ phận) ----------
    Dùng chung 1 cơ chế: gõ hoặc bấm vào ô sẽ hiện danh sách gợi ý (tối đa 20
    dòng), bấm chọn 1 dòng sẽ điền field đó (và có thể điền kèm field liên
    quan). Không có gợi ý khớp thì vẫn gõ tay/để trống bình thường — không
@@ -266,21 +242,11 @@ function setupAutocomplete(inputId, boxId, getItems, renderItem, onSelect, opts 
   input.addEventListener("blur", () => setTimeout(() => box.classList.add("hidden"), 120));
 }
 
-function distinctAssetValues(field) {
-  return Array.from(new Set(assets.map(a => a[field]).filter(Boolean))).sort();
-}
 function filterList(list, query, limit) {
   const q = query.trim().toLowerCase();
   const matched = q ? list.filter(v => v.toLowerCase().includes(q)) : list;
   return matched.slice(0, limit);
 }
-
-// Khu vực — gợi ý từ các khu vực đã có trong dữ liệu tài sản (import/tạo trước đó).
-setupAutocomplete("area", "areaSuggest",
-  q => filterList(distinctAssetValues("area"), q, 20).map(v => ({ value: v })),
-  it => escapeHtml(it.value),
-  it => { $("area").value = it.value; }
-);
 
 // Người sử dụng — gợi ý từ danh sách nhân viên (employees.js), chọn xong
 // điền kèm Mã NV / Bộ phận / Tổ-Chuyền.
@@ -294,6 +260,7 @@ setupAutocomplete("user", "userSuggest",
     $("employeeCode").value = e.code;
     $("section").value = e.section || "";
     $("group").value = e.group || "";
+    maybeSuggestCode();
   },
   { autoFillMinChars: 3 }
 );
@@ -310,6 +277,7 @@ setupAutocomplete("employeeCode", "employeeCodeSuggest",
     $("user").value = e.name;
     $("section").value = e.section || "";
     $("group").value = e.group || "";
+    maybeSuggestCode();
   },
   { autoFillMinChars: 3 }
 );
@@ -320,13 +288,99 @@ setupAutocomplete("employeeCode", "employeeCodeSuggest",
 setupAutocomplete("section", "sectionSuggest",
   q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 20).map(v => ({ value: v })),
   it => escapeHtml(it.value),
-  it => { $("section").value = it.value; }
+  it => { $("section").value = it.value; maybeSuggestCode(); }
 );
 
 /* ---------- Asset form ---------- */
 function populateTypeSelect() {
   $("type").innerHTML = ASSET_TYPES.map(t => `<option>${t}</option>`).join("");
 }
+
+/* ---------- Mã tài sản: tự gợi ý theo Loại thiết bị + Bộ phận ----------
+   Định dạng: [Viết tắt Thiết bị]-[Viết tắt Bộ phận]-[số thứ tự 4 số],
+   ví dụ: LAP-AT-0001. Đây LÀ GỢI Ý — giống các ô autocomplete khác trong
+   app, người dùng vẫn gõ tay/sửa lại thoải mái, không bị khóa. Nếu Bộ
+   phận để trống thì bỏ đoạn đó, mã chỉ còn [Thiết bị]-[số thứ tự].
+
+   Số thứ tự đếm theo local cache `assets` (đã đồng bộ realtime từ
+   Firestore) cho từng cặp Loại thiết bị + Bộ phận — không phải giao dịch
+   nguyên tử phía server, nên hai máy tạo tài sản cùng lúc khi cùng offline
+   có thể trùng số thứ tự gợi ý. Không phải vấn đề lớn vì mã vẫn luôn sửa
+   tay được trước khi lưu, và code là ID tài liệu Firestore nên hai tài
+   sản trùng mã sẽ tự lộ ra ngay (ghi đè nhau) thay vì âm thầm sai dữ liệu.
+*/
+const ASSET_TYPE_ABBR = {
+  "Máy tính (PC)": "PC",
+  "Laptop": "LAP",
+  "Camera": "CAM",
+  "Máy in": "PRN",
+  "Switch mạng": "SW",
+  "Router/WiFi": "RT",
+  "Firewall": "FW",
+  "Màn hình": "MON",
+  "UPS": "UPS",
+  "Máy chiếu": "PRJ",
+  "Khác": "KHAC"
+};
+// Viết tắt Bộ phận — chuẩn bị sẵn theo các Section có trong employees.js
+// hiện tại. Khi HR có Section mới chưa nằm trong bảng này, app tự suy
+// viết tắt từ chữ cái đầu mỗi từ (xem autoAbbr) — thêm entry vào đây khi
+// muốn viết tắt đẹp hơn cho Section đó.
+const SECTION_ABBR = {
+  "Accounting": "ACC",
+  "Automation and technology": "AT",
+  "Compliance": "COM",
+  "Customer service": "CS",
+  "Embroidery": "EMB",
+  "Genaral Purchasing": "GP",
+  "Heat Transfer": "HT",
+  "Human Resource": "HR",
+  "IE - CI": "IE",
+  "Import and Export": "IMEX",
+  "Merchandise": "MER",
+  "POD": "POD",
+  "Packing": "PACK",
+  "Production Planning Control": "PPC",
+  "Quality Audit and Quanlity Control": "QA",
+  "Sales And Marketing": "SM",
+  "Sublimation": "SUB",
+  "Warehouse": "WH"
+};
+const ABBR_STOPWORDS = new Set(["and", "và", "of", "the", "for", "&"]);
+function autoAbbr(text) {
+  const words = (text || "").trim().split(/[\s\-\/]+/).filter(w => w && !ABBR_STOPWORDS.has(w.toLowerCase()));
+  if (!words.length) return "";
+  const initials = words.map(w => w[0]).join("").toUpperCase();
+  if (initials.length >= 2) return initials.slice(0, 4);
+  return (text || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase();
+}
+function typeAbbr(type) { return ASSET_TYPE_ABBR[type] || autoAbbr(type); }
+function sectionAbbr(section) { return section ? (SECTION_ABBR[section] || autoAbbr(section)) : ""; }
+
+// false khi mã hiện tại KHÔNG phải do app tự gợi ý nữa (người dùng đã gõ
+// tay, đang sửa tài sản có sẵn, hoặc mã đến từ QR đã in trước đó) — để
+// khỏi ghi đè mất mã người dùng đã cố tình đặt.
+let codeAutoFilled = true;
+function suggestedCodeSeq(type, section) {
+  const n = assets.filter(a => a.type === type && (a.section || "") === (section || "")).length + 1;
+  return String(n).padStart(4, "0");
+}
+function maybeSuggestCode() {
+  if (!codeAutoFilled) return;
+  if ($("assetId").value) return; // đang sửa tài sản có sẵn — không đổi mã
+  const type = $("type").value;
+  const t = typeAbbr(type);
+  if (!t) return;
+  const section = $("section").value.trim();
+  const s = sectionAbbr(section);
+  const seq = suggestedCodeSeq(type, section);
+  const code = s ? `${t}-${s}-${seq}` : `${t}-${seq}`;
+  $("code").value = code;
+  renderQR(code);
+}
+$("type").addEventListener("change", maybeSuggestCode);
+$("section").addEventListener("input", maybeSuggestCode);
+$("code").addEventListener("input", () => { codeAutoFilled = false; });
 // Disables/enables every field+button inside the asset form (used for the
 // read-only view staff get once their asset is locked). The section-head
 // back button lives outside the <form>, so navigation still works.
@@ -349,8 +403,6 @@ function clearForm() {
   $("pasteInfoBox").value = "";
   $("userSuggest").classList.add("hidden");
   $("userSuggest").innerHTML = "";
-  $("areaSuggest").classList.add("hidden");
-  $("areaSuggest").innerHTML = "";
   $("employeeCodeSuggest").classList.add("hidden");
   $("employeeCodeSuggest").innerHTML = "";
   $("sectionSuggest").classList.add("hidden");
@@ -358,10 +410,13 @@ function clearForm() {
   $("assetLocked").checked = false;
   $("code").readOnly = false;
   setFormLocked(false);
+  codeAutoFilled = true;
+  maybeSuggestCode(); // gợi ý sẵn mã cho tài sản mới (vd PC-0001)
 }
 $("resetForm").addEventListener("click", clearForm);
 
 function fillFormFromAsset(a) {
+  codeAutoFilled = false; // tài sản đã có mã thật — không tự sinh đè lên
   $("assetId").value = a._id || "";
   $("code").value = a.code || "";
   $("type").value = a.type || ASSET_TYPES[0];
@@ -371,7 +426,6 @@ function fillFormFromAsset(a) {
   $("ip").value = a.ip || "";
   $("mac").value = a.mac || "";
   $("spec").value = a.spec || "";
-  $("area").value = a.area || "";
   $("user").value = a.user || "";
   $("employeeCode").value = a.employeeCode || "";
   $("section").value = a.section || "";
@@ -437,7 +491,6 @@ $("assetFormEl").addEventListener("submit", e => {
     ip: $("ip").value.trim(),
     mac: $("mac").value.trim(),
     spec: $("spec").value.trim(),
-    area: $("area").value.trim(),
     user: $("user").value.trim(),
     employeeCode: $("employeeCode").value.trim(),
     section: $("section").value.trim(),
@@ -662,16 +715,17 @@ function onScanSuccess(decodedText) {
 }
 window.quickCreate = function (code) {
   clearForm();
+  codeAutoFilled = false; // mã đến từ QR đã in trước đó — giữ nguyên, không tự gợi ý đè lên
   $("code").value = code;
   renderQR(code);
   goPage("assetForm");
 };
 
 /* ---------- Excel export/import ---------- */
-const COLUMNS = ["code", "type", "assetName", "model", "serial", "ip", "mac", "spec", "area", "user", "employeeCode", "section", "group", "status", "checkStatus", "note"];
+const COLUMNS = ["code", "type", "assetName", "model", "serial", "ip", "mac", "spec", "user", "employeeCode", "section", "group", "status", "checkStatus", "note"];
 const COLUMN_LABELS_VN = {
   code: "Mã tài sản", type: "Loại thiết bị", assetName: "Tên tài sản", model: "Model", serial: "Serial",
-  ip: "IP", mac: "MAC", spec: "Cấu hình", area: "Khu vực", user: "Người sử dụng",
+  ip: "IP", mac: "MAC", spec: "Cấu hình", user: "Người sử dụng",
   employeeCode: "Mã nhân viên", section: "Bộ phận", group: "Tổ/Chuyền",
   status: "Tình trạng", checkStatus: "Trạng thái kiểm kê", note: "Ghi chú"
 };
