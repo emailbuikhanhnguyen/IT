@@ -184,7 +184,7 @@ function renderAssetList() {
   let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
   if (q) {
     list = list.filter(a =>
-      [a.code, a.serial, a.model, a.user, a.assetName].some(v => (v || "").toLowerCase().includes(q))
+      [a.code, a.serial, a.model, a.user, a.assetName, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
     );
   }
   if (areaF) list = list.filter(a => a.area === areaF);
@@ -226,6 +226,47 @@ $("filterCheck").addEventListener("change", renderAssetList);
 function populateTypeSelect() {
   $("type").innerHTML = ASSET_TYPES.map(t => `<option>${t}</option>`).join("");
 }
+
+/* ---------- Employee autocomplete (Người sử dụng) ----------
+   EMPLOYEES comes from employees.js (static snapshot of HR export, 284
+   người). Chọn một người ở đây chỉ auto-điền Mã NV/Section/Group — không
+   đụng tới "Khu vực" (area), vì area là vị trí vật lý còn Section/Group là
+   cơ cấu tổ chức HR, hai thứ không nhất thiết trùng nhau. Mọi ô đều có thể
+   sửa tay hoặc để trống nếu không tìm thấy / không cần.
+*/
+function renderUserSuggestions(query) {
+  const box = $("userSuggest");
+  const q = query.trim().toLowerCase();
+  if (!q || !window.EMPLOYEES) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  const matches = window.EMPLOYEES.filter(e => e.name.toLowerCase().includes(q)).slice(0, 20);
+  if (!matches.length) {
+    box.innerHTML = `<div class="suggest-empty">Không tìm thấy trong danh sách nhân viên — vẫn có thể nhập tay tên và các ô bên dưới.</div>`;
+    box.classList.remove("hidden");
+    return;
+  }
+  box.innerHTML = matches.map((e, i) => `
+    <div class="suggest-item${e.active ? "" : " inactive"}" data-idx="${i}">
+      ${escapeHtml(e.name)}
+      <span class="muted">${escapeHtml(e.code)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.group ? " · " + escapeHtml(e.group) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>
+    </div>
+  `).join("");
+  box.querySelectorAll(".suggest-item[data-idx]").forEach(el => {
+    el.addEventListener("mousedown", ev => {
+      ev.preventDefault(); // fire before the input's blur hides the box
+      const m = matches[Number(el.getAttribute("data-idx"))];
+      $("user").value = m.name;
+      $("employeeCode").value = m.code;
+      $("section").value = m.section || "";
+      $("group").value = m.group || "";
+      box.classList.add("hidden");
+      box.innerHTML = "";
+    });
+  });
+  box.classList.remove("hidden");
+}
+$("user").addEventListener("input", () => renderUserSuggestions($("user").value));
+$("user").addEventListener("focus", () => { if ($("user").value.trim()) renderUserSuggestions($("user").value); });
+$("user").addEventListener("blur", () => { setTimeout(() => $("userSuggest").classList.add("hidden"), 120); });
 // Disables/enables every field+button inside the asset form (used for the
 // read-only view staff get once their asset is locked). The section-head
 // back button lives outside the <form>, so navigation still works.
@@ -246,6 +287,8 @@ function clearForm() {
   $("qrcode").innerHTML = "";
   $("qrText").textContent = "";
   $("pasteInfoBox").value = "";
+  $("userSuggest").classList.add("hidden");
+  $("userSuggest").innerHTML = "";
   $("assetLocked").checked = false;
   $("code").readOnly = false;
   setFormLocked(false);
@@ -264,6 +307,9 @@ function fillFormFromAsset(a) {
   $("spec").value = a.spec || "";
   $("area").value = a.area || "";
   $("user").value = a.user || "";
+  $("employeeCode").value = a.employeeCode || "";
+  $("section").value = a.section || "";
+  $("group").value = a.group || "";
   $("status").value = a.status || "Tốt";
   $("checkStatus").value = a.checkStatus || CHECK_UNCHECKED;
   $("note").value = a.note || "";
@@ -327,6 +373,9 @@ $("assetFormEl").addEventListener("submit", e => {
     spec: $("spec").value.trim(),
     area: $("area").value.trim(),
     user: $("user").value.trim(),
+    employeeCode: $("employeeCode").value.trim(),
+    section: $("section").value.trim(),
+    group: $("group").value.trim(),
     status: $("status").value,
     checkStatus: $("checkStatus").value,
     note: $("note").value.trim(),
@@ -553,10 +602,11 @@ window.quickCreate = function (code) {
 };
 
 /* ---------- Excel export/import ---------- */
-const COLUMNS = ["code", "type", "assetName", "model", "serial", "ip", "mac", "spec", "area", "user", "status", "checkStatus", "note"];
+const COLUMNS = ["code", "type", "assetName", "model", "serial", "ip", "mac", "spec", "area", "user", "employeeCode", "section", "group", "status", "checkStatus", "note"];
 const COLUMN_LABELS_VN = {
   code: "Mã tài sản", type: "Loại thiết bị", assetName: "Tên tài sản", model: "Model", serial: "Serial",
   ip: "IP", mac: "MAC", spec: "Cấu hình", area: "Khu vực", user: "Người sử dụng",
+  employeeCode: "Mã nhân viên", section: "Bộ phận", group: "Tổ/Chuyền",
   status: "Tình trạng", checkStatus: "Trạng thái kiểm kê", note: "Ghi chú"
 };
 const HEADER_MAP = {};

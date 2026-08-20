@@ -36,11 +36,36 @@ Các cột có thể dùng:
 - spec
 - area
 - user
+- employeeCode
+- section
+- group
 - status
 - checkStatus
 - note
 
 Có hỗ trợ tên cột tiếng Việt tương ứng như trong app.
+
+## Nhân viên (autocomplete cho "Người sử dụng")
+File `employees.js` chứa danh sách nhân viên (snapshot từ file HR export,
+291 dòng gốc → 284 dòng có Mã NV + Tên) để gõ tên là gợi ý, chọn xong tự
+điền **Mã nhân viên / Bộ phận (Section) / Tổ-Chuyền (Group)**. Ba ô này vẫn
+sửa tay được hoặc để trống — không bắt buộc, và **không** dùng để suy ra
+"Khu vực" (area) của tài sản: area là vị trí vật lý (ví dụ "PHÒNG LAB"),
+còn Section/Group là cơ cấu tổ chức HR — hai khái niệm khác nhau, tự nhập
+"Khu vực" như trước.
+
+File HR export gốc có 3 cột có thể coi là "khu vực": Phòng ban (Department),
+Bộ phận (Section), Nơi làm việc (Working Place) — app hiện chỉ lấy
+Section + Group để hiển thị kèm tên, không tự map bất kỳ cột nào trong 3
+cột đó vào "Khu vực" tài sản.
+
+**Cập nhật danh sách nhân viên:** khi HR xuất file mới, mở lại
+`ImportEmployeeProfile` (sheet đầu, dữ liệu từ dòng 7), lấy 4 cột
+`Employee Code`, `Full Name _VN`, `Section`, `Group`, sinh lại mảng
+`EMPLOYEES` trong `employees.js` (mỗi người: `code`, `name`, `section`,
+`group`, `active` — `active:false` nếu có ngày nghỉ việc) rồi thay nguyên
+file. Nhân viên trùng tên vẫn phân biệt được vì danh sách gợi ý luôn hiện
+kèm Mã NV.
 
 ## Phân quyền: Admin (IT) vs tài khoản Thu thập dữ liệu
 

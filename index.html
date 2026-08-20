@@ -85,7 +85,13 @@
     <label>MAC<input id="mac"></label>
     <label>Cấu hình<input id="spec" placeholder="i5 / RAM 16GB / SSD 512GB"></label>
     <label>Khu vực<input id="area" placeholder="PHÒNG LAB"></label>
-    <label>Người sử dụng<input id="user"></label>
+    <label class="autocomplete-field">Người sử dụng
+      <input id="user" autocomplete="off" placeholder="Gõ tên để tìm trong danh sách nhân viên...">
+      <div id="userSuggest" class="suggest-list hidden"></div>
+    </label>
+    <label>Mã nhân viên<input id="employeeCode" placeholder="Tự động điền khi chọn tên ở trên, có thể để trống"></label>
+    <label>Bộ phận (Section)<input id="section" placeholder="Tự động điền khi chọn tên ở trên, có thể để trống"></label>
+    <label>Tổ/Chuyền (Group)<input id="group" placeholder="Tự động điền khi chọn tên ở trên, có thể để trống"></label>
     <label>Tình trạng<select id="status"><option>Tốt</option><option>Đang sử dụng</option><option>Dự phòng</option><option>Hỏng</option><option>Mất</option><option>Thanh lý</option></select></label>
     <label>Trạng thái kiểm kê<select id="checkStatus"><option>Chưa kiểm</option><option>Đã kiểm - OK</option><option>Sai thông tin</option><option>Không tìm thấy</option><option>Thiết bị mới</option></select></label>
     <label>Ghi chú<textarea id="note" rows="3"></textarea></label>
@@ -155,6 +161,7 @@
 </nav>
 </div>
 
+<script src="employees.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
