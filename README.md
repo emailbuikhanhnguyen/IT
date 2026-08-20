@@ -24,12 +24,6 @@ Không nhét toàn bộ thông tin thiết bị vào QR. Database mới là nơi
 ## Lưu ý
 Thư viện XLSX, html5-qrcode và QRCodeJS đang dùng CDN nên lần đầu cần Internet để tải thư viện. Service Worker sẽ cache các tài nguyên sau khi đã tải.
 
-## Tên máy & Hệ điều hành
-Ô "Tên máy (Device name)" và "Hệ điều hành (Windows)" điền tay hoặc lấy tự
-động qua nút **📋 Copy lệnh PowerShell** trong form tài sản (script đã cập
-nhật thêm `TENMAY:` và `HDH:` bên cạnh MODEL/SERIAL/CAUHINH/IP/MAC cũ) —
-dán kết quả vào ô rồi bấm **⚡ Tự động điền** như bình thường.
-
 ## Excel chuẩn
 Các cột có thể dùng:
 - employeeCode
@@ -39,12 +33,10 @@ Các cột có thể dùng:
 - code
 - type
 - model
-- deviceName
 - serial
 - ip
 - mac
 - spec
-- osInfo
 - status
 - checkStatus
 - note

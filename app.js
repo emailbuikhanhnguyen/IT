@@ -162,7 +162,7 @@ function renderAssetList() {
   let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
   if (q) {
     list = list.filter(a =>
-      [a.code, a.serial, a.model, a.deviceName, a.user, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
+      [a.code, a.serial, a.model, a.user, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
     );
   }
   if (checkF) list = list.filter(a => classifyCheck(a.checkStatus) === checkF);
@@ -182,7 +182,7 @@ function renderAssetList() {
     <div class="asset">
       <div>
         <h3>${escapeHtml(a.code)}</h3>
-        <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}${a.deviceName ? " · 💻 " + escapeHtml(a.deviceName) : ""}</div>
+        <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}</div>
         <div class="muted">${a.user ? "👤 " + escapeHtml(a.user) : ""}${a.employeeCode ? " (" + escapeHtml(a.employeeCode) + ")" : ""}</div>
         ${a.section ? `<div class="muted">🏢 ${escapeHtml(a.section)}</div>` : ""}
         <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(a.checkStatus || CHECK_UNCHECKED)}</span>
@@ -425,12 +425,10 @@ function fillFormFromAsset(a) {
   $("code").value = a.code || "";
   $("type").value = a.type || ASSET_TYPES[0];
   $("model").value = a.model || "";
-  $("deviceName").value = a.deviceName || "";
   $("serial").value = a.serial || "";
   $("ip").value = a.ip || "";
   $("mac").value = a.mac || "";
   $("spec").value = a.spec || "";
-  $("osInfo").value = a.osInfo || "";
   $("status").value = a.status || "Tốt";
   $("checkStatus").value = a.checkStatus || CHECK_UNCHECKED;
   $("note").value = a.note || "";
@@ -491,12 +489,10 @@ $("assetFormEl").addEventListener("submit", e => {
     code,
     type: $("type").value,
     model: $("model").value.trim(),
-    deviceName: $("deviceName").value.trim(),
     serial: $("serial").value.trim(),
     ip: $("ip").value.trim(),
     mac: $("mac").value.trim(),
     spec: $("spec").value.trim(),
-    osInfo: $("osInfo").value.trim(),
     status: $("status").value,
     checkStatus: $("checkStatus").value,
     note: $("note").value.trim(),
@@ -618,8 +614,6 @@ const PS_SCRIPT = `# get-info.ps1 - Dán kết quả vào ô "Dán thông tin m�
 $cs = Get-CimInstance Win32_ComputerSystem
 $bios = Get-CimInstance Win32_BIOS
 $cpu = Get-CimInstance Win32_Processor
-$os = Get-CimInstance Win32_OperatingSystem
-$reg = Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion' -ErrorAction SilentlyContinue
 $ramGB = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB)
 $disk = Get-CimInstance Win32_DiskDrive | Select-Object -First 1
 $active = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
@@ -630,15 +624,12 @@ foreach ($a in $active) {
   foreach ($ip in $ips) { $ipParts += $ip }
   $macParts += "$($a.Name)=$($a.MacAddress)"
 }
-$installDateStr = try { $os.InstallDate.ToString('dd/MM/yyyy') } catch { '' }
 Write-Output "===== KET QUA - COPY TU DAY ====="
-Write-Output "TENMAY: $env:COMPUTERNAME"
 Write-Output "MODEL: $($cs.Model)"
 Write-Output "SERIAL: $($bios.SerialNumber)"
 Write-Output "CAUHINH: $($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
 Write-Output "IP: $((($ipParts | Select-Object -Unique)) -join '; ')"
 Write-Output "MAC: $(($macParts) -join '; ')"
-Write-Output "HDH: $($os.Caption) $($reg.DisplayVersion) (Build $($os.BuildNumber)), cai dat $installDateStr"
 Write-Output "===== HET - COPY DEN DAY ====="`;
 
 $("btnCopyPS").addEventListener("click", async () => {
@@ -655,7 +646,7 @@ $("btnAutofill").addEventListener("click", () => {
   const text = $("pasteInfoBox").value;
   if (!text.trim()) { alert("Chưa có nội dung để tự động điền."); return; }
 
-  const map = { TENMAY: "deviceName", MODEL: "model", SERIAL: "serial", CAUHINH: "spec", IP: "ip", MAC: "mac", HDH: "osInfo" };
+  const map = { MODEL: "model", SERIAL: "serial", CAUHINH: "spec", IP: "ip", MAC: "mac" };
   let filled = 0;
   text.split("\n").forEach(line => {
     const m = line.match(/^\s*([A-Za-z]+)\s*:\s*(.+)\s*$/);
@@ -729,11 +720,11 @@ window.quickCreate = function (code) {
 };
 
 /* ---------- Excel export/import ---------- */
-const COLUMNS = ["employeeCode", "user", "section", "group", "code", "type", "model", "deviceName", "serial", "ip", "mac", "spec", "osInfo", "status", "checkStatus", "note"];
+const COLUMNS = ["employeeCode", "user", "section", "group", "code", "type", "model", "serial", "ip", "mac", "spec", "status", "checkStatus", "note"];
 const COLUMN_LABELS_VN = {
   employeeCode: "Mã nhân viên", user: "Người sử dụng", section: "Bộ phận", group: "Tổ/Chuyền",
-  code: "Mã tài sản", type: "Loại thiết bị", model: "Model", deviceName: "Tên máy",
-  serial: "Serial", ip: "IP", mac: "MAC", spec: "Cấu hình", osInfo: "Hệ điều hành",
+  code: "Mã tài sản", type: "Loại thiết bị", model: "Model", serial: "Serial",
+  ip: "IP", mac: "MAC", spec: "Cấu hình",
   status: "Tình trạng", checkStatus: "Trạng thái kiểm kê", note: "Ghi chú"
 };
 const HEADER_MAP = {};
