@@ -720,7 +720,24 @@ window.quickCreate = function (code) {
 };
 
 /* ---------- Excel export/import ---------- */
-const COLUMNS = ["employeeCode", "user", "section", "group", "code", "type", "model", "serial", "ip", "mac", "spec", "status", "checkStatus", "note"];
+// Thứ tự cột export/import PHẢI khớp đúng thứ tự các trường trên form #assetFormEl (index.html).
+// Sửa thứ tự ở đây thì cũng sửa lại thứ tự tương ứng trên form, và ngược lại.
+const COLUMNS = [
+  "employeeCode", // Mã nhân viên
+  "user",         // Người sử dụng
+  "section",      // Bộ phận (Section)
+  "group",        // Tổ/Chuyền (Group)
+  "code",         // Mã tài sản
+  "type",         // Loại thiết bị
+  "model",        // Model
+  "serial",       // Serial Number
+  "ip",           // IP
+  "mac",          // MAC
+  "spec",         // Cấu hình
+  "status",       // Tình trạng
+  "checkStatus",  // Trạng thái kiểm kê
+  "note",         // Ghi chú
+];
 const COLUMN_LABELS_VN = {
   employeeCode: "Mã nhân viên", user: "Người sử dụng", section: "Bộ phận", group: "Tổ/Chuyền",
   code: "Mã tài sản", type: "Loại thiết bị", model: "Model", serial: "Serial",
