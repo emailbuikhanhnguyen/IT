@@ -190,6 +190,7 @@ function renderAssetList() {
       </div>
       <div class="asset-actions">
         ${editBtn}
+        <button class="secondary" onclick="printLabel('${a._id}')">🏷 In tem</button>
         ${deleteBtn}
       </div>
     </div>
@@ -586,6 +587,35 @@ $("downloadQR").addEventListener("click", () => {
   a.href = dataUrl;
   a.download = (($("code").value.trim() || "qr") + ".png");
   a.click();
+});
+
+/* ---------- In tem tài sản (mã + thông tin + QR) ---------- */
+function renderPrintLabel(data) {
+  $("plCode").textContent = data.code || "";
+  $("plTypeModel").textContent = [data.type, data.model].filter(Boolean).join(" · ");
+  $("plUser").textContent = data.user ? ("👤 " + data.user + (data.employeeCode ? ` (${data.employeeCode})` : "")) : "";
+  $("plSection").textContent = data.section ? ("🏢 " + data.section) : "";
+  $("plQr").innerHTML = "";
+  new QRCode($("plQr"), { text: "ITASSET:" + (data.code || ""), width: 160, height: 160 });
+}
+window.printLabel = function (id) {
+  const a = assets.find(x => x._id === id);
+  if (!a) return;
+  renderPrintLabel(a);
+  setTimeout(() => window.print(), 150); // đợi QR render xong canvas rồi mới in
+};
+$("printLabelBtn").addEventListener("click", () => {
+  const code = $("code").value.trim();
+  if (!code) { alert("Nhập Mã tài sản trước khi in tem."); return; }
+  renderPrintLabel({
+    code,
+    type: $("type").value,
+    model: $("model").value.trim(),
+    user: $("user").value.trim(),
+    employeeCode: $("employeeCode").value.trim(),
+    section: $("section").value.trim()
+  });
+  setTimeout(() => window.print(), 150);
 });
 
 /* ---------- Camera / photo ---------- */
