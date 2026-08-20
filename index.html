@@ -25,6 +25,7 @@
   <div><h1>IT Asset Inventory</h1><small>Kiểm kê • QR • Camera • Offline</small></div>
   <div class="topbar-right">
     <small id="userEmail" class="muted"></small>
+    <span id="roleBadge" class="role-badge"></span>
     <button id="installBtn" class="ghost hidden">Cài app</button>
     <button id="logoutBtn" class="ghost">Đăng xuất</button>
   </div>
@@ -41,9 +42,9 @@
   <div class="card"><h2>Trạng thái kiểm kê</h2><div id="checkStats"></div></div>
   <div class="quick">
     <button data-page="scan">📷 Quét QR</button>
-    <button data-page="assetForm">＋ Tạo tài sản</button>
+    <button id="quickAddBtn" data-page="assetForm">＋ Tạo tài sản</button>
     <button data-page="assets">📋 Danh sách</button>
-    <button data-page="settings">⇅ Dữ liệu</button>
+    <button data-page="settings" class="admin-only">⇅ Dữ liệu</button>
   </div>
 </section>
 
@@ -61,7 +62,7 @@
 </section>
 
 <section id="assets" class="page">
-  <div class="section-head"><h2>Danh sách tài sản</h2><button data-page="assetForm">＋ Thêm</button></div>
+  <div class="section-head"><h2>Danh sách tài sản</h2><button id="assetsAddBtn" data-page="assetForm">＋ Thêm</button></div>
   <div class="filters">
     <input id="search" placeholder="Tìm mã, serial, model, người dùng...">
     <select id="filterArea"><option value="">Tất cả khu vực</option></select>
@@ -73,6 +74,7 @@
 <section id="assetForm" class="page">
   <div class="section-head"><h2 id="formTitle">Tạo tài sản</h2><button data-page="assets">←</button></div>
   <form id="assetFormEl" class="card">
+    <div id="lockedNotice" class="locked-notice hidden">🔒 Bạn chỉ có quyền xem tài sản này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.</div>
     <input type="hidden" id="assetId">
     <label>Mã tài sản*<input id="code" required placeholder="LAB-PC-001"></label>
     <label>Loại thiết bị*<select id="type" required></select></label>
@@ -109,7 +111,13 @@
       <button type="button" id="downloadQR" class="secondary">⬇ Lưu QR</button>
     </div>
 
-    <div class="form-actions"><button type="submit">Lưu tài sản</button><button type="button" class="secondary" id="resetForm">Xóa form</button></div>
+    <div class="psbox admin-only">
+      <h3>🔒 Trạng thái xác nhận (chỉ Admin)</h3>
+      <p class="hint">Tài khoản "Thu thập dữ liệu" chỉ tạo mới được, không sửa lại được — bản ghi họ tạo tự động đánh dấu "Đã khóa" ở đây để bạn biết cần rà soát. Admin luôn sửa được bất kể ô này bật hay tắt.</p>
+      <label class="checkbox-label"><input id="assetLocked" type="checkbox"> Đã khóa (được nhập bởi tài khoản thu thập dữ liệu)</label>
+    </div>
+
+    <div class="form-actions"><button type="submit" id="submitAssetBtn">Lưu tài sản</button><button type="button" class="secondary" id="resetForm">Xóa form</button></div>
   </form>
 </section>
 
@@ -143,7 +151,7 @@
   <button data-page="dashboard">⌂<span>Tổng quan</span></button>
   <button data-page="scan">⌁<span>Quét QR</span></button>
   <button data-page="assets">▤<span>Tài sản</span></button>
-  <button data-page="settings">⚙<span>Dữ liệu</span></button>
+  <button data-page="settings" class="admin-only">⚙<span>Dữ liệu</span></button>
 </nav>
 </div>
 
