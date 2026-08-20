@@ -75,30 +75,29 @@
   <form id="assetFormEl" class="card">
     <div id="lockedNotice" class="locked-notice hidden">🔒 Bạn chỉ có quyền xem tài sản này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.</div>
     <input type="hidden" id="assetId">
-    <label>Mã tài sản*
-      <input id="code" required placeholder="Tự gợi ý theo Loại thiết bị + Bộ phận, có thể sửa tay">
-      <span class="hint">Tự động gợi ý dạng [Thiết bị]-[Bộ phận]-[số thứ tự], ví dụ LAP-AT-0001 — vẫn gõ tay/sửa lại được.</span>
-    </label>
-    <label>Loại thiết bị*<select id="type" required></select></label>
-    <label>Tên tài sản<input id="assetName" placeholder="PC phòng Lab 01"></label>
-    <label>Model<input id="model" placeholder="Dell OptiPlex 7090"></label>
-    <label>Serial Number<input id="serial"></label>
-    <label>IP<input id="ip" inputmode="decimal"></label>
-    <label>MAC<input id="mac"></label>
-    <label>Cấu hình<input id="spec" placeholder="i5 / RAM 16GB / SSD 512GB"></label>
-    <label class="autocomplete-field">Người sử dụng
-      <input id="user" autocomplete="off" placeholder="Gõ tên để tìm trong danh sách nhân viên...">
-      <div id="userSuggest" class="suggest-list hidden"></div>
-    </label>
     <label class="autocomplete-field">Mã nhân viên
       <input id="employeeCode" autocomplete="off" placeholder="Gõ hoặc chọn mã NV, có thể để trống">
       <div id="employeeCodeSuggest" class="suggest-list hidden"></div>
+    </label>
+    <label class="autocomplete-field">Người sử dụng
+      <input id="user" autocomplete="off" placeholder="Gõ tên để tìm trong danh sách nhân viên...">
+      <div id="userSuggest" class="suggest-list hidden"></div>
     </label>
     <label class="autocomplete-field">Bộ phận (Section)
       <input id="section" autocomplete="off" placeholder="Tự điền khi chọn tên/mã NV ở trên, hoặc tự chọn/gõ, có thể để trống">
       <div id="sectionSuggest" class="suggest-list hidden"></div>
     </label>
     <label>Tổ/Chuyền (Group)<input id="group" placeholder="Tự động điền khi chọn tên ở trên, có thể để trống"></label>
+    <label>Mã tài sản*
+      <input id="code" required placeholder="Tự gợi ý theo Loại thiết bị + Bộ phận, có thể sửa tay">
+      <span class="hint">Tự động gợi ý dạng [Thiết bị]-[Bộ phận]-[số thứ tự], ví dụ LAP-AT-0001 — vẫn gõ tay/sửa lại được.</span>
+    </label>
+    <label>Loại thiết bị*<select id="type" required></select></label>
+    <label>Model<input id="model" placeholder="Dell OptiPlex 7090"></label>
+    <label>Serial Number<input id="serial"></label>
+    <label>IP<input id="ip" inputmode="decimal"></label>
+    <label>MAC<input id="mac"></label>
+    <label>Cấu hình<input id="spec" placeholder="i5 / RAM 16GB / SSD 512GB"></label>
     <label>Tình trạng<select id="status"><option>Tốt</option><option>Đang sử dụng</option><option>Dự phòng</option><option>Hỏng</option><option>Mất</option><option>Thanh lý</option></select></label>
     <label>Trạng thái kiểm kê<select id="checkStatus"><option>Chưa kiểm</option><option>Đã kiểm - OK</option><option>Sai thông tin</option><option>Không tìm thấy</option><option>Thiết bị mới</option></select></label>
     <label>Ghi chú<textarea id="note" rows="3"></textarea></label>

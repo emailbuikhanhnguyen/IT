@@ -26,18 +26,17 @@ Thư viện XLSX, html5-qrcode và QRCodeJS đang dùng CDN nên lần đầu c�
 
 ## Excel chuẩn
 Các cột có thể dùng:
+- employeeCode
+- user
+- section
+- group
 - code
 - type
-- assetName
 - model
 - serial
 - ip
 - mac
 - spec
-- user
-- employeeCode
-- section
-- group
 - status
 - checkStatus
 - note

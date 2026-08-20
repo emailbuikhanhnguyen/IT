@@ -162,7 +162,7 @@ function renderAssetList() {
   let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
   if (q) {
     list = list.filter(a =>
-      [a.code, a.serial, a.model, a.user, a.assetName, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
+      [a.code, a.serial, a.model, a.user, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
     );
   }
   if (checkF) list = list.filter(a => classifyCheck(a.checkStatus) === checkF);
@@ -181,7 +181,7 @@ function renderAssetList() {
     return `
     <div class="asset">
       <div>
-        <h3>${escapeHtml(a.code)} ${a.assetName ? "· " + escapeHtml(a.assetName) : ""}</h3>
+        <h3>${escapeHtml(a.code)}</h3>
         <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}</div>
         <div class="muted">${a.user ? "👤 " + escapeHtml(a.user) : ""}${a.employeeCode ? " (" + escapeHtml(a.employeeCode) + ")" : ""}</div>
         ${a.section ? `<div class="muted">🏢 ${escapeHtml(a.section)}</div>` : ""}
@@ -248,6 +248,23 @@ function filterList(list, query, limit) {
   return matched.slice(0, limit);
 }
 
+// Mã nhân viên — gõ/chọn theo mã, chọn xong điền kèm Tên / Bộ phận / Tổ-Chuyền
+// (2 chiều với ô "Người sử dụng" bên dưới).
+setupAutocomplete("employeeCode", "employeeCodeSuggest",
+  q => filterList((window.EMPLOYEES || []).map(e => e.code), q, 20)
+    .map(code => (window.EMPLOYEES || []).find(e => e.code === code))
+    .map(e => Object.assign({ inactive: !e.active }, e)),
+  e => `${escapeHtml(e.code)}<span class="muted">${escapeHtml(e.name)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
+  e => {
+    $("employeeCode").value = e.code;
+    $("user").value = e.name;
+    $("section").value = e.section || "";
+    $("group").value = e.group || "";
+    maybeSuggestCode();
+  },
+  { autoFillMinChars: 3 }
+);
+
 // Người sử dụng — gợi ý từ danh sách nhân viên (employees.js), chọn xong
 // điền kèm Mã NV / Bộ phận / Tổ-Chuyền.
 setupAutocomplete("user", "userSuggest",
@@ -258,23 +275,6 @@ setupAutocomplete("user", "userSuggest",
   e => {
     $("user").value = e.name;
     $("employeeCode").value = e.code;
-    $("section").value = e.section || "";
-    $("group").value = e.group || "";
-    maybeSuggestCode();
-  },
-  { autoFillMinChars: 3 }
-);
-
-// Mã nhân viên — gõ/chọn theo mã, chọn xong điền kèm Tên / Bộ phận / Tổ-Chuyền
-// (2 chiều với ô "Người sử dụng" ở trên).
-setupAutocomplete("employeeCode", "employeeCodeSuggest",
-  q => filterList((window.EMPLOYEES || []).map(e => e.code), q, 20)
-    .map(code => (window.EMPLOYEES || []).find(e => e.code === code))
-    .map(e => Object.assign({ inactive: !e.active }, e)),
-  e => `${escapeHtml(e.code)}<span class="muted">${escapeHtml(e.name)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
-  e => {
-    $("employeeCode").value = e.code;
-    $("user").value = e.name;
     $("section").value = e.section || "";
     $("group").value = e.group || "";
     maybeSuggestCode();
@@ -418,18 +418,17 @@ $("resetForm").addEventListener("click", clearForm);
 function fillFormFromAsset(a) {
   codeAutoFilled = false; // tài sản đã có mã thật — không tự sinh đè lên
   $("assetId").value = a._id || "";
+  $("employeeCode").value = a.employeeCode || "";
+  $("user").value = a.user || "";
+  $("section").value = a.section || "";
+  $("group").value = a.group || "";
   $("code").value = a.code || "";
   $("type").value = a.type || ASSET_TYPES[0];
-  $("assetName").value = a.assetName || "";
   $("model").value = a.model || "";
   $("serial").value = a.serial || "";
   $("ip").value = a.ip || "";
   $("mac").value = a.mac || "";
   $("spec").value = a.spec || "";
-  $("user").value = a.user || "";
-  $("employeeCode").value = a.employeeCode || "";
-  $("section").value = a.section || "";
-  $("group").value = a.group || "";
   $("status").value = a.status || "Tốt";
   $("checkStatus").value = a.checkStatus || CHECK_UNCHECKED;
   $("note").value = a.note || "";
@@ -483,18 +482,17 @@ $("assetFormEl").addEventListener("submit", e => {
   }
 
   const data = {
+    employeeCode: $("employeeCode").value.trim(),
+    user: $("user").value.trim(),
+    section: $("section").value.trim(),
+    group: $("group").value.trim(),
     code,
     type: $("type").value,
-    assetName: $("assetName").value.trim(),
     model: $("model").value.trim(),
     serial: $("serial").value.trim(),
     ip: $("ip").value.trim(),
     mac: $("mac").value.trim(),
     spec: $("spec").value.trim(),
-    user: $("user").value.trim(),
-    employeeCode: $("employeeCode").value.trim(),
-    section: $("section").value.trim(),
-    group: $("group").value.trim(),
     status: $("status").value,
     checkStatus: $("checkStatus").value,
     note: $("note").value.trim(),
@@ -705,7 +703,7 @@ function onScanSuccess(decodedText) {
   resBox.classList.remove("hidden");
   const existing = assets.find(a => a.code === code);
   if (existing) {
-    resBox.innerHTML = `<b>${escapeHtml(code)}</b> — ${escapeHtml(existing.assetName || "")}<br>
+    resBox.innerHTML = `<b>${escapeHtml(code)}</b> — ${escapeHtml(existing.user || existing.model || "")}<br>
       <span class="badge ${badgeClass(existing.checkStatus)}">${escapeHtml(existing.checkStatus || CHECK_UNCHECKED)}</span><br>
       <button style="margin-top:8px" onclick="editAsset('${existing._id}')">Mở để cập nhật kiểm kê</button>`;
   } else {
@@ -722,11 +720,11 @@ window.quickCreate = function (code) {
 };
 
 /* ---------- Excel export/import ---------- */
-const COLUMNS = ["code", "type", "assetName", "model", "serial", "ip", "mac", "spec", "user", "employeeCode", "section", "group", "status", "checkStatus", "note"];
+const COLUMNS = ["employeeCode", "user", "section", "group", "code", "type", "model", "serial", "ip", "mac", "spec", "status", "checkStatus", "note"];
 const COLUMN_LABELS_VN = {
-  code: "Mã tài sản", type: "Loại thiết bị", assetName: "Tên tài sản", model: "Model", serial: "Serial",
-  ip: "IP", mac: "MAC", spec: "Cấu hình", user: "Người sử dụng",
-  employeeCode: "Mã nhân viên", section: "Bộ phận", group: "Tổ/Chuyền",
+  employeeCode: "Mã nhân viên", user: "Người sử dụng", section: "Bộ phận", group: "Tổ/Chuyền",
+  code: "Mã tài sản", type: "Loại thiết bị", model: "Model", serial: "Serial",
+  ip: "IP", mac: "MAC", spec: "Cấu hình",
   status: "Tình trạng", checkStatus: "Trạng thái kiểm kê", note: "Ghi chú"
 };
 const HEADER_MAP = {};
