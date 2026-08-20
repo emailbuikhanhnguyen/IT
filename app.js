@@ -406,15 +406,7 @@ $("btnCopyPS").addEventListener("click", async () => {
 $("btnAutofill").addEventListener("click", () => {
   const text = $("pasteInfoBox").value;
   if (!text.trim()) { alert("Chưa có nội dung để tự động điền."); return; }
-  if (/Write-Output|Get-CimInstance|^\s*#\s*get-info\.ps1/im.test(text)) {
-    alert("Ô này cần dán KẾT QUẢ sau khi chạy lệnh PowerShell, không phải đoạn lệnh. " +
-      "Hãy chạy lệnh trên máy Windows trước, rồi copy phần kết quả in ra (MODEL:, SERIAL:...) và dán lại vào đây.");
-    return;
-  }
-  if (!/MAC\s*:/i.test(text) || !/IP\s*:/i.test(text)) {
-    if (!confirm("Có vẻ nội dung dán vào bị thiếu dòng IP hoặc MAC (có thể do copy chưa hết). " +
-      "Bấm OK để vẫn tự động điền các trường tìm thấy, hoặc Cancel để dán lại đầy đủ hơn.")) return;
-  }
+
   const map = { MODEL: "model", SERIAL: "serial", CAUHINH: "spec", IP: "ip", MAC: "mac" };
   let filled = 0;
   text.split("\n").forEach(line => {
@@ -424,12 +416,22 @@ $("btnAutofill").addEventListener("click", () => {
     const val = m[2].trim();
     if (map[key] && val) { $(map[key]).value = val; filled++; }
   });
+
   if (filled === 0) {
-    alert("Không nhận diện được trường nào. Kiểm tra lại nội dung dán vào có đúng định dạng " +
-      "\"MODEL: ...\", \"SERIAL: ...\", \"CAUHINH: ...\", \"IP: ...\", \"MAC: ...\" không.");
-  } else {
-    alert(`Đã tự động điền ${filled} trường.`);
+    if (/Write-Output|Get-CimInstance|^\s*#\s*get-info\.ps1/im.test(text)) {
+      alert("Ô này cần dán KẾT QUẢ sau khi chạy lệnh PowerShell, không phải đoạn lệnh. " +
+        "Hãy chạy lệnh trên máy Windows trước, rồi copy phần kết quả in ra (MODEL:, SERIAL:...) và dán lại vào đây.");
+    } else {
+      alert("Không nhận diện được trường nào. Kiểm tra lại nội dung dán vào có đúng định dạng " +
+        "\"MODEL: ...\", \"SERIAL: ...\", \"CAUHINH: ...\", \"IP: ...\", \"MAC: ...\" không.");
+    }
+    return;
   }
+  if (!/^\s*MAC\s*:/im.test(text) || !/^\s*IP\s*:/im.test(text)) {
+    if (!confirm(`Đã điền ${filled} trường, nhưng có vẻ thiếu dòng IP hoặc MAC (có thể do copy chưa hết). ` +
+      "Bấm OK để giữ những gì đã điền, hoặc Cancel để dán lại đầy đủ hơn rồi thử lại.")) return;
+  }
+  alert(`Đã tự động điền ${filled} trường.`);
 });
 
 /* ---------- QR Scanning ---------- */
