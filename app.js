@@ -510,6 +510,20 @@ $("assetFormEl").addEventListener("submit", e => {
   // updating any existing doc regardless of this flag.
   data.locked = isAdmin ? $("assetLocked").checked : true;
 
+  // Chặn tạo/lưu tài sản trùng Serial với 1 tài sản khác đã có trong hệ
+  // thống. Quan trọng nhất với tài khoản Collector: họ không sửa/xóa lại
+  // được sau khi tạo, nên nếu để lọt tài sản trùng Serial thì chỉ Admin
+  // mới dọn được — chặn ngay từ đầu để tránh phát sinh bản ghi trùng.
+  if (data.serial) {
+    const dup = assets.find(a => a._id !== oldId && (a.serial || "").trim().toLowerCase() === data.serial.toLowerCase());
+    if (dup) {
+      alert(`Serial "${data.serial}" đã tồn tại ở tài sản "${dup.code}". Không thể lưu tài sản trùng Serial.` +
+        (isAdmin ? " Nếu đây thực sự là 1 thiết bị mới, kiểm tra lại Serial hoặc sửa tài sản cũ." :
+          " Vui lòng kiểm tra lại, hoặc liên hệ Admin nếu tài sản cũ bị sai thông tin."));
+      return;
+    }
+  }
+
   const submitBtn = $("assetFormEl").querySelector('button[type="submit"]');
   const originalLabel = submitBtn.textContent;
   submitBtn.disabled = true;
