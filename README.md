@@ -42,6 +42,54 @@ Các cột có thể dùng:
 
 Có hỗ trợ tên cột tiếng Việt tương ứng như trong app.
 
+## Phân quyền: Admin (IT) vs tài khoản Thu thập dữ liệu
+
+App có 2 loại tài khoản:
+
+- **Admin (IT)**: toàn quyền tạo/sửa/xóa mọi tài sản, dùng Excel/Backup.
+- **Collector (thu thập dữ liệu)**: 1 tài khoản dùng chung, IT đăng nhập
+  bằng tài khoản này ở mọi máy khi đi kiểm kê. Tài khoản này **chỉ tạo mới
+  được**, xem được toàn bộ danh sách (để tránh trùng mã), nhưng **không sửa
+  và không xóa được bất kỳ tài sản nào** — kể cả tài sản nó vừa tạo ra. Nếu
+  phát hiện sai sót, phải đăng nhập lại bằng tài khoản Admin để chỉnh.
+
+Việc phân quyền này được chốt chặn thật sự ở **Firestore Security Rules**
+(`firestore.rules` đi kèm) — ẩn nút trên giao diện chỉ là tiện lợi hiển thị,
+không phải bảo mật. Ai đó rành kỹ thuật vẫn có thể gọi thẳng Firestore nếu
+Rules không publish đúng, nên bước dưới đây là bắt buộc.
+
+### 1. Publish Firestore Rules
+Firebase Console → Firestore Database → Rules → dán nội dung file
+`firestore.rules` → Publish.
+
+### 2. Tạo 2 tài khoản trong Authentication
+Authentication → Users → Add user, tạo 2 tài khoản (email + mật khẩu do IT
+tự đặt), ví dụ:
+- `admin@congty.com` — dùng khi cần sửa/xóa/export/backup.
+- `kiemke@congty.com` — dùng để đi kiểm kê ở từng máy.
+
+### 3. Gán vai trò cho từng UID
+Với mỗi tài khoản vừa tạo, mở tab **Authentication** để lấy **UID**, rồi vào
+**Firestore Database → Data**, tạo collection `users` → tạo document với
+**Document ID = UID đó** → thêm field `role` (kiểu string):
+- Tài khoản admin → `role = "admin"`
+- Tài khoản kiểm kê → `role = "collector"`
+
+Tài khoản nào **không có** document trong `users` sẽ bị từ chối truy cập
+hoàn toàn (app tự đăng xuất và báo "chưa được cấp quyền") — đây là lựa chọn
+an toàn theo hướng "mặc định không có quyền", tránh lộ dữ liệu nếu quên gán
+vai trò.
+
+### 4. Quy trình khi đi kiểm kê
+1. Trên điện thoại, đăng nhập bằng tài khoản **kiemke@congty.com**.
+2. Quét QR/điền form/chụp ảnh cho từng máy, bấm Lưu — mỗi bản ghi tạo xong
+   tự đánh dấu "Đã khóa" để biết cần Admin rà soát sau, nhưng bản thân tài
+   khoản này không sửa lại được nữa (kể cả bản ghi vừa tạo).
+3. Đi hết các máy xong thì đăng xuất.
+4. Nếu phát hiện sai sót: đăng nhập bằng tài khoản **admin**, mở tài sản đó,
+   admin luôn sửa được (có ô "Đã khóa" chỉ mang tính ghi chú, không chặn
+   admin).
+
 ## Quy trình thực tế
 1. Import danh sách Lab nếu đã có.
 2. Hoặc tạo từng tài sản khi kiểm kê.
