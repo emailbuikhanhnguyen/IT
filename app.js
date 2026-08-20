@@ -14,6 +14,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
 const COLLECTION = "assets";
 
 try {
@@ -71,14 +72,19 @@ document.querySelectorAll("[data-page]").forEach(btn => {
 });
 
 /* ---------- Firestore realtime sync ---------- */
+let unsubscribeSync = null;
 function initSync() {
-  db.collection(COLLECTION).onSnapshot(snapshot => {
+  if (unsubscribeSync) return; // already listening
+  unsubscribeSync = db.collection(COLLECTION).onSnapshot(snapshot => {
     assets = snapshot.docs.map(d => Object.assign({ _id: d.id }, d.data()));
     saveLocalCache();
     renderAll();
   }, err => {
     console.error("Sync error:", err);
   });
+}
+function stopSync() {
+  if (unsubscribeSync) { unsubscribeSync(); unsubscribeSync = null; }
 }
 function renderAll() {
   renderDashboard();
@@ -608,8 +614,58 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+/* ---------- Auth ---------- */
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const email = $("loginEmail").value.trim();
+  const password = $("loginPassword").value;
+  const errBox = $("loginError");
+  const submitBtn = $("loginSubmit");
+  errBox.classList.add("hidden");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Đang đăng nhập...";
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+    $("loginPassword").value = "";
+  } catch (err) {
+    const messages = {
+      "auth/invalid-email": "Email không hợp lệ.",
+      "auth/user-disabled": "Tài khoản đã bị vô hiệu hóa.",
+      "auth/user-not-found": "Không tìm thấy tài khoản này. Liên hệ quản trị để được cấp.",
+      "auth/wrong-password": "Sai mật khẩu.",
+      "auth/unauthorized-domain": "Domain này chưa được cấp phép đăng nhập. Vào Firebase Console → Authentication → Settings → Authorized domains để thêm domain đang chạy app.",
+      "auth/invalid-credential": "Email hoặc mật khẩu không đúng.",
+      "auth/too-many-requests": "Thử sai quá nhiều lần. Vui lòng đợi rồi thử lại."
+    };
+    errBox.textContent = messages[err.code] || ("Lỗi đăng nhập: " + err.message);
+    errBox.classList.remove("hidden");
+  }
+  submitBtn.disabled = false;
+  submitBtn.textContent = "Đăng nhập";
+});
+
+$("logoutBtn").addEventListener("click", () => {
+  if (!confirm("Đăng xuất khỏi ứng dụng?")) return;
+  auth.signOut();
+});
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    $("loginScreen").classList.add("hidden");
+    $("appShell").classList.remove("hidden");
+    $("userEmail").textContent = user.email || "";
+    initSync();
+    goPage("dashboard");
+  } else {
+    stopSync();
+    assets = [];
+    $("appShell").classList.add("hidden");
+    $("loginScreen").classList.remove("hidden");
+    $("loginEmail").value = "";
+    $("loginPassword").value = "";
+  }
+});
+
 /* ---------- Init ---------- */
 populateTypeSelect();
 loadLocalCache();
-initSync();
-goPage("dashboard");
