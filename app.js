@@ -596,7 +596,7 @@ function renderPrintLabel(data) {
   $("plUser").textContent = data.user ? ("👤 " + data.user + (data.employeeCode ? ` (${data.employeeCode})` : "")) : "";
   $("plSection").textContent = data.section ? ("🏢 " + data.section) : "";
   $("plQr").innerHTML = "";
-  new QRCode($("plQr"), { text: "ITASSET:" + (data.code || ""), width: 160, height: 160 });
+  new QRCode($("plQr"), { text: "ITASSET:" + (data.code || ""), width: 300, height: 300 });
 }
 window.printLabel = function (id) {
   const a = assets.find(x => x._id === id);
