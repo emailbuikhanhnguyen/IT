@@ -93,11 +93,13 @@
       <span class="hint">Tự động gợi ý dạng [Thiết bị]-[Bộ phận]-[số thứ tự], ví dụ LAP-AT-0001 — vẫn gõ tay/sửa lại được.</span>
     </label>
     <label>Loại thiết bị*<select id="type" required></select></label>
+    <label>Device name<input id="deviceName" placeholder="Tên máy (hostname), VD: LAPTOP50 — tự điền qua PowerShell"></label>
     <label>Model<input id="model" placeholder="Dell OptiPlex 7090"></label>
     <label>Serial Number<input id="serial"></label>
     <label>IP<input id="ip" inputmode="decimal"></label>
     <label>MAC<input id="mac"></label>
     <label>Cấu hình<input id="spec" placeholder="i5 / RAM 16GB / SSD 512GB"></label>
+    <label>Thông tin Windows<input id="winInfo" placeholder="VD: Windows 11 Pro 23H2 (Build 22631.6199) — tự điền qua PowerShell"></label>
     <label>Tình trạng<select id="status"><option>Tốt</option><option>Đang sử dụng</option><option>Dự phòng</option><option>Hỏng</option><option>Mất</option><option>Thanh lý</option></select></label>
     <label>Trạng thái kiểm kê<select id="checkStatus"><option>Chưa kiểm</option><option>Đã kiểm - OK</option><option>Sai thông tin</option><option>Không tìm thấy</option><option>Thiết bị mới</option></select></label>
     <label>Ghi chú<textarea id="note" rows="3"></textarea></label>
