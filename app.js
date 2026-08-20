@@ -30,6 +30,25 @@ let scanning = false;
 let currentPhotoData = "";    // base64 dataURL of the photo currently in the form
 let deferredInstallPrompt = null;
 
+/* ---------- Role / permissions ----------
+   Only 2 kinds of accounts exist:
+   - "admin"     (IT): full read/write/delete on every asset, plus Excel/
+     Backup/settings. Marked by a doc at users/{uid} with { role: "admin" }
+     in Firestore (create manually per IT account — see firestore.rules).
+   - "collector" (the single field account IT carries to every machine):
+     can READ every asset (to browse/search and avoid duplicate codes) and
+     CREATE new ones, but can NEVER update or delete an asset — including
+     the one it just created — once it exists. If something was entered
+     wrong, an admin has to log in and fix it. Marked by users/{uid} with
+     { role: "collector" }.
+   Any signed-in account with no matching users/{uid} doc is unauthorized
+   and gets signed out immediately (safe default: deny, not "staff").
+*/
+let isAdmin = false;
+let isCollector = false;
+let currentEmail = "";
+let currentUid = "";
+
 const ASSET_TYPES = ["Máy tính (PC)", "Laptop", "Camera", "Máy in", "Switch mạng", "Router/WiFi", "Firewall", "Màn hình", "UPS", "Máy chiếu", "Khác"];
 
 const CHECK_UNCHECKED = "Chưa kiểm";
@@ -60,6 +79,7 @@ function toast(msg) {
 
 /* ---------- Navigation ---------- */
 function goPage(name) {
+  if (name === "settings" && !isAdmin) name = "dashboard"; // settings/backup/import are admin-only
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = $(name);
   if (target) target.classList.add("active");
@@ -69,6 +89,13 @@ function goPage(name) {
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
   btn.addEventListener("click", () => goPage(btn.getAttribute("data-page")));
+});
+// The two "add new asset" entry points must start from a clean, unlocked
+// form — otherwise navigating here right after viewing a locked asset
+// would carry over its disabled/read-only state.
+["quickAddBtn", "assetsAddBtn"].forEach(id => {
+  const btn = $(id);
+  if (btn) btn.addEventListener("click", clearForm);
 });
 
 /* ---------- Firestore realtime sync ---------- */
@@ -167,20 +194,29 @@ function renderAssetList() {
     $("assetList").innerHTML = `<div class="empty">Không có tài sản phù hợp.</div>`;
     return;
   }
-  $("assetList").innerHTML = list.map(a => `
+  $("assetList").innerHTML = list.map(a => {
+    const editBtn = isAdmin
+      ? `<button onclick="editAsset('${a._id}')">✎ Sửa</button>`
+      : `<button onclick="editAsset('${a._id}')">👁 Xem</button>`;
+    const deleteBtn = isAdmin
+      ? `<button class="secondary" onclick="deleteAsset('${a._id}')">🗑 Xóa</button>`
+      : "";
+    return `
     <div class="asset">
       <div>
         <h3>${escapeHtml(a.code)} ${a.assetName ? "· " + escapeHtml(a.assetName) : ""}</h3>
         <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}</div>
         <div class="muted">${a.area ? "📍 " + escapeHtml(a.area) : ""} ${a.user ? "· 👤 " + escapeHtml(a.user) : ""}</div>
         <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(a.checkStatus || CHECK_UNCHECKED)}</span>
+        ${!isAdmin ? `<span class="badge view-only-tag">👁 Chỉ xem</span>` : ""}
       </div>
       <div class="asset-actions">
-        <button onclick="editAsset('${a._id}')">✎ Sửa</button>
-        <button class="secondary" onclick="deleteAsset('${a._id}')">🗑 Xóa</button>
+        ${editBtn}
+        ${deleteBtn}
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 }
 $("search").addEventListener("input", renderAssetList);
 $("filterArea").addEventListener("change", renderAssetList);
@@ -190,6 +226,16 @@ $("filterCheck").addEventListener("change", renderAssetList);
 function populateTypeSelect() {
   $("type").innerHTML = ASSET_TYPES.map(t => `<option>${t}</option>`).join("");
 }
+// Disables/enables every field+button inside the asset form (used for the
+// read-only view staff get once their asset is locked). The section-head
+// back button lives outside the <form>, so navigation still works.
+function setFormLocked(locked) {
+  $("assetFormEl").querySelectorAll("input, select, textarea, button").forEach(el => {
+    el.disabled = locked;
+  });
+  $("lockedNotice").classList.toggle("hidden", !locked);
+}
+
 function clearForm() {
   $("assetFormEl").reset();
   $("assetId").value = "";
@@ -200,6 +246,9 @@ function clearForm() {
   $("qrcode").innerHTML = "";
   $("qrText").textContent = "";
   $("pasteInfoBox").value = "";
+  $("assetLocked").checked = false;
+  $("code").readOnly = false;
+  setFormLocked(false);
 }
 $("resetForm").addEventListener("click", clearForm);
 
@@ -225,8 +274,16 @@ function fillFormFromAsset(a) {
   } else {
     $("photoPreview").classList.add("hidden");
   }
+  $("assetLocked").checked = !!a.locked;
   $("formTitle").textContent = "Sửa tài sản: " + (a.code || "");
   renderQR(a.code);
+
+  // Only admin can rename the doc ID (renaming = delete old + create new,
+  // and only admins are allowed to delete) or edit an EXISTING record at
+  // all — the collector account can create new assets but can never edit
+  // one that already exists, including its own.
+  $("code").readOnly = !isAdmin;
+  setFormLocked(!isAdmin);
 }
 window.editAsset = function (id) {
   const a = assets.find(x => x._id === id);
@@ -235,6 +292,7 @@ window.editAsset = function (id) {
   goPage("assetForm");
 };
 window.deleteAsset = function (id) {
+  if (!isAdmin) return; // UI already hides this button for non-admins; Firestore Rules enforce it server-side too
   const a = assets.find(x => x._id === id);
   if (!a) return;
   if (!confirm(`Xóa tài sản "${a.code}"? Không thể hoàn tác.`)) return;
@@ -248,6 +306,15 @@ $("assetFormEl").addEventListener("submit", e => {
   const newId = sanitizeId(code);
   if (!newId) { alert("Mã tài sản không hợp lệ."); return; }
   const oldId = $("assetId").value;
+
+  // Defense in depth: the form is already disabled for non-admins on any
+  // EXISTING record, but double-check here too. Firestore Rules are the
+  // real enforcement layer regardless — the collector account can only
+  // ever create brand-new docs, never update one that already exists.
+  if (!isAdmin && oldId) {
+    alert("Bạn không có quyền sửa tài sản đã tồn tại. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.");
+    return;
+  }
 
   const data = {
     code,
@@ -266,6 +333,12 @@ $("assetFormEl").addEventListener("submit", e => {
     photo: currentPhotoData || "",
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
+
+  // Admin can freely toggle the "locked" audit flag. The collector account
+  // always creates records already marked locked:true — purely
+  // informational now, since Firestore Rules block the collector from
+  // updating any existing doc regardless of this flag.
+  data.locked = isAdmin ? $("assetLocked").checked : true;
 
   const submitBtn = $("assetFormEl").querySelector('button[type="submit"]');
   const originalLabel = submitBtn.textContent;
@@ -668,16 +741,57 @@ $("logoutBtn").addEventListener("click", () => {
   auth.signOut();
 });
 
-auth.onAuthStateChanged(user => {
+// Reads users/{uid} in Firestore to find out this account's role.
+// No matching doc (or a role other than admin/collector) => unauthorized.
+// Returns true if the account may use the app at all.
+async function loadRole(user) {
+  currentEmail = user.email || "";
+  currentUid = user.uid;
+  isAdmin = false;
+  isCollector = false;
+  try {
+    const snap = await db.collection("users").doc(user.uid).get();
+    const role = snap.exists ? snap.data().role : null;
+    if (role === "admin") isAdmin = true;
+    else if (role === "collector") isCollector = true;
+  } catch (err) {
+    console.warn("Không đọc được vai trò tài khoản:", err);
+  }
+  document.body.classList.toggle("role-staff", !isAdmin);
+  const badge = $("roleBadge");
+  if (isAdmin) {
+    badge.textContent = "Quản trị";
+    badge.classList.add("admin");
+  } else if (isCollector) {
+    badge.textContent = "Thu thập dữ liệu";
+    badge.classList.remove("admin");
+  } else {
+    badge.textContent = "Chưa cấp quyền";
+    badge.classList.remove("admin");
+  }
+  return isAdmin || isCollector;
+}
+
+auth.onAuthStateChanged(async user => {
   if (user) {
     $("loginScreen").classList.add("hidden");
     $("appShell").classList.remove("hidden");
     $("userEmail").textContent = user.email || "";
+    const authorized = await loadRole(user);
+    if (!authorized) {
+      alert("Tài khoản này chưa được cấp quyền sử dụng ứng dụng. Liên hệ quản trị viên (IT).");
+      auth.signOut();
+      return;
+    }
     initSync();
     goPage("dashboard");
   } else {
     stopSync();
     assets = [];
+    isAdmin = false;
+    isCollector = false;
+    currentEmail = "";
+    currentUid = "";
     $("appShell").classList.add("hidden");
     $("loginScreen").classList.remove("hidden");
     $("loginEmail").value = "";
