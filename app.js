@@ -229,11 +229,24 @@ $("filterCheck").addEventListener("change", renderAssetList);
    quan). Không có gợi ý khớp thì vẫn gõ tay/để trống bình thường — không
    ô nào bị bắt buộc chọn từ danh sách.
 */
-function setupAutocomplete(inputId, boxId, getItems, renderItem, onSelect) {
+function setupAutocomplete(inputId, boxId, getItems, renderItem, onSelect, opts = {}) {
   const input = $(inputId);
   const box = $(boxId);
+  function selectItem(it) {
+    onSelect(it);
+    box.classList.add("hidden");
+    box.innerHTML = "";
+  }
   function show() {
     const items = getItems(input.value);
+    // autoFillMinChars: nếu gõ đủ số ký tự này trở lên mà chỉ còn đúng 1
+    // kết quả khớp (ví dụ gõ 4-5 số cuối Mã NV mà không trùng ai khác) thì
+    // tự điền luôn, không cần bấm chọn. Query quá ngắn thì vẫn phải bấm
+    // chọn như cũ để tránh tự điền nhầm.
+    if (opts.autoFillMinChars && input.value.trim().length >= opts.autoFillMinChars && items.length === 1) {
+      selectItem(items[0]);
+      return;
+    }
     if (!items.length) {
       box.innerHTML = `<div class="suggest-empty">Không có gợi ý khớp — vẫn có thể nhập tay hoặc để trống.</div>`;
       box.classList.remove("hidden");
@@ -243,9 +256,7 @@ function setupAutocomplete(inputId, boxId, getItems, renderItem, onSelect) {
     box.querySelectorAll(".suggest-item[data-idx]").forEach(el => {
       el.addEventListener("mousedown", ev => {
         ev.preventDefault(); // fire before the input's blur hides the box
-        onSelect(items[Number(el.getAttribute("data-idx"))]);
-        box.classList.add("hidden");
-        box.innerHTML = "";
+        selectItem(items[Number(el.getAttribute("data-idx"))]);
       });
     });
     box.classList.remove("hidden");
@@ -283,7 +294,8 @@ setupAutocomplete("user", "userSuggest",
     $("employeeCode").value = e.code;
     $("section").value = e.section || "";
     $("group").value = e.group || "";
-  }
+  },
+  { autoFillMinChars: 3 }
 );
 
 // Mã nhân viên — gõ/chọn theo mã, chọn xong điền kèm Tên / Bộ phận / Tổ-Chuyền
@@ -298,7 +310,8 @@ setupAutocomplete("employeeCode", "employeeCodeSuggest",
     $("user").value = e.name;
     $("section").value = e.section || "";
     $("group").value = e.group || "";
-  }
+  },
+  { autoFillMinChars: 3 }
 );
 
 // Bộ phận (Section) — gợi ý từ các Section có trong danh sách nhân viên.
