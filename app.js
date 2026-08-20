@@ -222,51 +222,97 @@ $("search").addEventListener("input", renderAssetList);
 $("filterArea").addEventListener("change", renderAssetList);
 $("filterCheck").addEventListener("change", renderAssetList);
 
+/* ---------- Autocomplete dropdowns (Khu vực / Người sử dụng / Mã NV / Bộ phận) ----------
+   Dùng chung 1 cơ chế: gõ hoặc bấm vào ô sẽ hiện danh sách gợi ý (tối đa 20
+   dòng), bấm chọn 1 dòng sẽ điền field đó (và có thể điền kèm field liên
+   quan). Không có gợi ý khớp thì vẫn gõ tay/để trống bình thường — không
+   ô nào bị bắt buộc chọn từ danh sách.
+*/
+function setupAutocomplete(inputId, boxId, getItems, renderItem, onSelect) {
+  const input = $(inputId);
+  const box = $(boxId);
+  function show() {
+    const items = getItems(input.value);
+    if (!items.length) {
+      box.innerHTML = `<div class="suggest-empty">Không có gợi ý khớp — vẫn có thể nhập tay hoặc để trống.</div>`;
+      box.classList.remove("hidden");
+      return;
+    }
+    box.innerHTML = items.map((it, i) => `<div class="suggest-item${it.inactive ? " inactive" : ""}" data-idx="${i}">${renderItem(it)}</div>`).join("");
+    box.querySelectorAll(".suggest-item[data-idx]").forEach(el => {
+      el.addEventListener("mousedown", ev => {
+        ev.preventDefault(); // fire before the input's blur hides the box
+        onSelect(items[Number(el.getAttribute("data-idx"))]);
+        box.classList.add("hidden");
+        box.innerHTML = "";
+      });
+    });
+    box.classList.remove("hidden");
+  }
+  input.addEventListener("input", show);
+  input.addEventListener("focus", show);
+  input.addEventListener("blur", () => setTimeout(() => box.classList.add("hidden"), 120));
+}
+
+function distinctAssetValues(field) {
+  return Array.from(new Set(assets.map(a => a[field]).filter(Boolean))).sort();
+}
+function filterList(list, query, limit) {
+  const q = query.trim().toLowerCase();
+  const matched = q ? list.filter(v => v.toLowerCase().includes(q)) : list;
+  return matched.slice(0, limit);
+}
+
+// Khu vực — gợi ý từ các khu vực đã có trong dữ liệu tài sản (import/tạo trước đó).
+setupAutocomplete("area", "areaSuggest",
+  q => filterList(distinctAssetValues("area"), q, 20).map(v => ({ value: v })),
+  it => escapeHtml(it.value),
+  it => { $("area").value = it.value; }
+);
+
+// Người sử dụng — gợi ý từ danh sách nhân viên (employees.js), chọn xong
+// điền kèm Mã NV / Bộ phận / Tổ-Chuyền.
+setupAutocomplete("user", "userSuggest",
+  q => filterList((window.EMPLOYEES || []).map(e => e.name), q, 20)
+    .map(name => (window.EMPLOYEES || []).find(e => e.name === name))
+    .map(e => Object.assign({ inactive: !e.active }, e)),
+  e => `${escapeHtml(e.name)}<span class="muted">${escapeHtml(e.code)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.group ? " · " + escapeHtml(e.group) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
+  e => {
+    $("user").value = e.name;
+    $("employeeCode").value = e.code;
+    $("section").value = e.section || "";
+    $("group").value = e.group || "";
+  }
+);
+
+// Mã nhân viên — gõ/chọn theo mã, chọn xong điền kèm Tên / Bộ phận / Tổ-Chuyền
+// (2 chiều với ô "Người sử dụng" ở trên).
+setupAutocomplete("employeeCode", "employeeCodeSuggest",
+  q => filterList((window.EMPLOYEES || []).map(e => e.code), q, 20)
+    .map(code => (window.EMPLOYEES || []).find(e => e.code === code))
+    .map(e => Object.assign({ inactive: !e.active }, e)),
+  e => `${escapeHtml(e.code)}<span class="muted">${escapeHtml(e.name)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
+  e => {
+    $("employeeCode").value = e.code;
+    $("user").value = e.name;
+    $("section").value = e.section || "";
+    $("group").value = e.group || "";
+  }
+);
+
+// Bộ phận (Section) — gợi ý từ các Section có trong danh sách nhân viên.
+// Chọn ở đây CHỈ điền Bộ phận, không đụng Tên/Mã NV/Tổ-Chuyền, vì một Bộ
+// phận có nhiều nhân viên nên không thể suy ngược ra 1 người cụ thể.
+setupAutocomplete("section", "sectionSuggest",
+  q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 20).map(v => ({ value: v })),
+  it => escapeHtml(it.value),
+  it => { $("section").value = it.value; }
+);
+
 /* ---------- Asset form ---------- */
 function populateTypeSelect() {
   $("type").innerHTML = ASSET_TYPES.map(t => `<option>${t}</option>`).join("");
 }
-
-/* ---------- Employee autocomplete (Người sử dụng) ----------
-   EMPLOYEES comes from employees.js (static snapshot of HR export, 284
-   người). Chọn một người ở đây chỉ auto-điền Mã NV/Section/Group — không
-   đụng tới "Khu vực" (area), vì area là vị trí vật lý còn Section/Group là
-   cơ cấu tổ chức HR, hai thứ không nhất thiết trùng nhau. Mọi ô đều có thể
-   sửa tay hoặc để trống nếu không tìm thấy / không cần.
-*/
-function renderUserSuggestions(query) {
-  const box = $("userSuggest");
-  const q = query.trim().toLowerCase();
-  if (!q || !window.EMPLOYEES) { box.classList.add("hidden"); box.innerHTML = ""; return; }
-  const matches = window.EMPLOYEES.filter(e => e.name.toLowerCase().includes(q)).slice(0, 20);
-  if (!matches.length) {
-    box.innerHTML = `<div class="suggest-empty">Không tìm thấy trong danh sách nhân viên — vẫn có thể nhập tay tên và các ô bên dưới.</div>`;
-    box.classList.remove("hidden");
-    return;
-  }
-  box.innerHTML = matches.map((e, i) => `
-    <div class="suggest-item${e.active ? "" : " inactive"}" data-idx="${i}">
-      ${escapeHtml(e.name)}
-      <span class="muted">${escapeHtml(e.code)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.group ? " · " + escapeHtml(e.group) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>
-    </div>
-  `).join("");
-  box.querySelectorAll(".suggest-item[data-idx]").forEach(el => {
-    el.addEventListener("mousedown", ev => {
-      ev.preventDefault(); // fire before the input's blur hides the box
-      const m = matches[Number(el.getAttribute("data-idx"))];
-      $("user").value = m.name;
-      $("employeeCode").value = m.code;
-      $("section").value = m.section || "";
-      $("group").value = m.group || "";
-      box.classList.add("hidden");
-      box.innerHTML = "";
-    });
-  });
-  box.classList.remove("hidden");
-}
-$("user").addEventListener("input", () => renderUserSuggestions($("user").value));
-$("user").addEventListener("focus", () => { if ($("user").value.trim()) renderUserSuggestions($("user").value); });
-$("user").addEventListener("blur", () => { setTimeout(() => $("userSuggest").classList.add("hidden"), 120); });
 // Disables/enables every field+button inside the asset form (used for the
 // read-only view staff get once their asset is locked). The section-head
 // back button lives outside the <form>, so navigation still works.
@@ -289,6 +335,12 @@ function clearForm() {
   $("pasteInfoBox").value = "";
   $("userSuggest").classList.add("hidden");
   $("userSuggest").innerHTML = "";
+  $("areaSuggest").classList.add("hidden");
+  $("areaSuggest").innerHTML = "";
+  $("employeeCodeSuggest").classList.add("hidden");
+  $("employeeCodeSuggest").innerHTML = "";
+  $("sectionSuggest").classList.add("hidden");
+  $("sectionSuggest").innerHTML = "";
   $("assetLocked").checked = false;
   $("code").readOnly = false;
   setFormLocked(false);

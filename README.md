@@ -67,6 +67,27 @@ cột đó vào "Khu vực" tài sản.
 file. Nhân viên trùng tên vẫn phân biệt được vì danh sách gợi ý luôn hiện
 kèm Mã NV.
 
+## Dropdown gợi ý trên form tài sản
+4 ô sau đều gõ-để-gợi-ý (bấm vào ô cũng hiện sẵn danh sách, không bắt
+buộc chọn — vẫn gõ tay hoặc để trống được):
+- **Khu vực** — gợi ý từ các khu vực đã có trong dữ liệu tài sản hiện tại
+  (tài sản đã tạo/đã import trước đó). Admin import Excel với cột "Khu
+  vực" điền sẵn thì lần sau các nhân viên đi kiểm sẽ thấy khu vực đó xuất
+  hiện trong gợi ý.
+- **Người sử dụng** — gợi ý từ `employees.js`, chọn xong tự điền kèm Mã
+  NV / Bộ phận / Tổ-Chuyền.
+- **Mã nhân viên** — gợi ý từ `employees.js` theo mã, chọn xong tự điền
+  kèm Tên / Bộ phận / Tổ-Chuyền (điền 2 chiều với "Người sử dụng").
+- **Bộ phận (Section)** — gợi ý từ các Section có trong `employees.js`.
+  Chọn ở đây chỉ điền riêng ô Bộ phận, không đụng Tên/Mã NV/Tổ-Chuyền, vì
+  một Bộ phận có nhiều người nên không suy ngược ra 1 nhân viên cụ thể
+  được.
+
+Admin có thể chuẩn bị sẵn 1 file Excel (`it-asset-inventory-...xlsx` xuất
+từ app, hoặc tự soạn theo đúng cột chuẩn ở trên) điền sẵn Khu vực/Người sử
+dụng/Mã nhân viên/Bộ phận cho từng mã tài sản, rồi vào **Dữ liệu → Nhập
+Excel** để import hàng loạt — không cần nhập tay từng cái.
+
 ## Phân quyền: Admin (IT) vs tài khoản Thu thập dữ liệu
 
 App có 2 loại tài khoản:
