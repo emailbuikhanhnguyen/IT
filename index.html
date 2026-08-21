@@ -106,8 +106,10 @@
 
     <div class="psbox">
       <h3>⚙ Lấy thông tin máy (PC/Laptop)</h3>
-      <p class="hint">Bấm Copy → chạy trong PowerShell trên máy cần kiểm kê → chỉ copy đoạn giữa 2 dòng "===== KET QUA =====" → dán vào ô bên dưới → bấm Tự động điền.</p>
+      <p class="hint">Bấm Copy → chạy trong PowerShell trên máy cần kiểm kê → chỉ copy đoạn giữa 2 dòng "===== KET QUA =====" → dán vào ô bên dưới → bấm Tự động điền.
+      Nếu máy đó <b>không có mạng</b>, dùng nút "Tạo QR" thay thế — script sẽ tự mở 1 trang có mã QR ngay trên máy, đưa điện thoại lên quét là form tự điền, không cần gõ tay.</p>
       <button type="button" id="btnCopyPS" class="secondary">📋 Copy lệnh PowerShell</button>
+      <button type="button" id="btnCopyPSQR" class="secondary">📱 Copy lệnh PowerShell (Tạo QR — máy không có mạng)</button>
       <textarea id="pasteInfoBox" rows="4" placeholder="MODEL: ...&#10;SERIAL: ...&#10;CAUHINH: ...&#10;IP: ...&#10;MAC: ..."></textarea>
       <button type="button" id="btnAutofill">⚡ Tự động điền</button>
     </div>
