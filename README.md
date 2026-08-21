@@ -32,6 +32,7 @@ Các cột có thể dùng:
 - group
 - code
 - type
+- deviceName (Tên tài sản — điền tay hoặc tự điền qua PowerShell, xem mục dưới)
 - model
 - serial
 - ip
