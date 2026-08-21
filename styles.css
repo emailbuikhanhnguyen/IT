@@ -31,16 +31,21 @@
 .suggest-item.inactive{opacity:.6}
 .suggest-empty{padding:10px 12px;color:#64748b;font-size:13px;font-weight:400}
 .qr-btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.history-box{margin-bottom:14px}
+.history-entry{border-bottom:1px solid #e2e8f0;padding:10px 0}
+.history-entry:last-child{border-bottom:0}
+.history-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.history-action{font-weight:650;font-size:13px;color:#2563eb}
+.history-change{font-size:12.5px;color:#334155;padding:1px 0}
 .print-label{display:none}
 @media print{
   @page{size:70mm 50mm;margin:0}
   html,body{width:70mm;height:50mm;margin:0;padding:0}
   body > *:not(#printLabelArea){display:none!important}
-  #printLabelArea{display:flex!important;align-items:center;justify-content:space-between;gap:2mm;width:70mm;height:50mm;box-sizing:border-box;padding:2.5mm;overflow:hidden}
+  #printLabelArea{display:flex!important;align-items:center;justify-content:space-between;gap:2.5mm;width:70mm;height:50mm;box-sizing:border-box;padding:3mm;overflow:hidden}
   .print-label-left{min-width:0;overflow:hidden;flex:1 1 auto}
-  .print-label-left h3{font-size:12pt;line-height:1.12;margin:0 0 1.2mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .print-label-left .pl-muted{font-size:6.8pt;line-height:1.22;color:#334155;margin-bottom:1mm;white-space:normal;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .print-label-left .pl-muted:last-child{margin-bottom:0}
+  .print-label-left h3{font-size:13pt;line-height:1.15;margin:0 0 1.6mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .print-label-left .pl-muted{font-size:7.5pt;line-height:1.28;color:#334155;margin-bottom:1.4mm;white-space:normal;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .print-label-right{flex-shrink:0}
-  .print-label-right img,.print-label-right canvas{width:23mm!important;height:23mm!important;display:block}
+  .print-label-right img,.print-label-right canvas{width:26mm!important;height:26mm!important;display:block}
 }
