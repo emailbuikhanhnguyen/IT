@@ -152,6 +152,13 @@
     </div>
   </div>
   <div class="card">
+    <h3>Báo cáo PDF</h3>
+    <p>Xuất báo cáo kiểm kê dạng PDF có màu sắc, biểu đồ thống kê và bảng chi tiết — dùng để in hoặc gửi báo cáo.</p>
+    <div class="quick">
+      <button id="exportPdfReport">📄 Xuất báo cáo PDF</button>
+    </div>
+  </div>
+  <div class="card">
     <h3>Backup</h3>
     <div class="quick"><button id="backupJson">Sao lưu JSON</button><label class="button secondary">Khôi phục JSON<input id="restoreJson" type="file" accept=".json" hidden></label></div>
   </div>
@@ -189,6 +196,9 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
