@@ -155,9 +155,25 @@ function badgeClass(status) {
   if (c === "exception") return "bad";
   return "warn";
 }
+// Rebuilds the "Bộ phận" filter's option list from whatever sections
+// currently exist in `assets`, keeping the user's current selection if it's
+// still a valid option (falls back to "Tất cả khu vực" otherwise).
+function populateSectionFilter() {
+  const sel = $("filterSection");
+  if (!sel) return;
+  const prev = sel.value;
+  const sections = Array.from(new Set(assets.map(a => (a.section || "").trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, "vi"));
+  sel.innerHTML = `<option value="">Tất cả khu vực</option>` +
+    sections.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+  if (prev && sections.includes(prev)) sel.value = prev;
+}
+
 function renderAssetList() {
+  populateSectionFilter();
   const q = ($("search").value || "").trim().toLowerCase();
   const checkF = $("filterCheck").value;
+  const sectionF = $("filterSection").value;
 
   let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
   if (q) {
@@ -166,6 +182,7 @@ function renderAssetList() {
     );
   }
   if (checkF) list = list.filter(a => classifyCheck(a.checkStatus) === checkF);
+  if (sectionF) list = list.filter(a => (a.section || "").trim() === sectionF);
 
   if (!list.length) {
     $("assetList").innerHTML = `<div class="empty">Không có tài sản phù hợp.</div>`;
@@ -199,6 +216,7 @@ function renderAssetList() {
 }
 $("search").addEventListener("input", renderAssetList);
 $("filterCheck").addEventListener("change", renderAssetList);
+$("filterSection").addEventListener("change", renderAssetList);
 
 /* ---------- Autocomplete dropdowns (Người sử dụng / Mã NV / Bộ phận) ----------
    Dùng chung 1 cơ chế: gõ hoặc bấm vào ô sẽ hiện danh sách gợi ý (tối đa 20
