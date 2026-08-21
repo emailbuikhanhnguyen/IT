@@ -772,7 +772,7 @@ function onScanSuccess(decodedText) {
   const existing = assets.find(a => a.code === code);
   if (existing) {
     const rows = [
-      ["💻 Device name", existing.deviceName],
+      ["💻 Tên tài sản", existing.deviceName],
       ["🔢 Serial", existing.serial],
       ["👤 Người sử dụng", existing.user],
       ["🆔 Mã nhân viên", existing.employeeCode],
@@ -806,7 +806,7 @@ const COLUMNS = [
   "group",        // Tổ/Chuyền (Group)
   "code",         // Mã tài sản
   "type",         // Loại thiết bị
-  "deviceName",   // Device name
+  "deviceName",   // Tên tài sản (device name)
   "model",        // Model
   "serial",       // Serial Number
   "ip",           // IP
@@ -819,7 +819,7 @@ const COLUMNS = [
 ];
 const COLUMN_LABELS_VN = {
   employeeCode: "Mã nhân viên", user: "Người sử dụng", section: "Bộ phận", group: "Tổ/Chuyền",
-  code: "Mã tài sản", type: "Loại thiết bị", deviceName: "Device name", model: "Model", serial: "Serial",
+  code: "Mã tài sản", type: "Loại thiết bị", deviceName: "Tên tài sản", model: "Model", serial: "Serial",
   ip: "IP", mac: "MAC", spec: "Cấu hình", winInfo: "Thông tin Windows",
   status: "Tình trạng", checkStatus: "Trạng thái kiểm kê", note: "Ghi chú"
 };
