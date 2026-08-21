@@ -59,6 +59,25 @@ dùng để tự gợi ý **Mã tài sản** — xem mục bên dưới.
 file. Nhân viên trùng tên vẫn phân biệt được vì danh sách gợi ý luôn hiện
 kèm Mã NV.
 
+## Máy không có mạng: lấy thông tin máy bằng QR (không cần gõ tay)
+Trong khung "⚙ Lấy thông tin máy (PC/Laptop)" trên form tài sản có 2 nút:
+- **📋 Copy lệnh PowerShell** — dùng cho máy có mạng: chạy xong tự copy
+  kết quả vào khung dán, bấm "Tự động điền".
+- **📱 Copy lệnh PowerShell (Tạo QR — máy không có mạng)** — dùng cho máy
+  **không có Internet**. Chạy trên máy đó, script sẽ **tự mở 1 trang QR
+  ngay trên trình duyệt của máy đó** (trang này tự chứa sẵn thư viện tạo
+  QR, hoàn toàn không cần mạng). Sau đó chỉ cần bấm "▶ Bắt đầu quét" trên
+  điện thoại (trang Quét QR trong app) và đưa camera vào mã QR đó — form
+  tài sản trên điện thoại sẽ **tự điền Device name/Model/Serial/Cấu
+  hình/Thông tin Windows/IP/MAC**, không cần chép tay bất kỳ thông tin
+  nào qua lại giữa 2 máy. Loại thiết bị/Bộ phận/Người sử dụng vẫn cần
+  chọn tay như bình thường rồi lưu.
+- Nếu trình duyệt trên máy offline không tự mở, mở file
+  `%TEMP%\asset-qr-...html` bằng tay rồi đưa điện thoại lên quét.
+- Script vẫn in kèm bản tóm tắt dạng chữ ra cửa sổ PowerShell (giống nút
+  trên) để dùng khung "Dán thông tin máy" làm phương án dự phòng nếu vì
+  lý do gì đó không quét được QR.
+
 ## Dropdown gợi ý trên form tài sản
 3 ô sau đều gõ-để-gợi-ý (bấm vào ô cũng hiện sẵn danh sách, không bắt
 buộc chọn — vẫn gõ tay hoặc để trống được):
