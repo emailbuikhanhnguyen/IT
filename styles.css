@@ -36,10 +36,11 @@
   @page{size:70mm 50mm;margin:0}
   html,body{width:70mm;height:50mm;margin:0;padding:0}
   body > *:not(#printLabelArea){display:none!important}
-  #printLabelArea{display:flex!important;align-items:center;justify-content:space-between;gap:2.5mm;width:70mm;height:50mm;box-sizing:border-box;padding:3mm;overflow:hidden}
+  #printLabelArea{display:flex!important;align-items:center;justify-content:space-between;gap:2mm;width:70mm;height:50mm;box-sizing:border-box;padding:2.5mm;overflow:hidden}
   .print-label-left{min-width:0;overflow:hidden;flex:1 1 auto}
-  .print-label-left h3{font-size:13pt;line-height:1.15;margin:0 0 1.6mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .print-label-left .pl-muted{font-size:7.5pt;line-height:1.28;color:#334155;margin-bottom:1.4mm;white-space:normal;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .print-label-left h3{font-size:12pt;line-height:1.12;margin:0 0 1.2mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .print-label-left .pl-muted{font-size:6.8pt;line-height:1.22;color:#334155;margin-bottom:1mm;white-space:normal;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .print-label-left .pl-muted:last-child{margin-bottom:0}
   .print-label-right{flex-shrink:0}
-  .print-label-right img,.print-label-right canvas{width:26mm!important;height:26mm!important;display:block}
+  .print-label-right img,.print-label-right canvas{width:23mm!important;height:23mm!important;display:block}
 }
