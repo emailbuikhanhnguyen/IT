@@ -57,6 +57,81 @@ const CHECK_NEW = "Thiết bị mới";
 const CHECK_WRONG = "Sai thông tin";
 const CHECK_MISSING = "Không tìm thấy";
 
+/* ---------- Lịch sử thay đổi (vòng đời tài sản) ----------
+   Lưu trực tiếp trong field `history` (mảng) của chính document tài sản đó —
+   KHÔNG dùng subcollection/collection riêng, nên không cần sửa gì thêm ở
+   firestore.rules: quyền ghi field này đi theo đúng quyền ghi cả document
+   (collector tạo mới được, chỉ admin sửa được) như mọi field khác.
+   Mỗi phần tử: { at: <epoch ms>, by: <email>, action: 'create'|'update'|'rename',
+                  changes: [{ field, label, from, to }] }
+   Lưu ý: dùng Date.now() (không dùng serverTimestamp()) cho từng phần tử,
+   vì Firestore không cho phép serverTimestamp() bên trong arrayUnion(). */
+const HISTORY_TRACK_FIELDS = [
+  ["employeeCode", "Mã nhân viên"],
+  ["user", "Người sử dụng"],
+  ["section", "Bộ phận"],
+  ["group", "Tổ/Chuyền"],
+  ["type", "Loại thiết bị"],
+  ["deviceName", "Device name"],
+  ["model", "Model"],
+  ["serial", "Serial Number"],
+  ["ip", "IP"],
+  ["mac", "MAC"],
+  ["spec", "Cấu hình"],
+  ["winInfo", "Thông tin Windows"],
+  ["status", "Tình trạng"],
+  ["checkStatus", "Trạng thái kiểm kê"],
+  ["note", "Ghi chú"],
+];
+const HISTORY_ACTION_LABEL = { create: "Tạo tài sản", update: "Cập nhật", rename: "Đổi mã tài sản", import: "Nhập từ Excel" };
+
+// So sánh 1 tài sản cũ (đang có trên hệ thống) với dữ liệu mới sắp lưu,
+// trả về danh sách các trường thực sự thay đổi. Nếu truyền `onlyKeys` (vd:
+// khi import Excel chỉ ghi vài cột), chỉ so sánh đúng các trường đó — tránh
+// hiểu nhầm "xóa trắng" cho các trường mà dòng Excel không hề đề cập tới
+// (vì .set(..., {merge:true}) không đụng tới field không có trong obj).
+function diffAssetFields(oldA, newData, onlyKeys) {
+  const fields = onlyKeys ? HISTORY_TRACK_FIELDS.filter(([key]) => onlyKeys.includes(key)) : HISTORY_TRACK_FIELDS;
+  const changes = [];
+  fields.forEach(([key, label]) => {
+    const ov = ((oldA && oldA[key]) || "").toString().trim();
+    const nv = ((newData && newData[key]) || "").toString().trim();
+    if (ov !== nv) changes.push({ field: key, label, from: ov, to: nv });
+  });
+  return changes;
+}
+
+function historyEntry(action, changes) {
+  return { at: Date.now(), by: currentEmail || "?", action, changes: changes || [] };
+}
+
+function formatHistoryTime(ms) {
+  try { return new Date(ms).toLocaleString("vi-VN"); } catch (e) { return ""; }
+}
+
+function renderHistoryBox(a) {
+  const box = $("historyBox");
+  const list = $("historyList");
+  if (!box || !list) return;
+  const entries = Array.isArray(a && a.history) ? a.history.slice().sort((x, y) => (y.at || 0) - (x.at || 0)) : [];
+  if (!entries.length) { box.classList.add("hidden"); list.innerHTML = ""; return; }
+  box.classList.remove("hidden");
+  list.innerHTML = entries.map(e => {
+    const changesHtml = (e.changes || []).map(c => {
+      const from = c.from ? escapeHtml(c.from) : "<i>(trống)</i>";
+      const to = c.to ? escapeHtml(c.to) : "<i>(trống)</i>";
+      return `<div class="history-change"><b>${escapeHtml(c.label)}:</b> ${from} → ${to}</div>`;
+    }).join("");
+    return `<div class="history-entry">
+      <div class="history-head">
+        <span class="history-action">${escapeHtml(HISTORY_ACTION_LABEL[e.action] || e.action || "")}</span>
+        <span class="muted">${formatHistoryTime(e.at)} · ${escapeHtml(e.by || "")}</span>
+      </div>
+      ${changesHtml || '<div class="history-change muted">Không có thay đổi chi tiết được ghi nhận.</div>'}
+    </div>`;
+  }).join("");
+}
+
 /* ---------- Utilities ---------- */
 function $(id) { return document.getElementById(id); }
 function sanitizeId(code) {
@@ -431,6 +506,7 @@ function clearForm() {
   setFormLocked(false);
   codeAutoFilled = true;
   maybeSuggestCode(); // gợi ý sẵn mã cho tài sản mới (vd PC-0001)
+  if ($("historyBox")) { $("historyBox").classList.add("hidden"); $("historyList").innerHTML = ""; }
 }
 $("resetForm").addEventListener("click", clearForm);
 
@@ -463,6 +539,7 @@ function fillFormFromAsset(a) {
   $("assetLocked").checked = !!a.locked;
   $("formTitle").textContent = "Sửa tài sản: " + (a.code || "");
   renderQR(a.code);
+  renderHistoryBox(a);
 
   // Only admin can rename the doc ID (renaming = delete old + create new,
   // and only admins are allowed to delete) or edit an EXISTING record at
@@ -492,6 +569,7 @@ $("assetFormEl").addEventListener("submit", e => {
   const newId = sanitizeId(code);
   if (!newId) { alert("Mã tài sản không hợp lệ."); return; }
   const oldId = $("assetId").value;
+  const oldAsset = oldId ? assets.find(a => a._id === oldId) : null;
 
   // Defense in depth: the form is already disabled for non-admins on any
   // EXISTING record, but double-check here too. Firestore Rules are the
@@ -528,6 +606,27 @@ $("assetFormEl").addEventListener("submit", e => {
   // informational now, since Firestore Rules block the collector from
   // updating any existing doc regardless of this flag.
   data.locked = isAdmin ? $("assetLocked").checked : true;
+
+  // Ghi lịch sử thay đổi (vòng đời tài sản) — xem khối HISTORY_TRACK_FIELDS
+  // ở đầu file. arrayUnion() nối thêm phần tử mới vào mảng `history` sẵn có
+  // trên document, không cần đọc lại dữ liệu cũ từ server trước khi ghi.
+  {
+    const fieldChanges = diffAssetFields(oldAsset, data);
+    let action, carriedHistory = [];
+    if (!oldId) {
+      action = "create";
+    } else if (oldId !== newId) {
+      action = "rename";
+      fieldChanges.unshift({ field: "code", label: "Mã tài sản", from: oldAsset ? oldAsset.code : oldId, to: code });
+      carriedHistory = (oldAsset && Array.isArray(oldAsset.history)) ? oldAsset.history : [];
+    } else {
+      action = "update";
+    }
+    if (action !== "update" || fieldChanges.length) {
+      const entry = historyEntry(action, fieldChanges);
+      data.history = firebase.firestore.FieldValue.arrayUnion(...carriedHistory, entry);
+    }
+  }
 
   // Chặn tạo/lưu tài sản trùng Serial với 1 tài sản khác đã có trong hệ
   // thống. Quan trọng nhất với tài khoản Collector: họ không sửa/xóa lại
@@ -622,15 +721,8 @@ function printWithFilename(suggestedName) {
 function renderPrintLabel(data) {
   $("plCode").textContent = data.code || "";
   $("plTypeModel").textContent = [data.type, data.model].filter(Boolean).join(" · ");
-  const serialDevice = [];
-  if (data.serial) serialDevice.push("SN: " + data.serial);
-  if (data.deviceName) serialDevice.push(data.deviceName);
-  $("plSerialDevice").textContent = serialDevice.join(" · ");
-  $("plUser").textContent = (data.user || data.employeeCode)
-    ? ("👤 " + [data.user, data.employeeCode ? `(${data.employeeCode})` : ""].filter(Boolean).join(" "))
-    : "";
-  const sectionGroup = [data.section, data.group].filter(Boolean).join(" / ");
-  $("plSection").textContent = sectionGroup ? ("🏢 " + sectionGroup) : "";
+  $("plUser").textContent = data.user ? ("👤 " + data.user + (data.employeeCode ? ` (${data.employeeCode})` : "")) : "";
+  $("plSection").textContent = data.section ? ("🏢 " + data.section) : "";
   $("plQr").innerHTML = "";
   new QRCode($("plQr"), { text: "ITASSET:" + (data.code || ""), width: 300, height: 300 });
 }
@@ -648,12 +740,9 @@ $("printLabelBtn").addEventListener("click", () => {
     code,
     type: $("type").value,
     model: $("model").value.trim(),
-    serial: $("serial").value.trim(),
-    deviceName: $("deviceName").value.trim(),
     user: $("user").value.trim(),
     employeeCode,
-    section: $("section").value.trim(),
-    group: $("group").value.trim()
+    section: $("section").value.trim()
   });
   setTimeout(() => printWithFilename(employeeCode || code), 150);
 });
@@ -1325,6 +1414,19 @@ $("importXlsx").addEventListener("change", async e => {
       obj.checkStatus = obj.checkStatus || CHECK_UNCHECKED;
       obj.status = obj.status || "Tốt";
       obj.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+      // Ghi lịch sử cho từng dòng import — chỉ so sánh đúng các cột có mặt
+      // trong file Excel của dòng này (onlyKeys), tránh báo nhầm "xóa" các
+      // trường mà file Excel không hề đề cập tới. Dòng nào không đổi gì so
+      // với bản hiện tại thì bỏ qua, tránh rác lịch sử khi import lại file
+      // cũ không có gì mới.
+      const existing = assets.find(a => a._id === id);
+      const importedKeys = Object.keys(obj).filter(k => HISTORY_TRACK_FIELDS.some(([hk]) => hk === k));
+      const fieldChanges = diffAssetFields(existing, obj, importedKeys);
+      if (!existing || fieldChanges.length) {
+        obj.history = firebase.firestore.FieldValue.arrayUnion(historyEntry("import", fieldChanges));
+      }
+
       batch.set(db.collection(COLLECTION).doc(id), obj, { merge: true });
       count++; imported++;
       if (count >= 400) { chunks.push(batch); batch = db.batch(); count = 0; }
