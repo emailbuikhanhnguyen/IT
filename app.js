@@ -989,6 +989,308 @@ $("exportXlsx").addEventListener("click", () => {
   XLSX.writeFile(wb, `it-asset-inventory-${ts}.xlsx`);
 });
 
+/* ---------- PDF report export ----------
+   Xuất báo cáo kiểm kê dạng PDF: trang bìa + thống kê tổng quan (thẻ số liệu
+   + biểu đồ tròn) + biểu đồ theo Bộ phận/Loại thiết bị/Tình trạng + bảng chi
+   tiết toàn bộ tài sản (màu theo trạng thái kiểm kê). Dùng dữ liệu thật từ
+   Firestore (biến `assets`). Vẽ report bằng HTML/CSS ẩn ngoài màn hình +
+   Chart.js cho biểu đồ, rồi chụp từng "trang" bằng html2canvas và ghép vào
+   PDF bằng jsPDF — cách này giữ được dấu tiếng Việt chính xác vì dùng font
+   của trình duyệt thay vì nhúng font vào PDF.
+*/
+const PDF_PALETTE = {
+  navy: "#0f172a", blue: "#2563eb", blueLight: "#93c5fd", slate: "#64748b",
+  slateLight: "#f1f5f9", green: "#16a34a", greenBg: "#dcfce7",
+  amber: "#d97706", amberBg: "#fef3c7", red: "#dc2626", redBg: "#fee2e2"
+};
+const PDF_CHART_COLORS = ["#2563eb", "#0ea5e9", "#7c3aed", "#16a34a", "#f59e0b", "#dc2626", "#0f766e", "#db2777", "#64748b", "#84cc16"];
+const PDF_STATUS_COLORS = { "Tốt": "#16a34a", "Đang sử dụng": "#2563eb", "Dự phòng": "#0ea5e9", "Hỏng": "#dc2626", "Mất": "#7c2d12", "Thanh lý": "#94a3b8" };
+
+function ensurePdfReportStyles() {
+  if ($("pdfReportStyles")) return;
+  const style = document.createElement("style");
+  style.id = "pdfReportStyles";
+  style.textContent = `
+  #pdfReportRoot{position:fixed; left:-99999px; top:0; width:794px; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+  .pdf-page{width:794px; min-height:1123px; box-sizing:border-box; background:#fff; position:relative; overflow:hidden;}
+  .pdf-cover{background:${PDF_PALETTE.navy}; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;}
+  .pdf-cover .pdf-blob1{position:absolute; top:-60px; right:-60px; width:220px; height:220px; border-radius:50%; background:${PDF_PALETTE.blue}; opacity:.55}
+  .pdf-cover .pdf-blob2{position:absolute; bottom:-60px; left:-60px; width:180px; height:180px; border-radius:50%; background:#0ea5e9; opacity:.5}
+  .pdf-cover .pdf-icon{width:70px; height:86px; background:${PDF_PALETTE.blue}; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:28px}
+  .pdf-cover .pdf-icon-inner{width:54px; height:68px; background:#fff; border-radius:6px; position:relative}
+  .pdf-cover .pdf-icon-inner:before{content:"";position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:22px;height:10px;background:${PDF_PALETTE.blue};border-radius:4px}
+  .pdf-cover h1{font-size:30px; margin:0 0 10px; letter-spacing:.5px}
+  .pdf-cover .pdf-sub{font-size:16px; color:${PDF_PALETTE.blueLight}; margin-bottom:18px}
+  .pdf-cover .pdf-meta{font-size:12px; color:#cbd5e1; line-height:1.6}
+  .pdf-content{padding:36px 40px 60px}
+  .pdf-header{background:${PDF_PALETTE.navy}; color:#fff; padding:14px 40px; display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:14px}
+  .pdf-header span:last-child{font-weight:400; color:${PDF_PALETTE.blueLight}; font-size:11px}
+  .pdf-h1{font-size:20px; font-weight:800; color:${PDF_PALETTE.navy}; margin:0 0 6px}
+  .pdf-hr{border:none; border-top:1px solid #e2e8f0; margin:0 0 14px}
+  .pdf-body{font-size:12px; color:#334155; line-height:1.5}
+  .pdf-cards{display:flex; gap:10px; margin:14px 0}
+  .pdf-card{flex:1; background:#fff; border:1px solid #e2e8f0; border-radius:10px; text-align:center; padding:14px 6px 10px; border-top:4px solid var(--accent)}
+  .pdf-card b{display:block; font-size:26px; color:var(--accent)}
+  .pdf-card span{font-size:11px; color:${PDF_PALETTE.slate}}
+  .pdf-progress-wrap{margin:14px 0 22px}
+  .pdf-progress-bar{height:9px; border-radius:6px; background:#e2e8f0; overflow:hidden; margin-top:6px}
+  .pdf-progress-bar i{display:block; height:100%; background:${PDF_PALETTE.blue}}
+  .pdf-h2{font-size:15px; font-weight:800; color:${PDF_PALETTE.navy}; margin:22px 0 10px}
+  .pdf-chart-box{text-align:center}
+  .pdf-legend{display:flex; gap:18px; align-items:center; font-size:11px; color:${PDF_PALETTE.slate}; margin-top:14px; flex-wrap:wrap}
+  .pdf-legend i{display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:middle}
+  table.pdf-table{width:100%; border-collapse:collapse; font-size:10.5px; table-layout:fixed}
+  table.pdf-table thead th{background:${PDF_PALETTE.navy}; color:#fff; text-align:left; padding:8px 8px; font-size:10px}
+  table.pdf-table tbody td{padding:6px 8px; border-bottom:1px solid #e2e8f0; vertical-align:top; word-break:break-word}
+  table.pdf-table tbody tr:nth-child(even) td{background:${PDF_PALETTE.slateLight}}
+  table.pdf-table th:nth-child(1),table.pdf-table td:nth-child(1){width:14%}
+  table.pdf-table th:nth-child(2),table.pdf-table td:nth-child(2){width:11%}
+  table.pdf-table th:nth-child(3),table.pdf-table td:nth-child(3){width:16%}
+  table.pdf-table th:nth-child(4),table.pdf-table td:nth-child(4){width:16%}
+  table.pdf-table th:nth-child(5),table.pdf-table td:nth-child(5){width:20%}
+  table.pdf-table th:nth-child(6),table.pdf-table td:nth-child(6){width:11%}
+  table.pdf-table th:nth-child(7),table.pdf-table td:nth-child(7){width:12%}
+  .pdf-badge{display:inline-block; padding:2px 8px; border-radius:999px; font-weight:700; font-size:9.5px; white-space:nowrap}
+  .pdf-footer{position:absolute; bottom:18px; left:40px; right:40px; display:flex; justify-content:space-between; font-size:9px; color:${PDF_PALETTE.slate}; border-top:1px solid #e2e8f0; padding-top:6px}
+  `;
+  document.head.appendChild(style);
+}
+
+function pdfBadgeColors(status) {
+  const c = classifyCheck(status);
+  if (c === "checked") return { bg: PDF_PALETTE.greenBg, fg: PDF_PALETTE.green };
+  if (c === "exception") return { bg: PDF_PALETTE.redBg, fg: PDF_PALETTE.red };
+  return { bg: PDF_PALETTE.amberBg, fg: PDF_PALETTE.amber };
+}
+
+async function generatePdfReport() {
+  if (!window.jspdf || !window.html2canvas || !window.Chart) {
+    alert("Không tải được thư viện xuất PDF (cần Internet ở lần đầu). Kiểm tra kết nối mạng rồi thử lại.");
+    return;
+  }
+  if (!assets.length) { alert("Chưa có dữ liệu để xuất báo cáo."); return; }
+
+  const btn = $("exportPdfReport");
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ Đang tạo PDF...";
+
+  ensurePdfReportStyles();
+  const root = document.createElement("div");
+  root.id = "pdfReportRoot";
+  document.body.appendChild(root);
+  const chartInstances = [];
+
+  try {
+    const list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
+    const total = list.length;
+    let checked = 0, unchecked = 0, exception = 0;
+    const bySection = {}, byType = {}, byStatus = {};
+    list.forEach(a => {
+      const c = classifyCheck(a.checkStatus);
+      if (c === "checked") checked++; else if (c === "exception") exception++; else unchecked++;
+      const sec = (a.section || "").trim() || "Chưa gán";
+      bySection[sec] = (bySection[sec] || 0) + 1;
+      const typ = a.type || "Khác";
+      byType[typ] = (byType[typ] || 0) + 1;
+      const st = a.status || "Không rõ";
+      byStatus[st] = (byStatus[st] || 0) + 1;
+    });
+    const pct = total ? Math.round((checked / total) * 100) : 0;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("vi-VN");
+    const headerBar = `<div class="pdf-header"><span>BÁO CÁO KIỂM KÊ TÀI SẢN IT</span><span>SEC — IT Asset Inventory</span></div>`;
+    const footerBar = pageNum => `<div class="pdf-footer"><span>Xuất ngày ${dateStr}</span><span>Trang ${pageNum}</span></div>`;
+
+    /* ---- Trang bìa ---- */
+    const cover = document.createElement("div");
+    cover.className = "pdf-page pdf-cover";
+    cover.innerHTML = `
+      <div class="pdf-blob1"></div><div class="pdf-blob2"></div>
+      <div class="pdf-icon"><div class="pdf-icon-inner"></div></div>
+      <h1>BÁO CÁO KIỂM KÊ TÀI SẢN IT</h1>
+      <div class="pdf-sub">SEC — IT Asset Inventory</div>
+      <div class="pdf-meta">Ngày xuất báo cáo: ${dateStr}<br>Tổng số tài sản: ${total}</div>`;
+    root.appendChild(cover);
+
+    /* ---- Trang tổng quan ---- */
+    const overview = document.createElement("div");
+    overview.className = "pdf-page";
+    overview.innerHTML = `
+      ${headerBar}
+      <div class="pdf-content">
+        <div class="pdf-h1">1. Thống kê tổng quan</div>
+        <hr class="pdf-hr">
+        <div class="pdf-cards">
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.blue}"><b>${total}</b><span>Tổng tài sản</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.green}"><b>${checked}</b><span>Đã kiểm</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.amber}"><b>${unchecked}</b><span>Chưa kiểm</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.red}"><b>${exception}</b><span>Cần xử lý</span></div>
+        </div>
+        <div class="pdf-progress-wrap">
+          <div class="pdf-body">Tiến độ kiểm kê tổng thể: <b>${checked}/${total} (${pct}%)</b></div>
+          <div class="pdf-progress-bar"><i style="width:${pct}%"></i></div>
+        </div>
+        <div class="pdf-h2">Tỉ lệ trạng thái kiểm kê</div>
+        <div class="pdf-chart-box"><canvas id="pdfChartDonut" width="440" height="440"></canvas></div>
+        <div class="pdf-legend">
+          <span><i style="background:${PDF_PALETTE.green}"></i>Đã kiểm (${checked})</span>
+          <span><i style="background:${PDF_PALETTE.amber}"></i>Chưa kiểm (${unchecked})</span>
+          <span><i style="background:${PDF_PALETTE.red}"></i>Cần xử lý (${exception})</span>
+        </div>
+      </div>
+      ${footerBar(1)}`;
+    root.appendChild(overview);
+
+    /* ---- Trang biểu đồ Bộ phận / Loại thiết bị ---- */
+    const sectionEntries = Object.entries(bySection).sort((a, b) => b[1] - a[1]);
+    const typeEntries = Object.entries(byType).sort((a, b) => b[1] - a[1]);
+    const chartsPage = document.createElement("div");
+    chartsPage.className = "pdf-page";
+    chartsPage.innerHTML = `
+      ${headerBar}
+      <div class="pdf-content">
+        <div class="pdf-h1">2. Thống kê theo Bộ phận</div>
+        <hr class="pdf-hr">
+        <div class="pdf-body">Số lượng tài sản đang được quản lý theo từng Bộ phận (Section).</div>
+        <div class="pdf-chart-box"><canvas id="pdfChartSection" width="700" height="${Math.max(200, sectionEntries.length * 34 + 50)}"></canvas></div>
+        <div class="pdf-h2">3. Thống kê theo Loại thiết bị</div>
+        <div class="pdf-chart-box"><canvas id="pdfChartType" width="700" height="300"></canvas></div>
+      </div>
+      ${footerBar(2)}`;
+    root.appendChild(chartsPage);
+
+    /* ---- Trang biểu đồ Tình trạng ---- */
+    const statusEntries = Object.entries(byStatus).sort((a, b) => b[1] - a[1]);
+    const statusPage = document.createElement("div");
+    statusPage.className = "pdf-page";
+    statusPage.innerHTML = `
+      ${headerBar}
+      <div class="pdf-content">
+        <div class="pdf-h1">4. Thống kê theo Tình trạng thiết bị</div>
+        <hr class="pdf-hr">
+        <div class="pdf-chart-box"><canvas id="pdfChartStatus" width="700" height="300"></canvas></div>
+      </div>
+      ${footerBar(3)}`;
+    root.appendChild(statusPage);
+
+    /* ---- Các trang bảng chi tiết ---- */
+    const ROWS_PER_PAGE = 15;
+    const chunks = [];
+    for (let i = 0; i < list.length; i += ROWS_PER_PAGE) chunks.push(list.slice(i, i + ROWS_PER_PAGE));
+    if (!chunks.length) chunks.push([]);
+    chunks.forEach((chunk, idx) => {
+      const page = document.createElement("div");
+      page.className = "pdf-page";
+      const heading = idx === 0
+        ? `<div class="pdf-h1">5. Danh sách chi tiết tài sản</div><hr class="pdf-hr"><div class="pdf-body">Toàn bộ tài sản hiện có, màu theo trạng thái kiểm kê.</div>`
+        : `<div class="pdf-h1">5. Danh sách chi tiết tài sản (tiếp theo)</div><hr class="pdf-hr">`;
+      const rows = chunk.map(a => {
+        const bc = pdfBadgeColors(a.checkStatus || CHECK_UNCHECKED);
+        return `<tr>
+          <td><b>${escapeHtml(a.code)}</b></td>
+          <td>${escapeHtml(a.type || "")}</td>
+          <td>${escapeHtml(a.model || "")}</td>
+          <td>${escapeHtml(a.user || "—")}</td>
+          <td>${escapeHtml(a.section || "")}</td>
+          <td>${escapeHtml(a.status || "")}</td>
+          <td><span class="pdf-badge" style="background:${bc.bg};color:${bc.fg}">${escapeHtml(a.checkStatus || CHECK_UNCHECKED)}</span></td>
+        </tr>`;
+      }).join("");
+      const legend = idx === chunks.length - 1 ? `
+        <div class="pdf-legend" style="margin-top:16px">
+          <span><i style="background:${PDF_PALETTE.greenBg};border:1px solid ${PDF_PALETTE.green}"></i>Đã kiểm</span>
+          <span><i style="background:${PDF_PALETTE.amberBg};border:1px solid ${PDF_PALETTE.amber}"></i>Chưa kiểm</span>
+          <span><i style="background:${PDF_PALETTE.redBg};border:1px solid ${PDF_PALETTE.red}"></i>Cần xử lý</span>
+        </div>` : "";
+      page.innerHTML = `
+        ${headerBar}
+        <div class="pdf-content">
+          ${heading}
+          <table class="pdf-table">
+            <thead><tr><th>Mã tài sản</th><th>Loại</th><th>Model</th><th>Người dùng</th><th>Bộ phận</th><th>Tình trạng</th><th>Kiểm kê</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          ${legend}
+        </div>
+        ${footerBar(4 + idx)}`;
+      root.appendChild(page);
+    });
+
+    // Đợi 1 nhịp để các phần tử canvas gắn vào DOM trước khi Chart.js đo kích thước
+    await new Promise(r => requestAnimationFrame(r));
+
+    chartInstances.push(new Chart($("pdfChartDonut"), {
+      type: "doughnut",
+      data: {
+        labels: ["Đã kiểm", "Chưa kiểm", "Cần xử lý"],
+        datasets: [{ data: [checked, unchecked, exception], backgroundColor: [PDF_PALETTE.green, PDF_PALETTE.amber, PDF_PALETTE.red], borderColor: "#fff", borderWidth: 3 }]
+      },
+      options: { animation: false, responsive: false, cutout: "58%", plugins: { legend: { display: false } } }
+    }));
+
+    chartInstances.push(new Chart($("pdfChartSection"), {
+      type: "bar",
+      data: {
+        labels: sectionEntries.map(e => e[0]),
+        datasets: [{ data: sectionEntries.map(e => e[1]), backgroundColor: sectionEntries.map((_, i) => PDF_CHART_COLORS[i % PDF_CHART_COLORS.length]) }]
+      },
+      options: {
+        indexAxis: "y", animation: false, responsive: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+      }
+    }));
+
+    chartInstances.push(new Chart($("pdfChartType"), {
+      type: "bar",
+      data: {
+        labels: typeEntries.map(e => e[0]),
+        datasets: [{ data: typeEntries.map(e => e[1]), backgroundColor: PDF_PALETTE.blue }]
+      },
+      options: { animation: false, responsive: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    }));
+
+    chartInstances.push(new Chart($("pdfChartStatus"), {
+      type: "bar",
+      data: {
+        labels: statusEntries.map(e => e[0]),
+        datasets: [{ data: statusEntries.map(e => e[1]), backgroundColor: statusEntries.map(e => PDF_STATUS_COLORS[e[0]] || "#64748b") }]
+      },
+      options: { animation: false, responsive: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    }));
+
+    // Đợi biểu đồ vẽ xong trước khi chụp ảnh
+    await new Promise(r => setTimeout(r, 300));
+
+    /* ---- Chụp từng trang & ghép vào PDF ---- */
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const pageEls = Array.from(root.querySelectorAll(".pdf-page"));
+    for (let i = 0; i < pageEls.length; i++) {
+      const canvas = await html2canvas(pageEls[i], { scale: 2, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const pageW = 210, pageH = 297;
+      const ratio = canvas.height / canvas.width;
+      let imgW = pageW, imgH = pageW * ratio;
+      if (imgH > pageH) { imgH = pageH; imgW = pageH / ratio; }
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
+    }
+    pdf.save(`bao-cao-kiem-ke-${now.toISOString().slice(0, 10)}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert("Lỗi tạo báo cáo PDF: " + err.message);
+  } finally {
+    chartInstances.forEach(c => c.destroy());
+    root.remove();
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+}
+
+$("exportPdfReport").addEventListener("click", generatePdfReport);
+
 $("importXlsx").addEventListener("change", async e => {
   const file = e.target.files[0];
   if (!file) return;
