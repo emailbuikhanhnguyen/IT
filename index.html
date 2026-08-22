@@ -23,37 +23,10 @@
 <div id="appShell" class="hidden">
 <header class="topbar">
   <div><h1>IT Asset Inventory</h1><small>Kiểm kê • QR • Camera • Offline</small></div>
-  <div class="topbar-right">
-    <small id="userEmail" class="muted"></small>
-    <span id="roleBadge" class="role-badge"></span>
-    <button id="installBtn" class="ghost hidden">Cài app</button>
-    <button id="logoutBtn" class="ghost">Đăng xuất</button>
-  </div>
 </header>
 
 <main>
 <section id="dashboard" class="page active">
-
-  <div class="module-card">
-    <div class="module-head">
-      <div class="module-title">
-        <span class="module-icon">📦</span>
-        <div><h2>Kiểm kê tài sản</h2><p class="muted">Quét QR, tạo mới, theo dõi tình trạng kiểm kê</p></div>
-      </div>
-    </div>
-    <div class="stats">
-      <div class="stat"><b id="totalCount">0</b><span>Tổng tài sản</span></div>
-      <div class="stat"><b id="checkedCount">0</b><span>Đã kiểm</span></div>
-      <div class="stat"><b id="uncheckedCount">0</b><span>Chưa kiểm</span></div>
-      <div class="stat"><b id="exceptionCount">0</b><span>Cần xử lý</span></div>
-    </div>
-    <div class="card"><h3>Trạng thái kiểm kê</h3><div id="checkStats"></div></div>
-    <div class="quick">
-      <button data-page="scan">📷 Quét QR</button>
-      <button id="quickAddBtn" data-page="assetForm">＋ Tạo tài sản</button>
-      <button data-page="assets">📋 Danh sách tài sản</button>
-    </div>
-  </div>
 
   <div class="module-card">
     <div class="module-head">
@@ -71,6 +44,27 @@
     <div class="quick">
       <button id="quickAddTicketBtn" data-page="ticketForm">＋ Tạo ticket</button>
       <button data-page="ops">🛠 Mở Vận hành IT</button>
+    </div>
+  </div>
+
+  <div class="module-card">
+    <div class="module-head">
+      <div class="module-title">
+        <span class="module-icon">📦</span>
+        <div><h2>Quản lý tài sản</h2><p class="muted">Quét QR, tạo mới, theo dõi tình trạng kiểm kê</p></div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="totalCount">0</b><span>Tổng tài sản</span></div>
+      <div class="stat"><b id="checkedCount">0</b><span>Đã kiểm</span></div>
+      <div class="stat"><b id="uncheckedCount">0</b><span>Chưa kiểm</span></div>
+      <div class="stat"><b id="exceptionCount">0</b><span>Cần xử lý</span></div>
+    </div>
+    <div class="card"><h3>Trạng thái kiểm kê</h3><div id="checkStats"></div></div>
+    <div class="quick">
+      <button data-page="scan">📷 Quét QR</button>
+      <button id="quickAddBtn" data-page="assetForm">＋ Tạo tài sản</button>
+      <button data-page="assets">📋 Danh sách tài sản</button>
     </div>
   </div>
 
@@ -188,7 +182,7 @@
     </button>
     <button class="module-nav-item" data-page="guides">
       <span class="module-nav-icon">📘</span>
-      <span class="module-nav-text"><b>Hướng dẫn kỹ thuật</b><small>Tài liệu, quy trình xử lý sự cố thường gặp</small></span>
+      <span class="module-nav-text"><b>Hướng dẫn kỹ thuật</b><small>Tài liệu, cách xử lý sự cố thường gặp</small></span>
       <span class="module-nav-soon">Sắp có</span>
     </button>
     <button class="module-nav-item" data-page="network">
@@ -201,7 +195,13 @@
       <span class="module-nav-text"><b>Đơn hàng (PO)</b><small>Theo dõi đơn đặt mua thiết bị, vật tư</small></span>
       <span class="module-nav-soon">Sắp có</span>
     </button>
+    <button class="module-nav-item" data-page="sop">
+      <span class="module-nav-icon">📋</span>
+      <span class="module-nav-text"><b>Quy trình (SOP)</b><small>Các bước chuẩn cho công việc thường gặp</small></span>
+      <span class="module-nav-soon">Sắp có</span>
+    </button>
   </div>
+  <p class="hint" style="margin-top:12px">💡 Định hướng: mọi yêu cầu công việc đều tạo thành 1 Ticket — sau này Ticket sẽ liên kết trực tiếp tới Nhân viên, PO và Quy trình (SOP) liên quan để tra cứu nhanh hơn.</p>
 </section>
 
 <section id="tickets" class="page">
@@ -308,7 +308,15 @@
   <div class="section-head"><h2>📑 Đơn hàng (PO)</h2><button data-page="ops">←</button></div>
   <div class="card empty">
     <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
-    <p class="muted">Dự kiến: theo dõi đơn đặt mua thiết bị/vật tư, trạng thái giao hàng, nhà cung cấp.</p>
+    <p class="muted">Dự kiến: theo dõi đơn đặt mua thiết bị/vật tư, trạng thái giao hàng, nhà cung cấp — có thể liên kết với Ticket đã tạo.</p>
+  </div>
+</section>
+
+<section id="sop" class="page">
+  <div class="section-head"><h2>📋 Quy trình (SOP)</h2><button data-page="ops">←</button></div>
+  <div class="card empty">
+    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted">Dự kiến: các bước chuẩn (SOP) cho công việc IT thường gặp — có thể gắn trực tiếp vào Ticket khi tạo, để người xử lý theo đúng quy trình.</p>
   </div>
 </section>
 
@@ -373,6 +381,16 @@
   <button data-page="ops">🛠<span>Vận hành</span></button>
   <button data-page="settings" class="admin-only">⚙<span>Dữ liệu</span></button>
 </nav>
+
+<div class="account-fab">
+  <div id="accountPanel" class="account-panel hidden">
+    <small id="userEmail" class="muted"></small>
+    <span id="roleBadge" class="role-badge"></span>
+    <button id="installBtn" class="ghost hidden">Cài app</button>
+    <button id="logoutBtn" class="ghost">Đăng xuất</button>
+  </div>
+  <button id="accountToggle" class="account-fab-btn">👤</button>
+</div>
 </div>
 
 <div id="printLabelArea" class="print-label">
