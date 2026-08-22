@@ -1765,7 +1765,10 @@ function renderTicketList() {
         <div class="muted">${escapeHtml(t.description || "")}</div>
         <span class="badge ${ticketBadgeClass(t.status)}">${escapeHtml(t.status || "Chờ")}</span>
         <span class="prio-badge prio-${prioritySlug(t.priority)}">${escapeHtml(t.priority || "Trung bình")}</span>
-        ${(t.linkedTicketIds && t.linkedTicketIds.length) ? `<span class="badge recur-badge">🔁 Lặp lại ${t.linkedTicketIds.length + 1} lần</span>` : ""}
+        ${(t.linkedTicketIds && t.linkedTicketIds.length) ? t.linkedTicketIds.map((lid, i) => {
+          const code = (t.linkedTicketCodes && t.linkedTicketCodes[i]) || lid;
+          return `<span class="badge recur-badge" style="cursor:pointer" title="Xem ticket liên quan" onclick="event.stopPropagation();editTicket('${lid}')">🔁 ${escapeHtml(code)}</span>`;
+        }).join("") : ""}
         ${(t.progressLog && t.progressLog.length) ? `<span class="badge info">🕒 ${t.progressLog.length} mốc xử lý</span>` : ""}
         ${!isAdmin ? `<span class="badge view-only-tag">👁 Chỉ xem</span>` : ""}
       </div>
