@@ -2116,6 +2116,17 @@ TICKET_COLUMNS.forEach(c => {
 });
 TICKET_HEADER_MAP["mã tài sản"] = "assetCode"; // alias ngắn gọn hơn khi tự soạn Excel
 
+// File Excel Helpdesk cũ thường không gõ Ưu tiên/Trạng thái đồng nhất 100%
+// (khác hoa/thường, "xử lí" thay vì "xử lý"...). So khớp không phân biệt
+// hoa/thường + vài biến thể hay gặp thay vì so khớp tuyệt đối như cột khác,
+// để tránh âm thầm rơi về giá trị mặc định và mất thông tin thật của dòng đó.
+const TICKET_PRIORITY_ALIASES = { "thấp": "Thấp", "trung bình": "Trung bình", "cao": "Cao", "khẩn": "Khẩn" };
+const TICKET_STATUS_ALIASES = { "chờ": "Chờ", "đang xử lý": "Đang xử lý", "đang xử lí": "Đang xử lý", "hoàn thành": "Hoàn thành" };
+function normalizeTicketEnum(value, aliasMap, fallback) {
+  const key = (value || "").trim().toLowerCase();
+  return aliasMap[key] || fallback;
+}
+
 $("exportTicketsXlsx").addEventListener("click", () => {
   if (!ticketRecords.length) { alert("Chưa có dữ liệu ticket để xuất."); return; }
   const rows = ticketRecords.slice().sort((a, b) => (a.ticketId || "").localeCompare(b.ticketId || "")).map(t => {
@@ -2139,9 +2150,17 @@ $("importTicketsXlsx").addEventListener("change", async e => {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
     let imported = 0;
+    let dupCount = 0;
     const chunks = [];
     let batch = db.batch();
     let count = 0;
+    // Theo dõi các ID đã dùng TRONG LẦN IMPORT NÀY — nếu 2 dòng trong cùng
+    // file trùng Mã ticket (thường do đánh số nhầm ở file cũ) mà nội dung
+    // là 2 việc khác nhau, tự thêm hậu tố "-2", "-3"... để không đè mất dữ
+    // liệu của dòng import sau lên dòng import trước trong cùng lần này.
+    // Ticket ID trùng với 1 ticket ĐÃ CÓ SẴN từ trước (không phải trong file
+    // đang import) vẫn coi là cập nhật/merge như cũ — đúng ý định re-import.
+    const usedIdsThisImport = new Set();
     for (const row of rows) {
       const obj = {};
       Object.keys(row).forEach(k => {
@@ -2149,10 +2168,18 @@ $("importTicketsXlsx").addEventListener("change", async e => {
         if (mapped) obj[mapped] = String(row[k]).trim();
       });
       if (!obj.ticketId) continue;
-      const id = sanitizeId(obj.ticketId);
+      let id = sanitizeId(obj.ticketId);
       if (!id) continue;
-      obj.priority = TICKET_PRIORITIES.includes(obj.priority) ? obj.priority : "Trung bình";
-      obj.status = TICKET_STATUSES.includes(obj.status) ? obj.status : "Chờ";
+      if (usedIdsThisImport.has(id)) {
+        let n = 2;
+        while (usedIdsThisImport.has(`${id}-${n}`)) n++;
+        id = `${id}-${n}`;
+        obj.ticketId = id; // giữ field ticketId khớp với doc ID mới
+        dupCount++;
+      }
+      usedIdsThisImport.add(id);
+      obj.priority = normalizeTicketEnum(obj.priority, TICKET_PRIORITY_ALIASES, "Trung bình");
+      obj.status = normalizeTicketEnum(obj.status, TICKET_STATUS_ALIASES, "Chờ");
       obj.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
 
       const existing = ticketRecords.find(t => t._id === id);
@@ -2168,7 +2195,8 @@ $("importTicketsXlsx").addEventListener("change", async e => {
     }
     if (count > 0) chunks.push(batch);
     for (const b of chunks) await b.commit();
-    alert(`Đã nhập ${imported} ticket từ Excel.`);
+    alert(`Đã nhập ${imported} ticket từ Excel.` +
+      (dupCount ? `\n\nLưu ý: phát hiện ${dupCount} dòng trùng Mã ticket với 1 dòng khác NGAY TRONG FILE — đã tự thêm hậu tố (VD: "-2") để không mất dữ liệu. Nên vào từng ticket đó đổi lại Mã cho gọn nếu cần.` : ""));
   } catch (err) {
     alert("Lỗi nhập Excel: " + err.message);
   }

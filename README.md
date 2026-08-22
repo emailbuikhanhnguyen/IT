@@ -216,7 +216,17 @@ sửa — muốn gỡ hẳn 2 chiều thì vào ticket kia gỡ thêm lần nữ
 Helpdesk cũ (Ticket ID, Ưu tiên, Trạng thái, Người yêu cầu, Phòng ban,
 Thiết bị, Mô tả, Nguyên nhân, Cách xử lý, Ghi chú) nên có thể import thẳng
 file Excel Helpdesk hiện có — 2 cột "Mã nhân viên" và "Mã tài sản liên kết"
-là cột riêng của app này, không bắt buộc phải có khi import.
+là cột riêng của app này, không bắt buộc phải có khi import. Cột "Hình
+ảnh" (nếu có) không được import — ảnh chỉ đính kèm được qua app (chụp/chọn
+ảnh trong form ticket).
+
+Khi nhập file cũ, "Ưu tiên"/"Trạng thái" được so khớp không phân biệt
+hoa/thường và chấp nhận vài cách viết hay gặp (VD: "đang xử lí" ~ "Đang xử
+lý") thay vì so khớp tuyệt đối, để tránh âm thầm rơi về giá trị mặc định.
+Nếu trong file có 2 dòng trùng Mã ticket (dữ liệu khác nhau — hay gặp ở
+file đánh số tay), app tự thêm hậu tố (VD: "IT-20260817-001-2") cho dòng
+trùng để không mất dữ liệu; sau khi import nên vào sửa lại Mã cho gọn nếu
+muốn.
 
 ## Quy trình thực tế
 1. Import danh sách Lab nếu đã có.
