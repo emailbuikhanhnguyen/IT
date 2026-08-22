@@ -303,6 +303,7 @@ function renderUserList() {
       </div>
       <div class="asset-actions">
         <select onchange="changeUserRole('${u._uid}', this.value)" ${isSelf ? "disabled title=\"Không tự đổi vai trò của chính mình\"" : ""}>${roleOptions}</select>
+        <button class="secondary" onclick="resetUserPassword('${u._uid}', '${escapeHtml(u.email || "")}')">🔑 Đặt lại mật khẩu</button>
         <button class="secondary" onclick="toggleUserActive('${u._uid}', '${escapeHtml(u.email || u._uid)}', ${isDisabled})" ${isSelf ? "disabled title=\"Không tự khóa/mở khóa chính mình\"" : ""}>${isDisabled ? "✅ Kích hoạt lại" : "🚫 Vô hiệu hóa"}</button>
       </div>
     </div>`;
@@ -317,6 +318,32 @@ async function changeUserRole(uid, newRole) {
     console.error(err);
     alert("Lỗi đổi vai trò: " + (err.message || err));
     renderUserList();
+  }
+}
+async function resetUserPassword(uid, email) {
+  // Firebase KHÔNG cho phép đặt thẳng 1 mật khẩu mới cho tài khoản người
+  // khác từ client SDK (kể cả Admin) — chỉ Admin SDK/Cloud Functions mới
+  // làm được, app này không có backend riêng. Cách chuẩn: gửi email đặt
+  // lại mật khẩu, người dùng tự bấm link và tự đặt mật khẩu mới.
+  if (!email) {
+    email = (prompt("Chưa biết email đăng nhập của tài khoản này (tạo qua Firebase Console).\nNhập đúng email đăng nhập để gửi link đặt lại mật khẩu:") || "").trim();
+    if (!email || !email.includes("@")) return;
+  }
+  if (!confirm(`Gửi email đặt lại mật khẩu tới "${email}"?\n\nNgười dùng sẽ nhận email chứa link — họ cần tự bấm vào và đặt mật khẩu mới, Admin không thấy/đặt được mật khẩu thay họ.`)) return;
+  try {
+    await auth.sendPasswordResetEmail(email);
+    const acct = userAccounts.find(u => u._uid === uid);
+    if (acct && !acct.email) {
+      // Vừa nhập tay email cho tài khoản tạo qua Console — lưu lại luôn
+      // để lần sau danh sách hiện đúng email, khỏi phải nhập lại.
+      await db.collection(USERS_COLLECTION).doc(uid).update({ email });
+    }
+    alert(`Đã gửi email đặt lại mật khẩu tới ${email}.`);
+  } catch (err) {
+    console.error(err);
+    let msg = err.message || String(err);
+    if (err.code === "auth/user-not-found") msg = "Không tìm thấy tài khoản Authentication với email này — kiểm tra lại email có đúng không.";
+    alert("Lỗi gửi email đặt lại mật khẩu: " + msg);
   }
 }
 async function toggleUserActive(uid, label, currentlyDisabled) {

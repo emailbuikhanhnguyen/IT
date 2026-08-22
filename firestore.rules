@@ -7,51 +7,114 @@ service cloud.firestore {
     function hasRoleDoc() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
-    function roleOf() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    function roleDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    // Tài khoản bị Admin "Vô hiệu hóa" trong app (users/{uid}.disabled ==
+    // true) vẫn còn document users/{uid} (giữ lại lịch sử email/vai trò
+    // cũ), nhưng mọi rule bên dưới phải coi như KHÔNG có vai trò gì —
+    // tự động mất hết quyền đọc/ghi ngay từ lần request tiếp theo.
+    function isActiveRole(r) {
+      return signedIn() && hasRoleDoc() && roleDoc().role == r && roleDoc().get('disabled', false) != true;
     }
     function isAdmin() {
-      return signedIn() && hasRoleDoc() && roleOf() == 'admin';
+      return isActiveRole('admin');
     }
     function isCollector() {
-      return signedIn() && hasRoleDoc() && roleOf() == 'collector';
+      return isActiveRole('collector');
     }
-    // Roles collection: users/{uid} -> { role: "admin" | "collector" }
+    // Vai trò thứ 3: xem toàn bộ dữ liệu (dùng cho Ban giám đốc) nhưng
+    // KHÔNG được tạo/sửa/xóa bất kỳ tài sản/ticket nào.
+    function isViewer() {
+      return isActiveRole('viewer');
+    }
+    // Bất kỳ tài khoản nào đã được gán 1 trong 3 vai trò trên (dùng để
+    // gọn các rule chỉ cần "đã đăng nhập hợp lệ, đọc được mọi thứ").
+    function isKnownRole() {
+      return isAdmin() || isCollector() || isViewer();
+    }
+
+    // Roles collection: users/{uid} -> { role: "admin" | "collector" | "viewer" }
     // Create one doc per account manually in Firebase Console > Firestore.
     // An account with no doc here has no access to anything below.
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow write: if isAdmin();
     }
+
     match /assets/{assetId} {
-      // Admin and the collector account can both browse/search everything
-      // (the collector needs this to check for duplicate codes etc).
-      allow read: if isAdmin() || isCollector();
-      // The collector account may only CREATE brand-new assets.
+      // Admin, Collector và Viewer đều browse/search được toàn bộ.
+      allow read: if isAdmin() || isCollector() || isViewer();
+      // Chỉ Collector (và Admin) được TẠO tài sản mới — Viewer không được
+      // tạo bất kỳ tài sản nào, kể cả nháp.
       allow create: if isAdmin() || isCollector();
-      // Only admin may update or delete an EXISTING asset — including one
-      // the collector account just created. This is what makes every
-      // collector entry effectively "write once".
+      // Chỉ Admin được sửa/xóa tài sản đã có — kể cả tài sản Collector vừa
+      // tạo. Đây là cơ chế "ghi 1 lần" cho Collector; Viewer không nằm
+      // trong danh sách này nên tất nhiên cũng không sửa/xóa được.
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+
     match /tickets/{ticketId} {
-      // Same read/write model as assets: admin and collector both browse
-      // everything; the collector account may only CREATE new tickets and
-      // can never update/delete an existing one (including its own) —
-      // every collector entry is effectively "write once".
-      allow read: if isAdmin() || isCollector();
+      // Cùng mô hình đọc/ghi như assets: Admin/Collector/Viewer đều đọc
+      // được toàn bộ; chỉ Collector (và Admin) tạo được ticket mới; chỉ
+      // Admin sửa/xóa được ticket đã có (kể cả ticket của chính mình).
+      allow read: if isAdmin() || isCollector() || isViewer();
       allow create: if isAdmin() || isCollector();
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+
     match /employees/{employeeId} {
       // Danh sách nhân viên đồng bộ từ file HR (Dữ liệu → "Nhân viên (HR)").
-      // Admin và Collector đều cần ĐỌC để dùng autocomplete "Người sử dụng"
-      // trên form tài sản/ticket. Chỉ Admin được GHI — import Excel HR là
-      // thao tác quản trị, Collector không có quyền này (khớp UI: mục Dữ
-      // liệu chỉ hiện cho admin).
-      allow read: if isAdmin() || isCollector();
+      // Admin/Collector/Viewer đều cần ĐỌC để dùng autocomplete "Người sử
+      // dụng" trên form tài sản/ticket (Viewer chỉ xem chi tiết, không cần
+      // autocomplete nhưng đọc không hại gì). Chỉ Admin được GHI — import
+      // Excel HR là thao tác quản trị.
+      allow read: if isAdmin() || isCollector() || isViewer();
+      allow write: if isAdmin();
+    }
+
+    // ---------- Bình luận / chỉ đạo (nền tảng cho tính năng "tick, comment"
+    // của Ban giám đốc — CHƯA có UI, chỉ mở sẵn Rules để làm trước không
+    // phải sửa lại schema sau này) ----------
+    // comments/{commentId} -> {
+    //   targetType: "ticket" | "asset" | "po",  targetId: string,
+    //   authorUid: string, authorEmail: string, authorRole: string,
+    //   text: string, createdAt: timestamp
+    // }
+    match /comments/{commentId} {
+      allow read: if isKnownRole();
+      // Ai cũng tạo được bình luận của CHÍNH MÌNH (kể cả Viewer) — nhưng
+      // bắt buộc authorUid phải đúng UID đang đăng nhập, không giả mạo
+      // được là người khác.
+      allow create: if isKnownRole() && request.resource.data.authorUid == request.auth.uid;
+      // Chỉ tác giả hoặc Admin mới sửa/xóa được 1 bình luận.
+      allow update, delete: if isAdmin() || (signedIn() && resource.data.authorUid == request.auth.uid);
+    }
+
+    // ---------- Các module tương lai (Hướng dẫn kỹ thuật / Network /
+    // Camera / Đơn hàng PO / Quy trình SOP) — hiện UI mới là "Sắp có",
+    // nhưng mở sẵn Rules theo đúng mô hình read=3 role / write=Admin để
+    // khi build UI thật không cần quay lại sửa Rules. ----------
+    match /guides/{guideId} {
+      allow read: if isKnownRole();
+      allow write: if isAdmin();
+    }
+    match /network/{docId} {
+      allow read: if isKnownRole();
+      allow write: if isAdmin();
+    }
+    match /camera/{docId} {
+      allow read: if isKnownRole();
+      allow write: if isAdmin();
+    }
+    match /po/{poId} {
+      allow read: if isKnownRole();
+      allow write: if isAdmin();
+    }
+    match /sop/{sopId} {
+      allow read: if isKnownRole();
       allow write: if isAdmin();
     }
   }
