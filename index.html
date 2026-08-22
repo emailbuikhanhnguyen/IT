@@ -182,6 +182,10 @@
     </label>
     <label>Mức ưu tiên<select id="ticketPriority"><option>Thấp</option><option>Trung bình</option><option>Cao</option><option>Khẩn</option></select></label>
     <label>Trạng thái<select id="ticketStatus"><option>Chờ</option><option>Đang xử lý</option><option>Hoàn thành</option></select></label>
+    <label class="autocomplete-field">Mã nhân viên
+      <input id="ticketEmployeeCode" autocomplete="off" placeholder="Gõ hoặc chọn mã NV, có thể để trống">
+      <div id="ticketEmployeeCodeSuggest" class="suggest-list hidden"></div>
+    </label>
     <label class="autocomplete-field">Người yêu cầu
       <input id="ticketRequester" autocomplete="off" placeholder="Gõ tên để tìm trong danh sách nhân viên, hoặc gõ tay">
       <div id="ticketRequesterSuggest" class="suggest-list hidden"></div>
