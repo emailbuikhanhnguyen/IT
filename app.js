@@ -406,12 +406,23 @@ function filterList(list, query, limit) {
   return matched.slice(0, limit);
 }
 
+// Lọc trực tiếp trên mảng nhân viên (thay vì gom về mảng tên/mã rồi tìm
+// ngược lại) — tránh việc 2 người trùng tên/mã bị "find" gộp về đúng 1
+// người. Giới hạn nâng lên 200 (thay vì 20 trước đây) vì hộp gợi ý đã tự
+// cuộn (CSS max-height:220px), và công ty có thể có hơn 20 người khớp
+// cùng 1 từ khóa (VD: gõ tên đệm phổ biến, hoặc bấm vào ô rỗng để xem hết
+// danh sách theo Bộ phận).
+function filterEmployeesBy(field, query, limit) {
+  const q = query.trim().toLowerCase();
+  const list = window.EMPLOYEES || [];
+  const matched = q ? list.filter(e => (e[field] || "").toLowerCase().includes(q)) : list;
+  return matched.slice(0, limit).map(e => Object.assign({ inactive: !e.active }, e));
+}
+
 // Mã nhân viên — gõ/chọn theo mã, chọn xong điền kèm Tên / Bộ phận / Tổ-Chuyền
 // (2 chiều với ô "Người sử dụng" bên dưới).
 setupAutocomplete("employeeCode", "employeeCodeSuggest",
-  q => filterList((window.EMPLOYEES || []).map(e => e.code), q, 20)
-    .map(code => (window.EMPLOYEES || []).find(e => e.code === code))
-    .map(e => Object.assign({ inactive: !e.active }, e)),
+  q => filterEmployeesBy("code", q, 200),
   e => `${escapeHtml(e.code)}<span class="muted">${escapeHtml(e.name)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
   e => {
     $("employeeCode").value = e.code;
@@ -426,9 +437,7 @@ setupAutocomplete("employeeCode", "employeeCodeSuggest",
 // Người sử dụng — gợi ý từ danh sách nhân viên (employees.js), chọn xong
 // điền kèm Mã NV / Bộ phận / Tổ-Chuyền.
 setupAutocomplete("user", "userSuggest",
-  q => filterList((window.EMPLOYEES || []).map(e => e.name), q, 20)
-    .map(name => (window.EMPLOYEES || []).find(e => e.name === name))
-    .map(e => Object.assign({ inactive: !e.active }, e)),
+  q => filterEmployeesBy("name", q, 200),
   e => `${escapeHtml(e.name)}<span class="muted">${escapeHtml(e.code)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.group ? " · " + escapeHtml(e.group) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
   e => {
     $("user").value = e.name;
@@ -444,7 +453,7 @@ setupAutocomplete("user", "userSuggest",
 // Chọn ở đây CHỈ điền Bộ phận, không đụng Tên/Mã NV/Tổ-Chuyền, vì một Bộ
 // phận có nhiều nhân viên nên không thể suy ngược ra 1 người cụ thể.
 setupAutocomplete("section", "sectionSuggest",
-  q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 20).map(v => ({ value: v })),
+  q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 100).map(v => ({ value: v })),
   it => escapeHtml(it.value),
   it => { $("section").value = it.value; maybeSuggestCode(); }
 );
@@ -1723,9 +1732,7 @@ $("filterTicketPriority").addEventListener("change", renderTicketList);
 
 /* ---------- Autocomplete: Người yêu cầu / Phòng ban / Liên kết tài sản ---------- */
 setupAutocomplete("ticketRequester", "ticketRequesterSuggest",
-  q => filterList((window.EMPLOYEES || []).map(e => e.name), q, 20)
-    .map(name => (window.EMPLOYEES || []).find(e => e.name === name))
-    .map(e => Object.assign({ inactive: !e.active }, e)),
+  q => filterEmployeesBy("name", q, 200),
   e => `${escapeHtml(e.name)}<span class="muted">${escapeHtml(e.code)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
   e => {
     $("ticketRequester").value = e.name;
@@ -1734,7 +1741,7 @@ setupAutocomplete("ticketRequester", "ticketRequesterSuggest",
   { autoFillMinChars: 3 }
 );
 setupAutocomplete("ticketDepartment", "ticketDepartmentSuggest",
-  q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 20).map(v => ({ value: v })),
+  q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 100).map(v => ({ value: v })),
   it => escapeHtml(it.value),
   it => { $("ticketDepartment").value = it.value; }
 );
