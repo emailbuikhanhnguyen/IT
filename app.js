@@ -1622,6 +1622,7 @@ const TICKET_STATUSES = ["Chờ", "Đang xử lý", "Hoàn thành"];
 const TICKET_HISTORY_FIELDS = [
   ["priority", "Mức ưu tiên"],
   ["status", "Trạng thái"],
+  ["employeeCode", "Mã nhân viên"],
   ["requester", "Người yêu cầu"],
   ["department", "Phòng ban"],
   ["assetCode", "Tài sản liên kết"],
@@ -1690,7 +1691,7 @@ function renderTicketList() {
   let list = ticketRecords.slice().sort((a, b) => (b.ticketId || "").localeCompare(a.ticketId || ""));
   if (q) {
     list = list.filter(t =>
-      [t.ticketId, t.requester, t.department, t.description, t.device, t.assetCode].some(v => (v || "").toLowerCase().includes(q))
+      [t.ticketId, t.requester, t.employeeCode, t.department, t.description, t.device, t.assetCode].some(v => (v || "").toLowerCase().includes(q))
     );
   }
   if (statusF) list = list.filter(t => (t.status || "Chờ") === statusF);
@@ -1711,7 +1712,7 @@ function renderTicketList() {
     <div class="asset">
       <div>
         <h3>${escapeHtml(t.ticketId)}</h3>
-        <div class="muted">${t.requester ? "👤 " + escapeHtml(t.requester) : ""}${t.department ? " · 🏢 " + escapeHtml(t.department) : ""}</div>
+        <div class="muted">${t.requester ? "👤 " + escapeHtml(t.requester) : ""}${t.employeeCode ? " (" + escapeHtml(t.employeeCode) + ")" : ""}${t.department ? " · 🏢 " + escapeHtml(t.department) : ""}</div>
         ${t.device || t.assetCode ? `<div class="muted">💻 ${escapeHtml(t.device || "")}${t.assetCode ? " (" + escapeHtml(t.assetCode) + ")" : ""}</div>` : ""}
         <div class="muted">${escapeHtml(t.description || "")}</div>
         <span class="badge ${ticketBadgeClass(t.status)}">${escapeHtml(t.status || "Chờ")}</span>
@@ -1730,12 +1731,23 @@ $("ticketSearch").addEventListener("input", renderTicketList);
 $("filterTicketStatus").addEventListener("change", renderTicketList);
 $("filterTicketPriority").addEventListener("change", renderTicketList);
 
-/* ---------- Autocomplete: Người yêu cầu / Phòng ban / Liên kết tài sản ---------- */
+/* ---------- Autocomplete: Mã nhân viên / Người yêu cầu / Phòng ban / Liên kết tài sản ---------- */
+setupAutocomplete("ticketEmployeeCode", "ticketEmployeeCodeSuggest",
+  q => filterEmployeesBy("code", q, 200),
+  e => `${escapeHtml(e.code)}<span class="muted">${escapeHtml(e.name)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
+  e => {
+    $("ticketEmployeeCode").value = e.code;
+    $("ticketRequester").value = e.name;
+    $("ticketDepartment").value = e.section || "";
+  },
+  { autoFillMinChars: 3 }
+);
 setupAutocomplete("ticketRequester", "ticketRequesterSuggest",
   q => filterEmployeesBy("name", q, 200),
   e => `${escapeHtml(e.name)}<span class="muted">${escapeHtml(e.code)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
   e => {
     $("ticketRequester").value = e.name;
+    $("ticketEmployeeCode").value = e.code;
     $("ticketDepartment").value = e.section || "";
   },
   { autoFillMinChars: 3 }
@@ -1760,6 +1772,7 @@ setupAutocomplete("ticketAsset", "ticketAssetSuggest",
     $("ticketAssetId").value = a._id;
     if (!$("ticketDevice").value.trim()) $("ticketDevice").value = [a.type, a.model].filter(Boolean).join(" - ");
     if (!$("ticketDepartment").value.trim()) $("ticketDepartment").value = a.section || "";
+    if (!$("ticketEmployeeCode").value.trim()) $("ticketEmployeeCode").value = a.employeeCode || "";
   }
 );
 $("ticketAsset").addEventListener("input", () => { $("ticketAssetId").value = ""; });
@@ -1803,6 +1816,8 @@ function clearTicketForm() {
   $("ticketPhotoPreview").src = "";
   $("ticketRequesterSuggest").classList.add("hidden");
   $("ticketRequesterSuggest").innerHTML = "";
+  $("ticketEmployeeCodeSuggest").classList.add("hidden");
+  $("ticketEmployeeCodeSuggest").innerHTML = "";
   $("ticketDepartmentSuggest").classList.add("hidden");
   $("ticketDepartmentSuggest").innerHTML = "";
   $("ticketAssetSuggest").classList.add("hidden");
@@ -1828,6 +1843,7 @@ function fillFormFromTicket(t) {
   $("ticketPriority").value = t.priority || "Trung bình";
   $("ticketStatus").value = t.status || "Chờ";
   $("ticketRequester").value = t.requester || "";
+  $("ticketEmployeeCode").value = t.employeeCode || "";
   $("ticketDepartment").value = t.department || "";
   $("ticketAsset").value = t.assetCode || "";
   $("ticketDevice").value = t.device || "";
@@ -1891,6 +1907,7 @@ $("ticketFormEl").addEventListener("submit", e => {
     priority: $("ticketPriority").value,
     status: $("ticketStatus").value,
     requester: $("ticketRequester").value.trim(),
+    employeeCode: $("ticketEmployeeCode").value.trim(),
     department: $("ticketDepartment").value.trim(),
     // Nếu có liên kết hợp lệ (chọn từ gợi ý), luôn lưu mã tài sản MỚI NHẤT
     // (phòng khi tài sản đã đổi mã). Nếu không có liên kết (chưa chọn, đã
@@ -1975,14 +1992,15 @@ $("ticketPhoto").addEventListener("change", async e => {
 /* ---------- Excel export/import (Ticket) ----------
    Cột khớp với cấu trúc file Helpdesk_IT.xlsx (sheet "Tickets") để import
    trực tiếp file cũ nếu cần: Ticket ID, Ưu tiên, Trạng thái, Người yêu cầu,
-   Phòng ban, Thiết bị, Mô tả, Nguyên nhân, Cách xử lý, Ghi chú. Cột "Mã tài
-   sản liên kết" là cột riêng của app này (không có trong file gốc) — nếu
-   không có cột này khi import, ticket vẫn được tạo, chỉ là chưa liên kết
-   tài sản (có thể vào sửa từng ticket để liên kết thủ công sau).
+   Phòng ban, Thiết bị, Mô tả, Nguyên nhân, Cách xử lý, Ghi chú. Cột "Mã
+   nhân viên" và "Mã tài sản liên kết" là 2 cột riêng của app này (không có
+   trong file Helpdesk gốc) — nếu file import không có 2 cột này, ticket
+   vẫn được tạo bình thường, chỉ là thiếu Mã nhân viên/chưa liên kết tài
+   sản (có thể vào sửa từng ticket để bổ sung/liên kết thủ công sau).
 */
-const TICKET_COLUMNS = ["ticketId", "priority", "status", "requester", "department", "assetCode", "device", "description", "cause", "resolution", "note"];
+const TICKET_COLUMNS = ["ticketId", "priority", "status", "employeeCode", "requester", "department", "assetCode", "device", "description", "cause", "resolution", "note"];
 const TICKET_COLUMN_LABELS_VN = {
-  ticketId: "Ticket ID", priority: "Ưu tiên", status: "Trạng thái", requester: "Người yêu cầu",
+  ticketId: "Ticket ID", priority: "Ưu tiên", status: "Trạng thái", employeeCode: "Mã nhân viên", requester: "Người yêu cầu",
   department: "Phòng ban", assetCode: "Mã tài sản liên kết", device: "Thiết bị", description: "Mô tả",
   cause: "Nguyên nhân", resolution: "Cách xử lý", note: "Ghi chú"
 };
