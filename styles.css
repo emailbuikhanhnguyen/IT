@@ -57,6 +57,13 @@
 .module-nav-text b{font-size:14px;font-weight:650}
 .module-nav-text small{color:#64748b;font-size:11.5px;font-weight:400}
 .module-nav-soon{flex-shrink:0;background:#fef3c7;color:#92400e;font-size:10px;font-weight:650;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.account-fab{position:fixed;right:14px;bottom:86px;z-index:26;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.account-fab-btn{width:44px;height:44px;border-radius:50%;background:#0f172a;color:#fff;font-size:19px;padding:0;box-shadow:0 4px 14px #00000033;border:0}
+.account-panel{background:#fff;border-radius:12px;box-shadow:0 8px 24px #00000022;padding:12px;min-width:180px;display:flex;flex-direction:column;gap:8px}
+.account-panel.hidden{display:none}
+.account-panel small{color:#64748b;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.account-panel .role-badge{align-self:flex-start}
+.account-panel button{width:100%}
 .print-label{display:none}
 @media print{
   @page{size:70mm 50mm;margin:0}
