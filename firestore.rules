@@ -45,5 +45,14 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+    match /employees/{employeeId} {
+      // Danh sách nhân viên đồng bộ từ file HR (Dữ liệu → "Nhân viên (HR)").
+      // Admin và Collector đều cần ĐỌC để dùng autocomplete "Người sử dụng"
+      // trên form tài sản/ticket. Chỉ Admin được GHI — import Excel HR là
+      // thao tác quản trị, Collector không có quyền này (khớp UI: mục Dữ
+      // liệu chỉ hiện cho admin).
+      allow read: if isAdmin() || isCollector();
+      allow write: if isAdmin();
+    }
   }
 }

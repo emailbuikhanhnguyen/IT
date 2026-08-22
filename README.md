@@ -193,6 +193,24 @@ dùng bản rules cũ chưa có collection này).
 - Lịch sử thay đổi — tự động ghi lại mỗi lần tạo/sửa, giống hệt cơ chế của
   tài sản.
 
+**Lịch sử xử lý (mốc theo thời gian):** khác với "Lịch sử thay đổi" (tự động
+ghi lại mọi lần sửa field) và khác với ô "Cách xử lý" (chỉ 1 kết quả cuối
+cùng), mục **🕒 Lịch sử xử lý** cho phép ghi nhiều dòng theo thời gian trong
+lúc theo dõi 1 ticket (vd: "22/08 đã liên hệ NCC", "23/08 đang chờ linh
+kiện", "25/08 đã thay xong") — mỗi dòng tự kèm thời gian và người ghi, xoá
+được từng dòng trước khi Lưu ticket. Cả Admin và Collector đều thêm được
+(Collector chỉ thêm được lúc đang tạo ticket mới, vì sửa ticket có sẵn vẫn
+chỉ dành cho Admin như mọi field khác).
+
+**Ticket liên quan (lỗi lặp lại):** mục **🔁 Ticket liên quan** (chỉ Admin
+thấy, vì cần quyền sửa ticket khác) cho phép liên kết ticket đang mở với
+(các) ticket khác cùng 1 lỗi — gõ mã ticket/mô tả để tìm và chọn. Liên kết
+lưu 2 chiều: khi Lưu, app tự ghi thêm liên kết ngược sang từng ticket được
+chọn nên mở ticket kia cũng thấy liên kết trở lại. Danh sách Ticket sẽ hiện
+badge "🔁 Lặp lại N lần" (N = số ticket liên kết + chính nó) để nhận ra ngay
+lỗi nào đang tái diễn nhiều lần. Lưu ý: gỡ 1 liên kết chỉ gỡ ở ticket đang
+sửa — muốn gỡ hẳn 2 chiều thì vào ticket kia gỡ thêm lần nữa.
+
 **Excel:** mục Dữ liệu → "Excel — Ticket" có Xuất/Nhập riêng cho ticket
 (không lẫn với Excel tài sản). Cột file nhập khớp với cấu trúc file
 Helpdesk cũ (Ticket ID, Ưu tiên, Trạng thái, Người yêu cầu, Phòng ban,

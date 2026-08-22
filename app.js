@@ -1665,6 +1665,54 @@ function renderTicketHistoryBox(t) {
   }).join("");
 }
 
+/* ---------- Lịch sử xử lý (progress log) — mốc theo thời gian, ghi tay ----------
+   Khác với TICKET_HISTORY_FIELDS ở trên (tự động ghi lại MỌI thay đổi field),
+   đây là nhật ký người dùng tự thêm từng dòng theo thời gian (vd: "đang chờ
+   linh kiện", "đã liên hệ NCC"...). Lưu nguyên mảng vào field `progressLog`
+   của ticket (không dùng arrayUnion vì đã giữ mảng đầy đủ ở client, xoá
+   được từng dòng trước khi lưu). */
+let currentProgressLog = [];
+function renderTicketProgressList() {
+  const box = $("ticketProgressList");
+  if (!box) return;
+  if (!currentProgressLog.length) {
+    box.innerHTML = `<div class="muted" style="padding:4px 0 10px">Chưa có mốc xử lý nào.</div>`;
+    return;
+  }
+  const order = currentProgressLog.map((e, i) => ({ e, i })).sort((a, b) => (b.e.at || 0) - (a.e.at || 0));
+  box.innerHTML = order.map(({ e, i }) => `<div class="history-entry">
+      <div class="history-head">
+        <span class="muted">${formatHistoryTime(e.at)} · ${escapeHtml(e.by || "")}</span>
+        <button type="button" class="secondary" style="padding:3px 8px;font-size:11px" onclick="removeTicketProgress(${i})">🗑</button>
+      </div>
+      <div class="history-change">${escapeHtml(e.note || "")}</div>
+    </div>`).join("");
+}
+window.removeTicketProgress = function (idx) {
+  currentProgressLog.splice(idx, 1);
+  renderTicketProgressList();
+};
+
+/* ---------- Ticket liên quan (lỗi lặp lại) ----------
+   Liên kết nhiều-nhiều giữa các ticket cùng 1 lỗi tái diễn. Lưu 2 mảng song
+   song trên ticket: linkedTicketIds (docId, dùng để đếm/tra cứu) và
+   linkedTicketCodes (snapshot ticketId để hiển thị nhanh không cần join).
+   Khi lưu, best-effort ghi NGƯỢC lại sang từng ticket được liên kết (chỉ khi
+   isAdmin — Firestore Rules không cho Collector update ticket có sẵn) để
+   liên kết hiện ra ở cả 2 chiều. */
+let currentLinkedTickets = []; // [{id, ticketId}]
+function renderTicketLinkedChips() {
+  const box = $("ticketLinkedChips");
+  if (!box) return;
+  box.innerHTML = currentLinkedTickets.map((t, i) =>
+    `<span class="chip">🔁 ${escapeHtml(t.ticketId)}<button type="button" onclick="removeLinkedTicket(${i})">×</button></span>`
+  ).join("");
+}
+window.removeLinkedTicket = function (idx) {
+  currentLinkedTickets.splice(idx, 1);
+  renderTicketLinkedChips();
+};
+
 /* ---------- Populate ticket priority/status selects ---------- */
 function populateTicketSelects() {
   $("ticketPriority").innerHTML = TICKET_PRIORITIES.map(p => `<option>${p}</option>`).join("");
@@ -1717,6 +1765,8 @@ function renderTicketList() {
         <div class="muted">${escapeHtml(t.description || "")}</div>
         <span class="badge ${ticketBadgeClass(t.status)}">${escapeHtml(t.status || "Chờ")}</span>
         <span class="prio-badge prio-${prioritySlug(t.priority)}">${escapeHtml(t.priority || "Trung bình")}</span>
+        ${(t.linkedTicketIds && t.linkedTicketIds.length) ? `<span class="badge recur-badge">🔁 Lặp lại ${t.linkedTicketIds.length + 1} lần</span>` : ""}
+        ${(t.progressLog && t.progressLog.length) ? `<span class="badge info">🕒 ${t.progressLog.length} mốc xử lý</span>` : ""}
         ${!isAdmin ? `<span class="badge view-only-tag">👁 Chỉ xem</span>` : ""}
       </div>
       <div class="asset-actions">
@@ -1777,6 +1827,32 @@ setupAutocomplete("ticketAsset", "ticketAssetSuggest",
 );
 $("ticketAsset").addEventListener("input", () => { $("ticketAssetId").value = ""; });
 
+// Liên kết ticket khác (lỗi lặp lại) — tìm theo Mã ticket/Mô tả/Thiết bị,
+// loại trừ chính ticket đang sửa và các ticket đã chọn liên kết rồi.
+setupAutocomplete("ticketLinked", "ticketLinkedSuggest",
+  q => {
+    const query = q.trim().toLowerCase();
+    const excludeId = $("ticketDocId").value;
+    let list = ticketRecords.filter(t => t._id !== excludeId && !currentLinkedTickets.some(l => l.id === t._id));
+    if (query) list = list.filter(t => [t.ticketId, t.description, t.device].some(v => (v || "").toLowerCase().includes(query)));
+    return list.slice(0, 20);
+  },
+  t => `${escapeHtml(t.ticketId)}<span class="muted">${escapeHtml((t.description || "").slice(0, 60))}${t.status ? " · " + escapeHtml(t.status) : ""}</span>`,
+  t => {
+    currentLinkedTickets.push({ id: t._id, ticketId: t.ticketId });
+    $("ticketLinked").value = "";
+    renderTicketLinkedChips();
+  }
+);
+
+$("addTicketProgressBtn").addEventListener("click", () => {
+  const note = $("ticketProgressNote").value.trim();
+  if (!note) { alert("Nhập nội dung mốc xử lý trước khi thêm."); return; }
+  currentProgressLog.push({ at: Date.now(), by: currentEmail || "?", note });
+  $("ticketProgressNote").value = "";
+  renderTicketProgressList();
+});
+
 /* ---------- Mã ticket: tự gợi ý dạng IT-YYYYMMDD-NNN ---------- */
 let ticketIdAutoFilled = true;
 function todayCompact() {
@@ -1822,6 +1898,13 @@ function clearTicketForm() {
   $("ticketDepartmentSuggest").innerHTML = "";
   $("ticketAssetSuggest").classList.add("hidden");
   $("ticketAssetSuggest").innerHTML = "";
+  $("ticketLinkedSuggest").classList.add("hidden");
+  $("ticketLinkedSuggest").innerHTML = "";
+  currentProgressLog = [];
+  $("ticketProgressNote").value = "";
+  renderTicketProgressList();
+  currentLinkedTickets = [];
+  renderTicketLinkedChips();
   $("ticketLocked").checked = false;
   $("ticketId").readOnly = false;
   setTicketFormLocked(false);
@@ -1859,6 +1942,12 @@ function fillFormFromTicket(t) {
     $("ticketPhotoPreview").classList.add("hidden");
   }
   $("ticketLocked").checked = !!t.locked;
+  currentProgressLog = Array.isArray(t.progressLog) ? t.progressLog.slice() : [];
+  renderTicketProgressList();
+  currentLinkedTickets = Array.isArray(t.linkedTicketIds)
+    ? t.linkedTicketIds.map((id, i) => ({ id, ticketId: (t.linkedTicketCodes && t.linkedTicketCodes[i]) || id }))
+    : [];
+  renderTicketLinkedChips();
   $("ticketFormTitle").textContent = "Sửa ticket: " + (t.ticketId || "");
   renderTicketHistoryBox(t);
 
@@ -1921,6 +2010,9 @@ $("ticketFormEl").addEventListener("submit", e => {
     resolution: $("ticketResolution").value.trim(),
     note: $("ticketNote").value.trim(),
     photo: currentTicketPhotoData || "",
+    progressLog: currentProgressLog,
+    linkedTicketIds: currentLinkedTickets.map(x => x.id),
+    linkedTicketCodes: currentLinkedTickets.map(x => x.ticketId),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
 
@@ -1953,6 +2045,19 @@ $("ticketFormEl").addEventListener("submit", e => {
   // offline (xem giải thích chi tiết ở khối lưu tài sản phía trên).
   const writeOp = db.collection(TICKET_COLLECTION).doc(newId).set(data, { merge: true })
     .then(() => (oldId && oldId !== newId) ? db.collection(TICKET_COLLECTION).doc(oldId).delete() : null)
+    .then(() => {
+      // Ghi liên kết ngược sang từng ticket được chọn, để liên kết hiện ra ở
+      // cả 2 chiều. Chỉ thử khi isAdmin vì Firestore Rules không cho tài
+      // khoản Collector update ticket đã có sẵn — bỏ qua lặng lẽ nếu lỗi
+      // (không chặn việc lưu ticket chính).
+      if (!isAdmin || !currentLinkedTickets.length) return null;
+      return Promise.all(currentLinkedTickets.map(lt =>
+        db.collection(TICKET_COLLECTION).doc(lt.id).set({
+          linkedTicketIds: firebase.firestore.FieldValue.arrayUnion(newId),
+          linkedTicketCodes: firebase.firestore.FieldValue.arrayUnion(ticketId)
+        }, { merge: true }).catch(() => {})
+      ));
+    })
     .catch(err => {
       alert("Lỗi đồng bộ lên máy chủ: " + err.message +
         "\n\nDữ liệu vẫn được lưu tạm trên máy này và sẽ tự thử lại. " +

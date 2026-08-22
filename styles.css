@@ -40,6 +40,10 @@
 .history-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px;flex-wrap:wrap}
 .history-action{font-weight:650;font-size:13px;color:#2563eb}
 .history-change{font-size:12.5px;color:#334155;padding:1px 0}
+#ticketLinkedChips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:5px 6px 5px 12px;font-size:12px;font-weight:650}
+.chip button{background:transparent;color:#1d4ed8;border-radius:999px;width:18px;height:18px;padding:0;line-height:1;font-size:14px;font-weight:700}
+.recur-badge{background:#ffe4e6;color:#9f1239}
 .print-label{display:none}
 @media print{
   @page{size:70mm 50mm;margin:0}

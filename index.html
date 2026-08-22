@@ -204,6 +204,24 @@
     <label>Cách xử lý<textarea id="ticketResolution" rows="2"></textarea></label>
     <label>Ghi chú<textarea id="ticketNote" rows="2"></textarea></label>
 
+    <div class="psbox">
+      <h3>🕒 Lịch sử xử lý (theo thời gian)</h3>
+      <p class="hint">Ghi lại từng mốc theo dõi/xử lý theo thời gian (vd: đã liên hệ NCC, đang chờ linh kiện, đã thay thế xong...) — khác với ô "Cách xử lý" ở trên chỉ lưu 1 kết quả cuối cùng. Mỗi mốc lưu kèm thời gian và người ghi.</p>
+      <div id="ticketProgressList" class="history-box"></div>
+      <textarea id="ticketProgressNote" rows="2" placeholder="Nhập mốc xử lý mới rồi bấm Thêm..."></textarea>
+      <button type="button" id="addTicketProgressBtn">➕ Thêm mốc xử lý</button>
+    </div>
+
+    <div class="psbox admin-only">
+      <h3>🔁 Ticket liên quan (lỗi lặp lại)</h3>
+      <p class="hint">Liên kết tới (các) ticket khác cùng 1 lỗi để theo dõi số lần lặp lại. Liên kết 2 chiều — ticket được chọn cũng tự hiện liên kết ngược lại. Gỡ liên kết ở đây không tự gỡ bên ticket kia.</p>
+      <label class="autocomplete-field">Tìm ticket để liên kết
+        <input id="ticketLinked" autocomplete="off" placeholder="Gõ mã ticket / mô tả để tìm">
+        <div id="ticketLinkedSuggest" class="suggest-list hidden"></div>
+      </label>
+      <div id="ticketLinkedChips"></div>
+    </div>
+
     <div class="camera-grid">
       <button type="button" id="ticketTakePhoto">📷 Chụp ảnh hiện trạng</button>
       <label class="button secondary">🖼 Chọn ảnh<input id="ticketPhoto" type="file" accept="image/*" capture="environment" hidden></label>
