@@ -51,13 +51,21 @@ File `employees.js` chứa danh sách nhân viên (snapshot từ file HR export,
 sửa tay được hoặc để trống — không bắt buộc. Bộ phận (Section) còn được
 dùng để tự gợi ý **Mã tài sản** — xem mục bên dưới.
 
-**Cập nhật danh sách nhân viên:** khi HR xuất file mới, mở lại
-`ImportEmployeeProfile` (sheet đầu, dữ liệu từ dòng 7), lấy 4 cột
-`Employee Code`, `Full Name _VN`, `Section`, `Group`, sinh lại mảng
-`EMPLOYEES` trong `employees.js` (mỗi người: `code`, `name`, `section`,
-`group`, `active` — `active:false` nếu có ngày nghỉ việc) rồi thay nguyên
-file. Nhân viên trùng tên vẫn phân biệt được vì danh sách gợi ý luôn hiện
-kèm Mã NV.
+**Cập nhật danh sách nhân viên:** vào **Dữ liệu → "Nhân viên (HR)"**, bấm
+"⬆ Nhập Excel HR" và chọn thẳng file HR vừa xuất (sheet đầu
+`ImportEmployeeProfile`, không cần sửa gì trước) — app tự đọc 4 cột
+`Employee Code`, `Full Name _VN`, `Section`, `Group` (dò theo các
+"machine tag" `@EmployeeID`/`@FullName`/`@SectionName`/`@GroupName` có sẵn
+trong file, không phụ thuộc thứ tự cột) và cột "Terminate date" để suy ra
+`active` (`false` nếu có ngày nghỉ việc), rồi lưu thẳng lên Firestore —
+danh sách gợi ý cập nhật ngay trên **mọi thiết bị/tài khoản đang dùng app**,
+không cần build lại `employees.js` hay deploy lại. `employees.js` giờ chỉ
+còn là danh sách dự phòng (dùng khi mất mạng hoặc trước khi từng import lần
+nào qua Firestore); vẫn có thể tự sửa tay file này như cũ nếu muốn, nhưng
+sẽ bị danh sách trên Firestore ghi đè ngay khi có ai đó import lại qua app.
+Chỉ tài khoản **Admin** mới thấy mục Dữ liệu và được import; Collector chỉ
+đọc để dùng autocomplete. Nhân viên trùng tên vẫn phân biệt được vì danh
+sách gợi ý luôn hiện kèm Mã NV.
 
 ## Máy không có mạng: lấy thông tin máy bằng QR (không cần gõ tay)
 Trong khung "⚙ Lấy thông tin máy (PC/Laptop)" trên form tài sản có 2 nút:
@@ -163,7 +171,10 @@ cả ticket vừa tạo) — ticket họ tạo tự động đánh dấu "Đã k
 cần rà soát. Việc này được chốt chặn thật ở Firestore Rules, xem file
 `firestore.rules` đi kèm (đã thêm collection `tickets` cùng logic với
 `assets`) — publish lại file này trong Firebase Console → Firestore
-Database → Rules nếu bạn đã publish 1 bản rules khác từ trước.
+Database → Rules nếu bạn đã publish 1 bản rules khác từ trước (file này
+cũng đã có collection `employees` — dùng cho tính năng Nhập Excel HR ở
+mục "Nhân viên (autocomplete...)" phía trên — publish lại nếu bạn đang
+dùng bản rules cũ chưa có collection này).
 
 **Các trường của 1 ticket:**
 - Mã ticket — tự gợi ý dạng `IT-YYYYMMDD-NNN` theo ngày tạo (vẫn sửa tay
