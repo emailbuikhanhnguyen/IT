@@ -169,6 +169,21 @@ function goPage(name) {
 document.querySelectorAll("[data-page]").forEach(btn => {
   btn.addEventListener("click", () => goPage(btn.getAttribute("data-page")));
 });
+
+/* ---------- Account panel (thu gọn góc phải dưới) ---------- */
+$("accountToggle").addEventListener("click", e => {
+  e.stopPropagation();
+  $("accountPanel").classList.toggle("hidden");
+});
+document.addEventListener("click", e => {
+  const panel = $("accountPanel");
+  if (!panel.classList.contains("hidden") && !panel.contains(e.target) && e.target !== $("accountToggle")) {
+    panel.classList.add("hidden");
+  }
+});
+document.querySelectorAll("[data-page]").forEach(btn => {
+  btn.addEventListener("click", () => $("accountPanel").classList.add("hidden"));
+});
 // The two "add new asset" entry points must start from a clean, unlocked
 // form — otherwise navigating here right after viewing a locked asset
 // would carry over its disabled/read-only state.
