@@ -1730,6 +1730,11 @@ function ticketBadgeClass(status) {
   return "warn"; // Chờ (mặc định)
 }
 
+let expandedTicketIds = new Set();
+window.toggleTicketDetail = function (id) {
+  if (expandedTicketIds.has(id)) expandedTicketIds.delete(id); else expandedTicketIds.add(id);
+  renderTicketList();
+};
 function renderTicketList() {
   if (!$("ticketList")) return; // trang chưa có trong DOM (không nên xảy ra, phòng lỗi)
   const q = ($("ticketSearch").value || "").trim().toLowerCase();
@@ -1756,6 +1761,17 @@ function renderTicketList() {
     const deleteBtn = isAdmin
       ? `<button class="secondary" onclick="deleteTicket('${t._id}')">🗑 Xóa</button>`
       : "";
+    const hasExtra = t.cause || t.resolution || t.note;
+    const expanded = expandedTicketIds.has(t._id);
+    const detailBtn = hasExtra
+      ? `<button class="ghost" onclick="toggleTicketDetail('${t._id}')">${expanded ? "▲ Thu gọn" : "👁 Chi tiết"}</button>`
+      : "";
+    const detailRow = (expanded && hasExtra) ? `
+        <div class="scan-info">
+          ${t.cause ? `<div class="scan-row"><span class="muted">Nguyên nhân:</span> ${escapeHtml(t.cause)}</div>` : ""}
+          ${t.resolution ? `<div class="scan-row"><span class="muted">Cách xử lý:</span> ${escapeHtml(t.resolution)}</div>` : ""}
+          ${t.note ? `<div class="scan-row"><span class="muted">Ghi chú:</span> ${escapeHtml(t.note)}</div>` : ""}
+        </div>` : "";
     return `
     <div class="asset">
       <div>
@@ -1771,8 +1787,10 @@ function renderTicketList() {
         }).join("") : ""}
         ${(t.progressLog && t.progressLog.length) ? `<span class="badge info">🕒 ${t.progressLog.length} mốc xử lý</span>` : ""}
         ${!isAdmin ? `<span class="badge view-only-tag">👁 Chỉ xem</span>` : ""}
+        ${detailRow}
       </div>
       <div class="asset-actions">
+        ${detailBtn}
         ${editBtn}
         ${deleteBtn}
       </div>
