@@ -111,9 +111,9 @@ từ app, hoặc tự soạn theo đúng cột chuẩn ở trên) điền sẵn 
 dụng/Mã nhân viên/Bộ phận cho từng mã tài sản, rồi vào **Dữ liệu → Nhập
 Excel** để import hàng loạt — không cần nhập tay từng cái.
 
-## Phân quyền: Admin (IT) vs tài khoản Thu thập dữ liệu
+## Phân quyền: Admin (IT) vs Thu thập dữ liệu vs Chỉ xem (Ban giám đốc)
 
-App có 2 loại tài khoản:
+App có 3 loại tài khoản:
 
 - **Admin (IT)**: toàn quyền tạo/sửa/xóa mọi tài sản, dùng Excel/Backup.
 - **Collector (thu thập dữ liệu)**: 1 tài khoản dùng chung, IT đăng nhập
@@ -121,6 +121,10 @@ App có 2 loại tài khoản:
   được**, xem được toàn bộ danh sách (để tránh trùng mã), nhưng **không sửa
   và không xóa được bất kỳ tài sản nào** — kể cả tài sản nó vừa tạo ra. Nếu
   phát hiện sai sót, phải đăng nhập lại bằng tài khoản Admin để chỉnh.
+- **Viewer (chỉ xem)**: dành cho Ban giám đốc — xem được **toàn bộ** dữ
+  liệu (tài sản, ticket...) giống Collector, nhưng **không tạo/sửa/xóa**
+  được bất cứ gì. Giao diện tự ẩn hết các nút "Tạo mới"/"Thêm" khi đăng
+  nhập bằng tài khoản này.
 
 Việc phân quyền này được chốt chặn thật sự ở **Firestore Security Rules**
 (`firestore.rules` đi kèm) — ẩn nút trên giao diện chỉ là tiện lợi hiển thị,
@@ -131,11 +135,12 @@ Rules không publish đúng, nên bước dưới đây là bắt buộc.
 Firebase Console → Firestore Database → Rules → dán nội dung file
 `firestore.rules` → Publish.
 
-### 2. Tạo 2 tài khoản trong Authentication
-Authentication → Users → Add user, tạo 2 tài khoản (email + mật khẩu do IT
-tự đặt), ví dụ:
+### 2. Tạo tài khoản trong Authentication
+Authentication → Users → Add user, tạo tài khoản (email + mật khẩu do IT
+tự đặt) cho từng vai trò cần dùng, ví dụ:
 - `admin@congty.com` — dùng khi cần sửa/xóa/export/backup.
 - `kiemke@congty.com` — dùng để đi kiểm kê ở từng máy.
+- `giamdoc@congty.com` — cấp cho Ban giám đốc để xem/theo dõi (không sửa).
 
 ### 3. Gán vai trò cho từng UID
 Với mỗi tài khoản vừa tạo, mở tab **Authentication** để lấy **UID**, rồi vào
@@ -143,6 +148,7 @@ Với mỗi tài khoản vừa tạo, mở tab **Authentication** để lấy **
 **Document ID = UID đó** → thêm field `role` (kiểu string):
 - Tài khoản admin → `role = "admin"`
 - Tài khoản kiểm kê → `role = "collector"`
+- Tài khoản Ban giám đốc → `role = "viewer"`
 
 Tài khoản nào **không có** document trong `users` sẽ bị từ chối truy cập
 hoàn toàn (app tự đăng xuất và báo "chưa được cấp quyền") — đây là lựa chọn

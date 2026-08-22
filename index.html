@@ -70,7 +70,7 @@
   <div class="card"><h3>Trạng thái kiểm kê</h3><div id="checkStats"></div></div>
   <div class="quick">
     <button data-page="scan">📷 Quét QR</button>
-    <button id="quickAddBtn" data-page="assetForm">＋ Tạo tài sản</button>
+    <button id="quickAddBtn" class="creator-only" data-page="assetForm">＋ Tạo tài sản</button>
     <button data-page="assets">📋 Danh sách tài sản</button>
   </div>
 </section>
@@ -97,7 +97,7 @@
 </section>
 
 <section id="assets" class="page">
-  <div class="section-head"><h2>Danh sách tài sản</h2><button id="assetsAddBtn" data-page="assetForm">＋ Thêm</button></div>
+  <div class="section-head"><h2>Danh sách tài sản</h2><button id="assetsAddBtn" class="creator-only" data-page="assetForm">＋ Thêm</button></div>
   <div class="filters">
     <input id="search" placeholder="Tìm mã, serial, model, người dùng...">
     <select id="filterSection"><option value="">Tất cả khu vực</option></select>
@@ -191,7 +191,7 @@
     <div class="stat"><b id="ticketDoneCount">0</b><span>Hoàn thành</span></div>
   </div>
   <div class="quick">
-    <button id="quickAddTicketBtn" data-page="ticketForm">＋ Tạo ticket</button>
+    <button id="quickAddTicketBtn" class="creator-only" data-page="ticketForm">＋ Tạo ticket</button>
   </div>
   <p class="hint" style="margin-top:14px">Các mục hỗ trợ vận hành IT gộp chung một chỗ cho dễ tìm.</p>
   <div class="module-nav">
@@ -229,7 +229,7 @@
 </section>
 
 <section id="tickets" class="page">
-  <div class="section-head"><h2>Ticket hỗ trợ IT</h2><button id="ticketsAddBtn" data-page="ticketForm">＋ Thêm</button></div>
+  <div class="section-head"><h2>Ticket hỗ trợ IT</h2><button id="ticketsAddBtn" class="creator-only" data-page="ticketForm">＋ Thêm</button></div>
   <div class="filters">
     <input id="ticketSearch" placeholder="Tìm mã ticket, người yêu cầu, mô tả...">
     <select id="filterTicketStatus"><option value="">Tất cả trạng thái</option><option>Chờ</option><option>Đang xử lý</option><option>Hoàn thành</option></select>
@@ -354,6 +354,27 @@
 
 <section id="settings" class="page">
   <div class="section-head"><h2>Dữ liệu</h2></div>
+  <div class="card">
+    <h3>👤 Người dùng &amp; phân quyền</h3>
+    <p class="hint">Tạo tài khoản mới, đổi vai trò, hoặc vô hiệu hóa/kích hoạt lại — tất cả ngay trong app, không cần vào Firebase Console. Xóa hẳn tài khoản (khỏi Authentication) vẫn phải làm trong Console.</p>
+    <div id="userList"></div>
+    <button id="showAddUserBtn" class="secondary" style="margin-top:10px">＋ Thêm người dùng</button>
+    <div id="addUserForm" class="hidden" style="margin-top:12px">
+      <label>Email<input id="newUserEmail" type="email" placeholder="ten@congty.com"></label>
+      <label>Mật khẩu ban đầu (tối thiểu 6 ký tự)<input id="newUserPassword" type="text" placeholder="VD: Sec@2026"></label>
+      <label>Vai trò
+        <select id="newUserRole">
+          <option value="collector" selected>Collector (thu thập dữ liệu)</option>
+          <option value="viewer">Viewer (chỉ xem — Ban giám đốc)</option>
+          <option value="admin">Admin (IT)</option>
+        </select>
+      </label>
+      <div class="quick">
+        <button id="submitAddUserBtn">Tạo tài khoản</button>
+        <button id="cancelAddUserBtn" class="secondary">Hủy</button>
+      </div>
+    </div>
+  </div>
   <div class="card">
     <h3>Excel — Tài sản</h3>
     <p>Import danh sách kiểm kê hiện có hoặc export kết quả sau khi đi kiểm thực tế.</p>

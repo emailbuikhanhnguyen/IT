@@ -18,6 +18,16 @@ const auth = firebase.auth();
 const COLLECTION = "assets";
 const TICKET_COLLECTION = "tickets";
 const EMPLOYEES_COLLECTION = "employees";
+const USERS_COLLECTION = "users";
+
+// App Firebase "phụ" — dùng RIÊNG để tạo tài khoản mới (Dữ liệu → Người
+// dùng). createUserWithEmailAndPassword luôn tự đăng nhập vào tài khoản
+// vừa tạo trên app đang gọi nó — nếu gọi bằng app chính, Admin đang đăng
+// nhập sẽ bị đá văng ra khỏi phiên của chính mình. Dùng app phụ (session
+// hoàn toàn tách biệt) để tránh việc đó; đăng xuất app phụ ngay sau khi
+// tạo xong.
+const secondaryApp = firebase.initializeApp(firebaseConfig, "Secondary");
+const secondaryAuth = secondaryApp.auth();
 
 try {
   db.enablePersistence({ synchronizeTabs: true }).catch(err => {
@@ -49,6 +59,7 @@ let deferredInstallPrompt = null;
 */
 let isAdmin = false;
 let isCollector = false;
+let isViewer = false;
 let currentEmail = "";
 let currentUid = "";
 
@@ -252,6 +263,117 @@ function initEmployeesSync() {
 function stopEmployeesSync() {
   if (unsubscribeEmployeesSync) { unsubscribeEmployeesSync(); unsubscribeEmployeesSync = null; }
 }
+
+/* ---------- Người dùng & phân quyền (Dữ liệu → Người dùng, chỉ Admin) ----------
+   Đọc/ghi trực tiếp collection `users` (users/{uid} -> {role, email,
+   createdAt, createdBy}). Chỉ subscribe khi đang đăng nhập Admin, vì
+   Firestore Rules chỉ cho Admin đọc TOÀN BỘ collection này (tài khoản
+   khác chỉ đọc được đúng 1 doc của chính mình). */
+let userAccounts = [];
+let unsubscribeUsersSync = null;
+function initUsersSync() {
+  if (unsubscribeUsersSync) return;
+  unsubscribeUsersSync = db.collection(USERS_COLLECTION).onSnapshot(snapshot => {
+    userAccounts = snapshot.docs.map(d => Object.assign({ _uid: d.id }, d.data()));
+    renderUserList();
+  }, err => {
+    console.warn("Users sync error:", err);
+  });
+}
+function stopUsersSync() {
+  if (unsubscribeUsersSync) { unsubscribeUsersSync(); unsubscribeUsersSync = null; }
+  userAccounts = [];
+}
+const ROLE_LABELS = { admin: "Quản trị (Admin)", collector: "Thu thập dữ liệu", viewer: "Chỉ xem" };
+function renderUserList() {
+  const box = $("userList");
+  if (!box) return;
+  if (!userAccounts.length) { box.innerHTML = `<p class="muted">Chưa có tài khoản nào trong danh sách.</p>`; return; }
+  const sorted = [...userAccounts].sort((a, b) => (a.email || "").localeCompare(b.email || ""));
+  box.innerHTML = sorted.map(u => {
+    const isSelf = u._uid === currentUid;
+    const isDisabled = u.disabled === true;
+    const emailLabel = u.email || `<span class="muted">(chưa rõ email — tài khoản tạo qua Console)</span>`;
+    const roleOptions = ["admin", "collector", "viewer"].map(r =>
+      `<option value="${r}" ${u.role === r ? "selected" : ""}>${ROLE_LABELS[r]}</option>`).join("");
+    return `<div class="asset">
+      <div>
+        <h3>${emailLabel}${isSelf ? ` <span class="badge info">Bạn</span>` : ""}${isDisabled ? ` <span class="badge bad">Đã khóa</span>` : ""}</h3>
+        <span class="muted">UID: ${u._uid}</span>
+      </div>
+      <div class="asset-actions">
+        <select onchange="changeUserRole('${u._uid}', this.value)" ${isSelf ? "disabled title=\"Không tự đổi vai trò của chính mình\"" : ""}>${roleOptions}</select>
+        <button class="secondary" onclick="toggleUserActive('${u._uid}', '${escapeHtml(u.email || u._uid)}', ${isDisabled})" ${isSelf ? "disabled title=\"Không tự khóa/mở khóa chính mình\"" : ""}>${isDisabled ? "✅ Kích hoạt lại" : "🚫 Vô hiệu hóa"}</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+async function changeUserRole(uid, newRole) {
+  if (uid === currentUid) { alert("Không thể tự đổi vai trò của chính mình."); renderUserList(); return; }
+  if (!confirm(`Đổi vai trò tài khoản này thành "${ROLE_LABELS[newRole]}"?`)) { renderUserList(); return; }
+  try {
+    await db.collection(USERS_COLLECTION).doc(uid).update({ role: newRole });
+  } catch (err) {
+    console.error(err);
+    alert("Lỗi đổi vai trò: " + (err.message || err));
+    renderUserList();
+  }
+}
+async function toggleUserActive(uid, label, currentlyDisabled) {
+  if (uid === currentUid) { alert("Không thể tự khóa/mở khóa chính mình."); return; }
+  const action = currentlyDisabled ? "Kích hoạt lại" : "Vô hiệu hóa";
+  const note = currentlyDisabled
+    ? `Tài khoản "${label}" sẽ dùng lại được app với vai trò hiện có.`
+    : `Tài khoản "${label}" sẽ bị chặn ngay lần đăng nhập tiếp theo, nhưng vẫn còn trong danh sách để mở khóa lại sau này. Email/mật khẩu đăng nhập (Firebase Authentication) không bị ảnh hưởng.`;
+  if (!confirm(`${action} tài khoản này?\n\n${note}`)) return;
+  try {
+    await db.collection(USERS_COLLECTION).doc(uid).update({ disabled: !currentlyDisabled });
+  } catch (err) {
+    console.error(err);
+    alert(`Lỗi ${action.toLowerCase()}: ` + (err.message || err));
+  }
+}
+$("showAddUserBtn").addEventListener("click", () => {
+  $("addUserForm").classList.remove("hidden");
+  $("showAddUserBtn").classList.add("hidden");
+});
+$("cancelAddUserBtn").addEventListener("click", () => {
+  $("addUserForm").classList.add("hidden");
+  $("showAddUserBtn").classList.remove("hidden");
+  $("newUserEmail").value = "";
+  $("newUserPassword").value = "";
+});
+$("submitAddUserBtn").addEventListener("click", async () => {
+  const email = $("newUserEmail").value.trim();
+  const password = $("newUserPassword").value;
+  const role = $("newUserRole").value;
+  if (!email || !email.includes("@")) { alert("Nhập email hợp lệ."); return; }
+  if (!password || password.length < 6) { alert("Mật khẩu tối thiểu 6 ký tự."); return; }
+  const btn = $("submitAddUserBtn");
+  btn.disabled = true;
+  try {
+    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, password);
+    const newUid = cred.user.uid;
+    await secondaryAuth.signOut(); // dọn phiên app phụ, không ảnh hưởng phiên Admin đang dùng
+    await db.collection(USERS_COLLECTION).doc(newUid).set({
+      role, email,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: currentUid
+    });
+    alert(`Đã tạo tài khoản ${email} với vai trò "${ROLE_LABELS[role]}".`);
+    $("newUserEmail").value = "";
+    $("newUserPassword").value = "";
+    $("addUserForm").classList.add("hidden");
+    $("showAddUserBtn").classList.remove("hidden");
+  } catch (err) {
+    console.error(err);
+    let msg = err.message || String(err);
+    if (err.code === "auth/email-already-in-use") msg = "Email này đã có tài khoản rồi.";
+    alert("Lỗi tạo tài khoản: " + msg);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 function renderAll() {
   renderDashboard();
@@ -2395,15 +2517,27 @@ async function loadRole(user) {
   currentUid = user.uid;
   isAdmin = false;
   isCollector = false;
+  isViewer = false;
   try {
     const snap = await db.collection("users").doc(user.uid).get();
-    const role = snap.exists ? snap.data().role : null;
+    const data = snap.exists ? snap.data() : null;
+    const disabled = data ? data.disabled === true : false;
+    // Tài khoản bị Admin "Vô hiệu hóa" vẫn còn document users/{uid} (giữ
+    // lịch sử) nhưng app phải coi như không có vai trò gì — y hệt tài
+    // khoản chưa từng được cấp quyền.
+    const role = (!disabled && data) ? data.role : null;
     if (role === "admin") isAdmin = true;
     else if (role === "collector") isCollector = true;
+    else if (role === "viewer") isViewer = true;
   } catch (err) {
     console.warn("Không đọc được vai trò tài khoản:", err);
   }
+  // role-staff: ẩn mọi thứ .admin-only (Collector lẫn Viewer đều không
+  // phải Admin nên đều bị ẩn — giữ nguyên hành vi cũ).
   document.body.classList.toggle("role-staff", !isAdmin);
+  // role-viewer: ẩn thêm mọi thứ .creator-only — Viewer xem được toàn bộ
+  // nhưng không tạo mới được tài sản/ticket (khớp Firestore Rules).
+  document.body.classList.toggle("role-viewer", isViewer);
   const badge = $("roleBadge");
   if (isAdmin) {
     badge.textContent = "Quản trị";
@@ -2411,11 +2545,14 @@ async function loadRole(user) {
   } else if (isCollector) {
     badge.textContent = "Thu thập dữ liệu";
     badge.classList.remove("admin");
+  } else if (isViewer) {
+    badge.textContent = "Chỉ xem";
+    badge.classList.remove("admin");
   } else {
     badge.textContent = "Chưa cấp quyền";
     badge.classList.remove("admin");
   }
-  return isAdmin || isCollector;
+  return isAdmin || isCollector || isViewer;
 }
 
 auth.onAuthStateChanged(async user => {
@@ -2432,15 +2569,18 @@ auth.onAuthStateChanged(async user => {
     initSync();
     initTicketSync();
     initEmployeesSync();
+    if (isAdmin) initUsersSync(); // chỉ Admin đọc được toàn bộ collection users (theo Rules)
     goPage("dashboard");
   } else {
     stopSync();
     stopTicketSync();
     stopEmployeesSync();
+    stopUsersSync();
     assets = [];
     ticketRecords = [];
     isAdmin = false;
     isCollector = false;
+    isViewer = false;
     currentEmail = "";
     currentUid = "";
     $("appShell").classList.add("hidden");
