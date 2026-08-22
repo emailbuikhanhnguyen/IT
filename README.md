@@ -151,6 +151,43 @@ vai trò.
    admin luôn sửa được (có ô "Đã khóa" chỉ mang tính ghi chú, không chặn
    admin).
 
+## Ticket hỗ trợ IT (Helpdesk)
+App có thêm mục **🎫 Ticket** (trang riêng + thẻ tóm tắt trên Tổng quan) để
+ghi nhận và theo dõi các yêu cầu/sự cố IT — tương đương sổ Excel Helpdesk
+cũ, nhưng đồng bộ realtime nhiều người dùng, có lịch sử thay đổi, và có
+thể liên kết trực tiếp tới 1 tài sản đã kiểm kê trong app.
+
+**Phân quyền giống hệt Tài sản:** Admin toàn quyền tạo/sửa/xóa/đổi trạng
+thái; tài khoản Collector chỉ tạo ticket mới được, không sửa lại được (kể
+cả ticket vừa tạo) — ticket họ tạo tự động đánh dấu "Đã khóa" để Admin biết
+cần rà soát. Việc này được chốt chặn thật ở Firestore Rules, xem file
+`firestore.rules` đi kèm (đã thêm collection `tickets` cùng logic với
+`assets`) — publish lại file này trong Firebase Console → Firestore
+Database → Rules nếu bạn đã publish 1 bản rules khác từ trước.
+
+**Các trường của 1 ticket:**
+- Mã ticket — tự gợi ý dạng `IT-YYYYMMDD-NNN` theo ngày tạo (vẫn sửa tay
+  được), là ID tài liệu Firestore nên luôn duy nhất.
+- Mức ưu tiên: Thấp / Trung bình / Cao / Khẩn.
+- Trạng thái: Chờ / Đang xử lý / Hoàn thành.
+- Người yêu cầu, Phòng ban — gõ-để-gợi-ý từ `employees.js` giống form tài
+  sản, chọn xong tự điền kèm Phòng ban.
+- Liên kết tài sản (tuỳ chọn) — gõ mã/tên người dùng để tìm và chọn 1 tài
+  sản đã có trong app; chọn xong tự điền hộ Thiết bị/Phòng ban nếu đang
+  trống. Gõ tay đè lên ô này sẽ hủy liên kết cũ.
+- Thiết bị — mô tả tự do (không bắt buộc phải là tài sản đã kiểm kê).
+- Mô tả, Nguyên nhân, Cách xử lý, Ghi chú.
+- Ảnh hiện trạng (chụp trực tiếp hoặc chọn ảnh có sẵn).
+- Lịch sử thay đổi — tự động ghi lại mỗi lần tạo/sửa, giống hệt cơ chế của
+  tài sản.
+
+**Excel:** mục Dữ liệu → "Excel — Ticket" có Xuất/Nhập riêng cho ticket
+(không lẫn với Excel tài sản). Cột file nhập khớp với cấu trúc file
+Helpdesk cũ (Ticket ID, Ưu tiên, Trạng thái, Người yêu cầu, Phòng ban,
+Thiết bị, Mô tả, Nguyên nhân, Cách xử lý, Ghi chú) nên có thể import thẳng
+file Excel Helpdesk hiện có — cột "Mã tài sản liên kết" là cột riêng của
+app này, không bắt buộc phải có khi import.
+
 ## Quy trình thực tế
 1. Import danh sách Lab nếu đã có.
 2. Hoặc tạo từng tài sản khi kiểm kê.

@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function hasRoleDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    function roleOf() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isAdmin() {
+      return signedIn() && hasRoleDoc() && roleOf() == 'admin';
+    }
+    function isCollector() {
+      return signedIn() && hasRoleDoc() && roleOf() == 'collector';
+    }
+    // Roles collection: users/{uid} -> { role: "admin" | "collector" }
+    // Create one doc per account manually in Firebase Console > Firestore.
+    // An account with no doc here has no access to anything below.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isAdmin();
+    }
+    match /assets/{assetId} {
+      // Admin and the collector account can both browse/search everything
+      // (the collector needs this to check for duplicate codes etc).
+      allow read: if isAdmin() || isCollector();
+      // The collector account may only CREATE brand-new assets.
+      allow create: if isAdmin() || isCollector();
+      // Only admin may update or delete an EXISTING asset — including one
+      // the collector account just created. This is what makes every
+      // collector entry effectively "write once".
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    match /tickets/{ticketId} {
+      // Same read/write model as assets: admin and collector both browse
+      // everything; the collector account may only CREATE new tickets and
+      // can never update/delete an existing one (including its own) —
+      // every collector entry is effectively "write once".
+      allow read: if isAdmin() || isCollector();
+      allow create: if isAdmin() || isCollector();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

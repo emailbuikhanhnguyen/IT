@@ -16,6 +16,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 const COLLECTION = "assets";
+const TICKET_COLLECTION = "tickets";
 
 try {
   db.enablePersistence({ synchronizeTabs: true }).catch(err => {
@@ -25,6 +26,7 @@ try {
 
 /* ---------- State ---------- */
 let assets = [];              // local cache, synced from Firestore
+let ticketRecords = [];       // local cache, synced from Firestore (tickets)
 let html5QrCode = null;
 let scanning = false;
 let currentPhotoData = "";    // base64 dataURL of the photo currently in the form
@@ -83,7 +85,7 @@ const HISTORY_TRACK_FIELDS = [
   ["checkStatus", "Trạng thái kiểm kê"],
   ["note", "Ghi chú"],
 ];
-const HISTORY_ACTION_LABEL = { create: "Tạo tài sản", update: "Cập nhật", rename: "Đổi mã tài sản", import: "Nhập từ Excel" };
+const HISTORY_ACTION_LABEL = { create: "Tạo mới", update: "Cập nhật", rename: "Đổi mã", import: "Nhập từ Excel" };
 
 // So sánh 1 tài sản cũ (đang có trên hệ thống) với dữ liệu mới sắp lưu,
 // trả về danh sách các trường thực sự thay đổi. Nếu truyền `onlyKeys` (vd:
@@ -160,6 +162,7 @@ function goPage(name) {
   if (target) target.classList.add("active");
   if (name !== "scan" && scanning) stopScanner();
   if (name === "assets") renderAssetList();
+  if (name === "tickets") renderTicketList();
   if (name === "dashboard") renderDashboard();
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
@@ -188,9 +191,35 @@ function initSync() {
 function stopSync() {
   if (unsubscribeSync) { unsubscribeSync(); unsubscribeSync = null; }
 }
+
+let unsubscribeTicketSync = null;
+function initTicketSync() {
+  if (unsubscribeTicketSync) return; // already listening
+  unsubscribeTicketSync = db.collection(TICKET_COLLECTION).onSnapshot(snapshot => {
+    ticketRecords = snapshot.docs.map(d => Object.assign({ _id: d.id }, d.data()));
+    saveTicketsLocalCache();
+    renderAll();
+  }, err => {
+    console.error("Ticket sync error:", err);
+  });
+}
+function stopTicketSync() {
+  if (unsubscribeTicketSync) { unsubscribeTicketSync(); unsubscribeTicketSync = null; }
+}
+function saveTicketsLocalCache() {
+  try { localStorage.setItem("ita_tickets_cache", JSON.stringify(ticketRecords)); } catch (e) {}
+}
+function loadTicketsLocalCache() {
+  try {
+    const raw = localStorage.getItem("ita_tickets_cache");
+    if (raw) { ticketRecords = JSON.parse(raw); renderAll(); }
+  } catch (e) {}
+}
+
 function renderAll() {
   renderDashboard();
   renderAssetList();
+  renderTicketList();
 }
 
 /* ---------- Dashboard ---------- */
@@ -218,6 +247,19 @@ function renderDashboard() {
     <div class="bar"><i style="width:${pct}%"></i></div>`;
   if (!total) html = `<div class="empty">Chưa có tài sản nào. Bấm "＋ Tạo tài sản" để bắt đầu.</div>`;
   $("checkStats").innerHTML = html;
+
+  // Thống kê Ticket hỗ trợ trên dashboard
+  const tTotal = ticketRecords.length;
+  let tPending = 0, tInProgress = 0, tDone = 0;
+  ticketRecords.forEach(t => {
+    if (t.status === "Hoàn thành") tDone++;
+    else if (t.status === "Đang xử lý") tInProgress++;
+    else tPending++;
+  });
+  $("ticketTotalCount").textContent = tTotal;
+  $("ticketPendingCount").textContent = tPending;
+  $("ticketInProgressCount").textContent = tInProgress;
+  $("ticketDoneCount").textContent = tDone;
 }
 
 /* ---------- Asset list ---------- */
@@ -1440,6 +1482,477 @@ $("importXlsx").addEventListener("change", async e => {
   e.target.value = "";
 });
 
+/* ==========================================================================
+   TICKET HỖ TRỢ IT (Helpdesk)
+   ==========================================================================
+   Quy trình & phân quyền GIỐNG HỆT tài sản (xem khối "Role / permissions" ở
+   đầu file): Admin toàn quyền tạo/sửa/xóa/đổi trạng thái; tài khoản
+   Collector chỉ tạo ticket mới được, không sửa lại được (kể cả ticket vừa
+   tạo) — ticket họ tạo tự động đánh dấu locked:true. Enforce thật sự ở
+   Firestore Rules (collection "tickets"), UI chỉ ẩn nút cho tiện.
+   Ticket có thể liên kết (tuỳ chọn) tới 1 tài sản đã có trong app.
+*/
+const TICKET_PRIORITIES = ["Thấp", "Trung bình", "Cao", "Khẩn"];
+const TICKET_STATUSES = ["Chờ", "Đang xử lý", "Hoàn thành"];
+
+const TICKET_HISTORY_FIELDS = [
+  ["priority", "Mức ưu tiên"],
+  ["status", "Trạng thái"],
+  ["requester", "Người yêu cầu"],
+  ["department", "Phòng ban"],
+  ["assetCode", "Tài sản liên kết"],
+  ["device", "Thiết bị"],
+  ["description", "Mô tả"],
+  ["cause", "Nguyên nhân"],
+  ["resolution", "Cách xử lý"],
+  ["note", "Ghi chú"],
+];
+function diffTicketFields(oldT, newData, onlyKeys) {
+  const fields = onlyKeys ? TICKET_HISTORY_FIELDS.filter(([key]) => onlyKeys.includes(key)) : TICKET_HISTORY_FIELDS;
+  const changes = [];
+  fields.forEach(([key, label]) => {
+    const ov = ((oldT && oldT[key]) || "").toString().trim();
+    const nv = ((newData && newData[key]) || "").toString().trim();
+    if (ov !== nv) changes.push({ field: key, label, from: ov, to: nv });
+  });
+  return changes;
+}
+function renderTicketHistoryBox(t) {
+  const box = $("ticketHistoryBox");
+  const list = $("ticketHistoryList");
+  if (!box || !list) return;
+  const entries = Array.isArray(t && t.history) ? t.history.slice().sort((x, y) => (y.at || 0) - (x.at || 0)) : [];
+  if (!entries.length) { box.classList.add("hidden"); list.innerHTML = ""; return; }
+  box.classList.remove("hidden");
+  list.innerHTML = entries.map(e => {
+    const changesHtml = (e.changes || []).map(c => {
+      const from = c.from ? escapeHtml(c.from) : "<i>(trống)</i>";
+      const to = c.to ? escapeHtml(c.to) : "<i>(trống)</i>";
+      return `<div class="history-change"><b>${escapeHtml(c.label)}:</b> ${from} → ${to}</div>`;
+    }).join("");
+    return `<div class="history-entry">
+      <div class="history-head">
+        <span class="history-action">${escapeHtml(HISTORY_ACTION_LABEL[e.action] || e.action || "")}</span>
+        <span class="muted">${formatHistoryTime(e.at)} · ${escapeHtml(e.by || "")}</span>
+      </div>
+      ${changesHtml || '<div class="history-change muted">Không có thay đổi chi tiết được ghi nhận.</div>'}
+    </div>`;
+  }).join("");
+}
+
+/* ---------- Populate ticket priority/status selects ---------- */
+function populateTicketSelects() {
+  $("ticketPriority").innerHTML = TICKET_PRIORITIES.map(p => `<option>${p}</option>`).join("");
+  $("ticketStatus").innerHTML = TICKET_STATUSES.map(s => `<option>${s}</option>`).join("");
+}
+populateTicketSelects();
+
+/* ---------- Dashboard/list helpers ---------- */
+function prioritySlug(p) {
+  return { "Khẩn": "khan", "Cao": "cao", "Trung bình": "trungbinh", "Thấp": "thap" }[p] || "thap";
+}
+function ticketBadgeClass(status) {
+  if (status === "Hoàn thành") return "ok";
+  if (status === "Đang xử lý") return "info";
+  return "warn"; // Chờ (mặc định)
+}
+
+function renderTicketList() {
+  if (!$("ticketList")) return; // trang chưa có trong DOM (không nên xảy ra, phòng lỗi)
+  const q = ($("ticketSearch").value || "").trim().toLowerCase();
+  const statusF = $("filterTicketStatus").value;
+  const prioF = $("filterTicketPriority").value;
+
+  let list = ticketRecords.slice().sort((a, b) => (b.ticketId || "").localeCompare(a.ticketId || ""));
+  if (q) {
+    list = list.filter(t =>
+      [t.ticketId, t.requester, t.department, t.description, t.device, t.assetCode].some(v => (v || "").toLowerCase().includes(q))
+    );
+  }
+  if (statusF) list = list.filter(t => (t.status || "Chờ") === statusF);
+  if (prioF) list = list.filter(t => (t.priority || "Trung bình") === prioF);
+
+  if (!list.length) {
+    $("ticketList").innerHTML = `<div class="empty">Không có ticket phù hợp.</div>`;
+    return;
+  }
+  $("ticketList").innerHTML = list.map(t => {
+    const editBtn = isAdmin
+      ? `<button onclick="editTicket('${t._id}')">✎ Sửa</button>`
+      : `<button onclick="editTicket('${t._id}')">👁 Xem</button>`;
+    const deleteBtn = isAdmin
+      ? `<button class="secondary" onclick="deleteTicket('${t._id}')">🗑 Xóa</button>`
+      : "";
+    return `
+    <div class="asset">
+      <div>
+        <h3>${escapeHtml(t.ticketId)}</h3>
+        <div class="muted">${t.requester ? "👤 " + escapeHtml(t.requester) : ""}${t.department ? " · 🏢 " + escapeHtml(t.department) : ""}</div>
+        ${t.device || t.assetCode ? `<div class="muted">💻 ${escapeHtml(t.device || "")}${t.assetCode ? " (" + escapeHtml(t.assetCode) + ")" : ""}</div>` : ""}
+        <div class="muted">${escapeHtml(t.description || "")}</div>
+        <span class="badge ${ticketBadgeClass(t.status)}">${escapeHtml(t.status || "Chờ")}</span>
+        <span class="prio-badge prio-${prioritySlug(t.priority)}">${escapeHtml(t.priority || "Trung bình")}</span>
+        ${!isAdmin ? `<span class="badge view-only-tag">👁 Chỉ xem</span>` : ""}
+      </div>
+      <div class="asset-actions">
+        ${editBtn}
+        ${deleteBtn}
+      </div>
+    </div>
+  `;
+  }).join("");
+}
+$("ticketSearch").addEventListener("input", renderTicketList);
+$("filterTicketStatus").addEventListener("change", renderTicketList);
+$("filterTicketPriority").addEventListener("change", renderTicketList);
+
+/* ---------- Autocomplete: Người yêu cầu / Phòng ban / Liên kết tài sản ---------- */
+setupAutocomplete("ticketRequester", "ticketRequesterSuggest",
+  q => filterList((window.EMPLOYEES || []).map(e => e.name), q, 20)
+    .map(name => (window.EMPLOYEES || []).find(e => e.name === name))
+    .map(e => Object.assign({ inactive: !e.active }, e)),
+  e => `${escapeHtml(e.name)}<span class="muted">${escapeHtml(e.code)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
+  e => {
+    $("ticketRequester").value = e.name;
+    $("ticketDepartment").value = e.section || "";
+  },
+  { autoFillMinChars: 3 }
+);
+setupAutocomplete("ticketDepartment", "ticketDepartmentSuggest",
+  q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 20).map(v => ({ value: v })),
+  it => escapeHtml(it.value),
+  it => { $("ticketDepartment").value = it.value; }
+);
+// Liên kết tài sản — gợi ý từ danh sách tài sản hiện có trong app (mã, người
+// dùng, model). Chọn xong: điền hidden ticketAssetId để lưu liên kết, và
+// TIỆN ÍCH điền hộ Thiết bị/Phòng ban NẾU đang trống (không đè lên nếu
+// người dùng đã gõ sẵn). Gõ tay lại vào ô này (không chọn từ gợi ý) sẽ hủy
+// liên kết cũ để tránh lưu nhầm ticket vào tài sản không đúng.
+setupAutocomplete("ticketAsset", "ticketAssetSuggest",
+  q => filterList(assets.map(a => a.code), q, 20)
+    .map(code => assets.find(a => a.code === code))
+    .filter(Boolean),
+  a => `${escapeHtml(a.code)}<span class="muted">${escapeHtml(a.type || "")}${a.model ? " · " + escapeHtml(a.model) : ""}${a.user ? " · " + escapeHtml(a.user) : ""}</span>`,
+  a => {
+    $("ticketAsset").value = a.code;
+    $("ticketAssetId").value = a._id;
+    if (!$("ticketDevice").value.trim()) $("ticketDevice").value = [a.type, a.model].filter(Boolean).join(" - ");
+    if (!$("ticketDepartment").value.trim()) $("ticketDepartment").value = a.section || "";
+  }
+);
+$("ticketAsset").addEventListener("input", () => { $("ticketAssetId").value = ""; });
+
+/* ---------- Mã ticket: tự gợi ý dạng IT-YYYYMMDD-NNN ---------- */
+let ticketIdAutoFilled = true;
+function todayCompact() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+}
+function suggestedTicketSeq(dateStr) {
+  const prefix = `IT-${dateStr}-`;
+  const n = ticketRecords.filter(t => (t.ticketId || "").startsWith(prefix)).length + 1;
+  return String(n).padStart(3, "0");
+}
+function maybeSuggestTicketId() {
+  if (!ticketIdAutoFilled) return;
+  if ($("ticketDocId").value) return; // đang sửa ticket có sẵn — không đổi mã
+  const dateStr = todayCompact();
+  $("ticketId").value = `IT-${dateStr}-${suggestedTicketSeq(dateStr)}`;
+}
+$("ticketId").addEventListener("input", () => { ticketIdAutoFilled = false; });
+
+/* ---------- Form khóa/mở khóa (giống asset) ---------- */
+function setTicketFormLocked(locked) {
+  $("ticketFormEl").querySelectorAll("input, select, textarea, button").forEach(el => {
+    el.disabled = locked;
+  });
+  $("ticketLockedNotice").classList.toggle("hidden", !locked);
+}
+
+let currentTicketPhotoData = "";
+function clearTicketForm() {
+  $("ticketFormEl").reset();
+  $("ticketDocId").value = "";
+  $("ticketAssetId").value = "";
+  $("ticketFormTitle").textContent = "Tạo ticket";
+  currentTicketPhotoData = "";
+  $("ticketPhotoPreview").classList.add("hidden");
+  $("ticketPhotoPreview").src = "";
+  $("ticketRequesterSuggest").classList.add("hidden");
+  $("ticketRequesterSuggest").innerHTML = "";
+  $("ticketDepartmentSuggest").classList.add("hidden");
+  $("ticketDepartmentSuggest").innerHTML = "";
+  $("ticketAssetSuggest").classList.add("hidden");
+  $("ticketAssetSuggest").innerHTML = "";
+  $("ticketLocked").checked = false;
+  $("ticketId").readOnly = false;
+  setTicketFormLocked(false);
+  ticketIdAutoFilled = true;
+  maybeSuggestTicketId();
+  if ($("ticketHistoryBox")) { $("ticketHistoryBox").classList.add("hidden"); $("ticketHistoryList").innerHTML = ""; }
+}
+$("resetTicketForm").addEventListener("click", clearTicketForm);
+["quickAddTicketBtn", "ticketsAddBtn"].forEach(id => {
+  const btn = $(id);
+  if (btn) btn.addEventListener("click", clearTicketForm);
+});
+
+function fillFormFromTicket(t) {
+  ticketIdAutoFilled = false; // ticket đã có mã thật — không tự sinh đè lên
+  $("ticketDocId").value = t._id || "";
+  $("ticketAssetId").value = t.assetId || "";
+  $("ticketId").value = t.ticketId || "";
+  $("ticketPriority").value = t.priority || "Trung bình";
+  $("ticketStatus").value = t.status || "Chờ";
+  $("ticketRequester").value = t.requester || "";
+  $("ticketDepartment").value = t.department || "";
+  $("ticketAsset").value = t.assetCode || "";
+  $("ticketDevice").value = t.device || "";
+  $("ticketDescription").value = t.description || "";
+  $("ticketCause").value = t.cause || "";
+  $("ticketResolution").value = t.resolution || "";
+  $("ticketNote").value = t.note || "";
+  currentTicketPhotoData = t.photo || "";
+  if (currentTicketPhotoData) {
+    $("ticketPhotoPreview").src = currentTicketPhotoData;
+    $("ticketPhotoPreview").classList.remove("hidden");
+  } else {
+    $("ticketPhotoPreview").classList.add("hidden");
+  }
+  $("ticketLocked").checked = !!t.locked;
+  $("ticketFormTitle").textContent = "Sửa ticket: " + (t.ticketId || "");
+  renderTicketHistoryBox(t);
+
+  // Chỉ Admin mới đổi được Mã ticket hoặc sửa 1 ticket đã tồn tại — giống
+  // hệt quy tắc của tài sản (xem fillFormFromAsset).
+  $("ticketId").readOnly = !isAdmin;
+  setTicketFormLocked(!isAdmin);
+}
+window.editTicket = function (id) {
+  const t = ticketRecords.find(x => x._id === id);
+  if (!t) return;
+  fillFormFromTicket(t);
+  goPage("ticketForm");
+};
+window.deleteTicket = function (id) {
+  if (!isAdmin) return; // UI đã ẩn nút này cho non-admin; Firestore Rules chặn thật sự phía server
+  const t = ticketRecords.find(x => x._id === id);
+  if (!t) return;
+  if (!confirm(`Xóa ticket "${t.ticketId}"? Không thể hoàn tác.`)) return;
+  db.collection(TICKET_COLLECTION).doc(id).delete().catch(err => alert("Lỗi xóa: " + err.message));
+};
+
+$("ticketFormEl").addEventListener("submit", e => {
+  e.preventDefault();
+  const ticketId = $("ticketId").value.trim();
+  if (!ticketId) { alert("Vui lòng nhập Mã ticket."); return; }
+  if (!$("ticketDescription").value.trim()) { alert("Vui lòng nhập Mô tả sự cố / yêu cầu."); return; }
+  const newId = sanitizeId(ticketId);
+  if (!newId) { alert("Mã ticket không hợp lệ."); return; }
+  const oldId = $("ticketDocId").value;
+  const oldTicket = oldId ? ticketRecords.find(t => t._id === oldId) : null;
+
+  if (!isAdmin && oldId) {
+    alert("Bạn không có quyền sửa ticket đã tồn tại. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.");
+    return;
+  }
+
+  // Nếu có liên kết tài sản, lấy lại mã tài sản mới nhất từ cache (đề phòng
+  // tài sản đã đổi mã từ lúc chọn) để lưu snapshot assetCode hiển thị nhanh
+  // trong danh sách ticket mà không cần join dữ liệu.
+  const linkedAssetId = $("ticketAssetId").value.trim();
+  const linkedAsset = linkedAssetId ? assets.find(a => a._id === linkedAssetId) : null;
+
+  const data = {
+    ticketId,
+    priority: $("ticketPriority").value,
+    status: $("ticketStatus").value,
+    requester: $("ticketRequester").value.trim(),
+    department: $("ticketDepartment").value.trim(),
+    // Nếu có liên kết hợp lệ (chọn từ gợi ý), luôn lưu mã tài sản MỚI NHẤT
+    // (phòng khi tài sản đã đổi mã). Nếu không có liên kết (chưa chọn, đã
+    // gõ tay đè lên, hoặc import từ Excel chỉ có chữ mã), vẫn giữ nguyên
+    // text đang có trong ô — tránh mất dữ liệu mã tài sản dạng chữ tự do.
+    assetId: linkedAsset ? linkedAsset._id : "",
+    assetCode: linkedAsset ? linkedAsset.code : $("ticketAsset").value.trim(),
+    device: $("ticketDevice").value.trim(),
+    description: $("ticketDescription").value.trim(),
+    cause: $("ticketCause").value.trim(),
+    resolution: $("ticketResolution").value.trim(),
+    note: $("ticketNote").value.trim(),
+    photo: currentTicketPhotoData || "",
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  data.locked = isAdmin ? $("ticketLocked").checked : true;
+
+  {
+    const fieldChanges = diffTicketFields(oldTicket, data);
+    let action, carriedHistory = [];
+    if (!oldId) {
+      action = "create";
+    } else if (oldId !== newId) {
+      action = "rename";
+      fieldChanges.unshift({ field: "ticketId", label: "Mã ticket", from: oldTicket ? oldTicket.ticketId : oldId, to: ticketId });
+      carriedHistory = (oldTicket && Array.isArray(oldTicket.history)) ? oldTicket.history : [];
+    } else {
+      action = "update";
+    }
+    if (action !== "update" || fieldChanges.length) {
+      const entry = historyEntry(action, fieldChanges);
+      data.history = firebase.firestore.FieldValue.arrayUnion(...carriedHistory, entry);
+    }
+  }
+
+  const submitBtn = $("ticketFormEl").querySelector('button[type="submit"]');
+  const originalLabel = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Đang lưu...";
+
+  // Không await — giống hệt logic lưu tài sản, để UI phản hồi ngay cả khi
+  // offline (xem giải thích chi tiết ở khối lưu tài sản phía trên).
+  const writeOp = db.collection(TICKET_COLLECTION).doc(newId).set(data, { merge: true })
+    .then(() => (oldId && oldId !== newId) ? db.collection(TICKET_COLLECTION).doc(oldId).delete() : null)
+    .catch(err => {
+      alert("Lỗi đồng bộ lên máy chủ: " + err.message +
+        "\n\nDữ liệu vẫn được lưu tạm trên máy này và sẽ tự thử lại. " +
+        "Nếu lỗi là 'permission-denied', kiểm tra lại Firestore Rules đã Publish chưa.");
+    });
+
+  setTimeout(() => {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalLabel;
+    $("ticketDocId").value = newId;
+    $("ticketFormTitle").textContent = "Sửa ticket: " + ticketId;
+    goPage("tickets");
+  }, 150);
+
+  const stuckTimer = setTimeout(() => {
+    console.warn("Firestore write for ticket", newId, "has not resolved after 20s — check network/rules.");
+  }, 20000);
+  writeOp.finally(() => clearTimeout(stuckTimer));
+});
+
+/* ---------- Camera / photo (ticket) ---------- */
+$("ticketTakePhoto").addEventListener("click", () => $("ticketPhoto").click());
+$("ticketPhoto").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const dataUrl = await resizeImage(file);
+    currentTicketPhotoData = dataUrl;
+    $("ticketPhotoPreview").src = dataUrl;
+    $("ticketPhotoPreview").classList.remove("hidden");
+  } catch (err) {
+    alert("Không đọc được ảnh: " + err.message);
+  }
+  e.target.value = "";
+});
+
+/* ---------- Excel export/import (Ticket) ----------
+   Cột khớp với cấu trúc file Helpdesk_IT.xlsx (sheet "Tickets") để import
+   trực tiếp file cũ nếu cần: Ticket ID, Ưu tiên, Trạng thái, Người yêu cầu,
+   Phòng ban, Thiết bị, Mô tả, Nguyên nhân, Cách xử lý, Ghi chú. Cột "Mã tài
+   sản liên kết" là cột riêng của app này (không có trong file gốc) — nếu
+   không có cột này khi import, ticket vẫn được tạo, chỉ là chưa liên kết
+   tài sản (có thể vào sửa từng ticket để liên kết thủ công sau).
+*/
+const TICKET_COLUMNS = ["ticketId", "priority", "status", "requester", "department", "assetCode", "device", "description", "cause", "resolution", "note"];
+const TICKET_COLUMN_LABELS_VN = {
+  ticketId: "Ticket ID", priority: "Ưu tiên", status: "Trạng thái", requester: "Người yêu cầu",
+  department: "Phòng ban", assetCode: "Mã tài sản liên kết", device: "Thiết bị", description: "Mô tả",
+  cause: "Nguyên nhân", resolution: "Cách xử lý", note: "Ghi chú"
+};
+const TICKET_HEADER_MAP = {};
+TICKET_COLUMNS.forEach(c => {
+  TICKET_HEADER_MAP[c.toLowerCase()] = c;
+  TICKET_HEADER_MAP[TICKET_COLUMN_LABELS_VN[c].toLowerCase()] = c;
+});
+TICKET_HEADER_MAP["mã tài sản"] = "assetCode"; // alias ngắn gọn hơn khi tự soạn Excel
+
+$("exportTicketsXlsx").addEventListener("click", () => {
+  if (!ticketRecords.length) { alert("Chưa có dữ liệu ticket để xuất."); return; }
+  const rows = ticketRecords.slice().sort((a, b) => (a.ticketId || "").localeCompare(b.ticketId || "")).map(t => {
+    const row = {};
+    TICKET_COLUMNS.forEach(c => { row[TICKET_COLUMN_LABELS_VN[c]] = t[c] || ""; });
+    return row;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Tickets");
+  const ts = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `it-helpdesk-tickets-${ts}.xlsx`);
+});
+
+$("importTicketsXlsx").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+    let imported = 0;
+    const chunks = [];
+    let batch = db.batch();
+    let count = 0;
+    for (const row of rows) {
+      const obj = {};
+      Object.keys(row).forEach(k => {
+        const mapped = TICKET_HEADER_MAP[k.trim().toLowerCase()];
+        if (mapped) obj[mapped] = String(row[k]).trim();
+      });
+      if (!obj.ticketId) continue;
+      const id = sanitizeId(obj.ticketId);
+      if (!id) continue;
+      obj.priority = TICKET_PRIORITIES.includes(obj.priority) ? obj.priority : "Trung bình";
+      obj.status = TICKET_STATUSES.includes(obj.status) ? obj.status : "Chờ";
+      obj.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+      const existing = ticketRecords.find(t => t._id === id);
+      const importedKeys = Object.keys(obj).filter(k => TICKET_HISTORY_FIELDS.some(([hk]) => hk === k));
+      const fieldChanges = diffTicketFields(existing, obj, importedKeys);
+      if (!existing || fieldChanges.length) {
+        obj.history = firebase.firestore.FieldValue.arrayUnion(historyEntry("import", fieldChanges));
+      }
+
+      batch.set(db.collection(TICKET_COLLECTION).doc(id), obj, { merge: true });
+      count++; imported++;
+      if (count >= 400) { chunks.push(batch); batch = db.batch(); count = 0; }
+    }
+    if (count > 0) chunks.push(batch);
+    for (const b of chunks) await b.commit();
+    alert(`Đã nhập ${imported} ticket từ Excel.`);
+  } catch (err) {
+    alert("Lỗi nhập Excel: " + err.message);
+  }
+  e.target.value = "";
+});
+
+/* ---------- Xóa toàn bộ ticket ---------- */
+$("clearAllTickets").addEventListener("click", async () => {
+  if (!confirm("Xóa TOÀN BỘ ticket? Hành động này không thể hoàn tác.")) return;
+  if (!confirm("Xác nhận lần 2: bạn chắc chắn muốn xóa hết ticket?")) return;
+  try {
+    const snap = await db.collection(TICKET_COLLECTION).get();
+    let batch = db.batch();
+    let count = 0;
+    const chunks = [];
+    snap.docs.forEach(d => {
+      batch.delete(d.ref);
+      count++;
+      if (count >= 400) { chunks.push(batch); batch = db.batch(); count = 0; }
+    });
+    if (count > 0) chunks.push(batch);
+    for (const b of chunks) await b.commit();
+    localStorage.removeItem("ita_tickets_cache");
+    alert("Đã xóa toàn bộ ticket.");
+  } catch (err) {
+    alert("Lỗi xóa dữ liệu: " + err.message);
+  }
+});
+
 /* ---------- JSON backup/restore ---------- */
 $("backupJson").addEventListener("click", () => {
   if (!assets.length) { alert("Chưa có dữ liệu để sao lưu."); return; }
@@ -1608,10 +2121,13 @@ auth.onAuthStateChanged(async user => {
       return;
     }
     initSync();
+    initTicketSync();
     goPage("dashboard");
   } else {
     stopSync();
+    stopTicketSync();
     assets = [];
+    ticketRecords = [];
     isAdmin = false;
     isCollector = false;
     currentEmail = "";
@@ -1626,3 +2142,4 @@ auth.onAuthStateChanged(async user => {
 /* ---------- Init ---------- */
 populateTypeSelect();
 loadLocalCache();
+loadTicketsLocalCache();

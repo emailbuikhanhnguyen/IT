@@ -46,6 +46,19 @@
     <button data-page="assets">📋 Danh sách</button>
     <button data-page="settings" class="admin-only">⇅ Dữ liệu</button>
   </div>
+  <div class="card">
+    <h2>🎫 Ticket hỗ trợ</h2>
+    <div class="stats">
+      <div class="stat"><b id="ticketTotalCount">0</b><span>Tổng ticket</span></div>
+      <div class="stat"><b id="ticketPendingCount">0</b><span>Chờ xử lý</span></div>
+      <div class="stat"><b id="ticketInProgressCount">0</b><span>Đang xử lý</span></div>
+      <div class="stat"><b id="ticketDoneCount">0</b><span>Hoàn thành</span></div>
+    </div>
+    <div class="quick">
+      <button id="quickAddTicketBtn" data-page="ticketForm">＋ Tạo ticket</button>
+      <button data-page="tickets">🎫 Danh sách ticket</button>
+    </div>
+  </div>
 </section>
 
 <section id="scan" class="page">
@@ -147,14 +160,84 @@
   </form>
 </section>
 
+<section id="tickets" class="page">
+  <div class="section-head"><h2>Ticket hỗ trợ IT</h2><button id="ticketsAddBtn" data-page="ticketForm">＋ Thêm</button></div>
+  <div class="filters">
+    <input id="ticketSearch" placeholder="Tìm mã ticket, người yêu cầu, mô tả...">
+    <select id="filterTicketStatus"><option value="">Tất cả trạng thái</option><option>Chờ</option><option>Đang xử lý</option><option>Hoàn thành</option></select>
+    <select id="filterTicketPriority"><option value="">Tất cả mức ưu tiên</option><option>Khẩn</option><option>Cao</option><option>Trung bình</option><option>Thấp</option></select>
+  </div>
+  <div id="ticketList"></div>
+</section>
+
+<section id="ticketForm" class="page">
+  <div class="section-head"><h2 id="ticketFormTitle">Tạo ticket</h2><button data-page="tickets">←</button></div>
+  <form id="ticketFormEl" class="card">
+    <div id="ticketLockedNotice" class="locked-notice hidden">🔒 Bạn chỉ có quyền xem ticket này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.</div>
+    <input type="hidden" id="ticketDocId">
+    <input type="hidden" id="ticketAssetId">
+    <label>Mã ticket*
+      <input id="ticketId" required placeholder="Tự gợi ý dạng IT-YYYYMMDD-NNN, có thể sửa tay">
+      <span class="hint">Tự động gợi ý theo ngày tạo, ví dụ IT-20260822-001 — vẫn gõ tay/sửa lại được.</span>
+    </label>
+    <label>Mức ưu tiên<select id="ticketPriority"><option>Thấp</option><option>Trung bình</option><option>Cao</option><option>Khẩn</option></select></label>
+    <label>Trạng thái<select id="ticketStatus"><option>Chờ</option><option>Đang xử lý</option><option>Hoàn thành</option></select></label>
+    <label class="autocomplete-field">Người yêu cầu
+      <input id="ticketRequester" autocomplete="off" placeholder="Gõ tên để tìm trong danh sách nhân viên, hoặc gõ tay">
+      <div id="ticketRequesterSuggest" class="suggest-list hidden"></div>
+    </label>
+    <label class="autocomplete-field">Phòng ban
+      <input id="ticketDepartment" autocomplete="off" placeholder="Tự điền khi chọn Người yêu cầu, hoặc tự chọn/gõ">
+      <div id="ticketDepartmentSuggest" class="suggest-list hidden"></div>
+    </label>
+    <label class="autocomplete-field">Liên kết tài sản (không bắt buộc)
+      <input id="ticketAsset" autocomplete="off" placeholder="Gõ mã tài sản / tên người dùng để tìm và liên kết">
+      <div id="ticketAssetSuggest" class="suggest-list hidden"></div>
+    </label>
+    <label>Thiết bị<input id="ticketDevice" placeholder="VD: Máy in màu, PC Lab 04 — tự điền khi liên kết tài sản, vẫn sửa được"></label>
+    <label>Mô tả sự cố / yêu cầu*<textarea id="ticketDescription" rows="3" required></textarea></label>
+    <label>Nguyên nhân<textarea id="ticketCause" rows="2"></textarea></label>
+    <label>Cách xử lý<textarea id="ticketResolution" rows="2"></textarea></label>
+    <label>Ghi chú<textarea id="ticketNote" rows="2"></textarea></label>
+
+    <div class="camera-grid">
+      <button type="button" id="ticketTakePhoto">📷 Chụp ảnh hiện trạng</button>
+      <label class="button secondary">🖼 Chọn ảnh<input id="ticketPhoto" type="file" accept="image/*" capture="environment" hidden></label>
+    </div>
+    <img id="ticketPhotoPreview" class="preview hidden">
+
+    <div id="ticketHistoryBox" class="card history-box hidden">
+      <h3>🕘 Lịch sử thay đổi</h3>
+      <p class="hint">Tự động ghi lại mỗi lần tạo/sửa ticket này — không cần thao tác gì thêm.</p>
+      <div id="ticketHistoryList"></div>
+    </div>
+
+    <div class="psbox admin-only">
+      <h3>🔒 Trạng thái xác nhận (chỉ Admin)</h3>
+      <p class="hint">Tài khoản "Thu thập dữ liệu" chỉ tạo ticket mới được, không sửa lại được — ticket họ tạo tự động đánh dấu "Đã khóa" ở đây để bạn biết cần rà soát. Admin luôn sửa được bất kể ô này bật hay tắt.</p>
+      <label class="checkbox-label"><input id="ticketLocked" type="checkbox"> Đã khóa (được tạo bởi tài khoản thu thập dữ liệu)</label>
+    </div>
+
+    <div class="form-actions"><button type="submit" id="submitTicketBtn">Lưu ticket</button><button type="button" class="secondary" id="resetTicketForm">Xóa form</button></div>
+  </form>
+</section>
+
 <section id="settings" class="page">
   <div class="section-head"><h2>Dữ liệu</h2></div>
   <div class="card">
-    <h3>Excel</h3>
+    <h3>Excel — Tài sản</h3>
     <p>Import danh sách kiểm kê hiện có hoặc export kết quả sau khi đi kiểm thực tế.</p>
     <div class="quick">
       <button id="exportXlsx">⬇ Xuất Excel</button>
       <label class="button secondary">⬆ Nhập Excel<input id="importXlsx" type="file" accept=".xlsx,.xls,.csv" hidden></label>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Excel — Ticket</h3>
+    <p>Import danh sách ticket hiện có (VD: file Helpdesk cũ) hoặc export toàn bộ ticket ra Excel.</p>
+    <div class="quick">
+      <button id="exportTicketsXlsx">⬇ Xuất Excel</button>
+      <label class="button secondary">⬆ Nhập Excel<input id="importTicketsXlsx" type="file" accept=".xlsx,.xls,.csv" hidden></label>
     </div>
   </div>
   <div class="card">
@@ -176,7 +259,13 @@
       <li>Không dùng QR để thay thế Serial của hãng.</li>
     </ol>
   </div>
-  <div class="card danger"><h3>Xóa dữ liệu</h3><button id="clearAll" class="dangerBtn">Xóa toàn bộ tài sản</button></div>
+  <div class="card danger">
+    <h3>Xóa dữ liệu</h3>
+    <div class="quick">
+      <button id="clearAll" class="dangerBtn">Xóa toàn bộ tài sản</button>
+      <button id="clearAllTickets" class="dangerBtn">Xóa toàn bộ ticket</button>
+    </div>
+  </div>
 </section>
 </main>
 
@@ -184,6 +273,7 @@
   <button data-page="dashboard">⌂<span>Tổng quan</span></button>
   <button data-page="scan">⌁<span>Quét QR</span></button>
   <button data-page="assets">▤<span>Tài sản</span></button>
+  <button data-page="tickets">🎫<span>Ticket</span></button>
   <button data-page="settings" class="admin-only">⚙<span>Dữ liệu</span></button>
 </nav>
 </div>
