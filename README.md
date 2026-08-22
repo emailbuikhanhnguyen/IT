@@ -181,11 +181,12 @@ dùng bản rules cũ chưa có collection này).
   được), là ID tài liệu Firestore nên luôn duy nhất.
 - Mức ưu tiên: Thấp / Trung bình / Cao / Khẩn.
 - Trạng thái: Chờ / Đang xử lý / Hoàn thành.
-- Người yêu cầu, Phòng ban — gõ-để-gợi-ý từ `employees.js` giống form tài
-  sản, chọn xong tự điền kèm Phòng ban.
+- Mã nhân viên, Người yêu cầu, Phòng ban — gõ-để-gợi-ý từ danh sách nhân
+  viên (giống form tài sản), điền 2 chiều: chọn Mã NV thì tự điền Người
+  yêu cầu + Phòng ban, hoặc chọn Người yêu cầu thì tự điền Mã NV + Phòng ban.
 - Liên kết tài sản (tuỳ chọn) — gõ mã/tên người dùng để tìm và chọn 1 tài
-  sản đã có trong app; chọn xong tự điền hộ Thiết bị/Phòng ban nếu đang
-  trống. Gõ tay đè lên ô này sẽ hủy liên kết cũ.
+  sản đã có trong app; chọn xong tự điền hộ Thiết bị/Phòng ban/Mã nhân viên
+  nếu đang trống. Gõ tay đè lên ô này sẽ hủy liên kết cũ.
 - Thiết bị — mô tả tự do (không bắt buộc phải là tài sản đã kiểm kê).
 - Mô tả, Nguyên nhân, Cách xử lý, Ghi chú.
 - Ảnh hiện trạng (chụp trực tiếp hoặc chọn ảnh có sẵn).
@@ -196,8 +197,8 @@ dùng bản rules cũ chưa có collection này).
 (không lẫn với Excel tài sản). Cột file nhập khớp với cấu trúc file
 Helpdesk cũ (Ticket ID, Ưu tiên, Trạng thái, Người yêu cầu, Phòng ban,
 Thiết bị, Mô tả, Nguyên nhân, Cách xử lý, Ghi chú) nên có thể import thẳng
-file Excel Helpdesk hiện có — cột "Mã tài sản liên kết" là cột riêng của
-app này, không bắt buộc phải có khi import.
+file Excel Helpdesk hiện có — 2 cột "Mã nhân viên" và "Mã tài sản liên kết"
+là cột riêng của app này, không bắt buộc phải có khi import.
 
 ## Quy trình thực tế
 1. Import danh sách Lab nếu đã có.
