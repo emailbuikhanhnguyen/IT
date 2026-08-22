@@ -17,6 +17,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 const COLLECTION = "assets";
 const TICKET_COLLECTION = "tickets";
+const EMPLOYEES_COLLECTION = "employees";
 
 try {
   db.enablePersistence({ synchronizeTabs: true }).catch(err => {
@@ -214,6 +215,27 @@ function loadTicketsLocalCache() {
     const raw = localStorage.getItem("ita_tickets_cache");
     if (raw) { ticketRecords = JSON.parse(raw); renderAll(); }
   } catch (e) {}
+}
+
+/* ---------- Danh sách nhân viên (đồng bộ Firestore) ----------
+   employees.js chỉ còn là danh sách "khởi tạo/dự phòng" (dùng khi mất
+   mạng hoặc trước khi đăng nhập). Sau khi đăng nhập, nếu collection
+   `employees` trên Firestore có dữ liệu (tức đã từng Nhập Excel từ HR —
+   xem importEmployeesXlsx bên dưới), danh sách đó sẽ GHI ĐÈ window.EMPLOYEES
+   và cập nhật realtime cho mọi tài khoản/thiết bị — không cần IT tự sửa
+   tay employees.js mỗi khi HR có người mới nữa. */
+let unsubscribeEmployeesSync = null;
+function initEmployeesSync() {
+  if (unsubscribeEmployeesSync) return;
+  unsubscribeEmployeesSync = db.collection(EMPLOYEES_COLLECTION).onSnapshot(snapshot => {
+    if (snapshot.empty) return; // chưa từng import từ HR -> giữ nguyên employees.js
+    window.EMPLOYEES = snapshot.docs.map(d => d.data());
+  }, err => {
+    console.warn("Employees sync error (giữ danh sách employees.js):", err);
+  });
+}
+function stopEmployeesSync() {
+  if (unsubscribeEmployeesSync) { unsubscribeEmployeesSync(); unsubscribeEmployeesSync = null; }
 }
 
 function renderAll() {
@@ -1483,6 +1505,99 @@ $("importXlsx").addEventListener("change", async e => {
 });
 
 /* ==========================================================================
+   NHẬP DANH SÁCH NHÂN VIÊN TRỰC TIẾP TỪ FILE HR (ImportEmployeeProfile.xlsx)
+   ==========================================================================
+   Trước đây (xem README) mỗi khi HR xuất file mới, IT phải tự mở file, lọc
+   4 cột, rồi tay sinh lại mảng EMPLOYEES trong employees.js và thay nguyên
+   file. Giờ chỉ cần vào Dữ liệu → "Nhân viên (HR)" → chọn thẳng file HR vừa
+   xuất, app tự đọc và đồng bộ lên Firestore (collection `employees`) — mọi
+   thiết bị/tài khoản dùng app sẽ thấy danh sách mới ngay (qua
+   initEmployeesSync ở trên), không cần build lại file .js hay deploy lại.
+
+   File HR có cấu trúc cố định (xem "ImportEmployeeProfile"): 1 dòng chứa các
+   "machine tag" dạng @EmployeeID/@FullName/... dùng để dò đúng cột theo tên,
+   không phụ thuộc thứ tự cột — 2 dòng tiêu đề cho người đọc ngay sau đó —
+   rồi tới dữ liệu. Cột "Terminate date" (Ngày nghỉ việc) không có sẵn
+   machine tag trong file mẫu nên được dò riêng theo dòng tiêu đề người đọc.
+*/
+$("importEmployeesXlsx").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array", cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+    const tagRowIdx = grid.findIndex(row => row.some(c => String(c).trim() === "@EmployeeID"));
+    if (tagRowIdx === -1) {
+      throw new Error("Không tìm thấy dòng @EmployeeID — file không đúng mẫu ImportEmployeeProfile của HR.");
+    }
+    const tagRow = grid[tagRowIdx];
+    const col = {};
+    tagRow.forEach((c, i) => {
+      const t = String(c).trim();
+      if (t.startsWith("@")) col[t.slice(1)] = i;
+    });
+    // Dò cột "Terminate date" theo dòng tiêu đề người đọc (2 dòng sau dòng
+    // tag), vì cột này không có machine tag riêng trong file mẫu.
+    const humanHeaderRow = grid[tagRowIdx + 2] || [];
+    let terminateCol = humanHeaderRow.findIndex(c => /terminate|nghỉ việc/i.test(String(c)));
+    if (terminateCol === -1) terminateCol = 4; // fallback theo đúng vị trí cột E trong file mẫu
+
+    const required = ["EmployeeID", "FullName", "SectionName", "GroupName"];
+    const missing = required.filter(k => !(k in col));
+    if (missing.length) throw new Error("File thiếu cột bắt buộc: " + missing.join(", "));
+
+    const dataRows = grid.slice(tagRowIdx + 3); // dữ liệu bắt đầu ngay sau 2 dòng tiêu đề người đọc
+    const list = [];
+    const seen = new Set();
+    for (const row of dataRows) {
+      const code = String(row[col.EmployeeID] || "").trim();
+      const name = String(row[col.FullName] || "").trim();
+      if (!code || !name) continue;
+      if (seen.has(code)) continue; // phòng file có dòng trùng mã
+      seen.add(code);
+      const section = String(row[col.SectionName] || "").trim();
+      const group = String(row[col.GroupName] || "").trim();
+      const terminated = String(row[terminateCol] || "").trim() !== "";
+      list.push({ code, name, section, group, active: !terminated });
+    }
+    if (!list.length) throw new Error("Không đọc được dòng nhân viên nào từ file.");
+
+    // Ghi đè toàn bộ danh sách trên Firestore (giống việc "thay nguyên file"
+    // employees.js trước đây): trước tiên lấy các mã đang có, ghi/merge danh
+    // sách mới, rồi xóa các mã không còn xuất hiện trong file HR lần này.
+    const existingSnap = await db.collection(EMPLOYEES_COLLECTION).get();
+    const existingIds = new Set(existingSnap.docs.map(d => d.id));
+    const newIds = new Set();
+
+    let batch = db.batch(); let count = 0; const chunks = [];
+    for (const emp of list) {
+      const id = sanitizeId(emp.code);
+      if (!id) continue;
+      newIds.add(id);
+      batch.set(db.collection(EMPLOYEES_COLLECTION).doc(id), emp, { merge: true });
+      count++;
+      if (count >= 400) { chunks.push(batch); batch = db.batch(); count = 0; }
+    }
+    for (const id of existingIds) {
+      if (newIds.has(id)) continue;
+      batch.delete(db.collection(EMPLOYEES_COLLECTION).doc(id));
+      count++;
+      if (count >= 400) { chunks.push(batch); batch = db.batch(); count = 0; }
+    }
+    if (count > 0) chunks.push(batch);
+    for (const b of chunks) await b.commit();
+
+    alert(`Đã nhập ${list.length} nhân viên từ file HR. Danh sách gợi ý sẽ tự cập nhật trên mọi thiết bị.`);
+  } catch (err) {
+    alert("Lỗi nhập danh sách nhân viên: " + err.message);
+  }
+  e.target.value = "";
+});
+
+/* ==========================================================================
    TICKET HỖ TRỢ IT (Helpdesk)
    ==========================================================================
    Quy trình & phân quyền GIỐNG HỆT tài sản (xem khối "Role / permissions" ở
@@ -2122,10 +2237,12 @@ auth.onAuthStateChanged(async user => {
     }
     initSync();
     initTicketSync();
+    initEmployeesSync();
     goPage("dashboard");
   } else {
     stopSync();
     stopTicketSync();
+    stopEmployeesSync();
     assets = [];
     ticketRecords = [];
     isAdmin = false;
