@@ -33,21 +33,35 @@
 
 <main>
 <section id="dashboard" class="page active">
-  <div class="stats">
-    <div class="stat"><b id="totalCount">0</b><span>Tổng tài sản</span></div>
-    <div class="stat"><b id="checkedCount">0</b><span>Đã kiểm</span></div>
-    <div class="stat"><b id="uncheckedCount">0</b><span>Chưa kiểm</span></div>
-    <div class="stat"><b id="exceptionCount">0</b><span>Cần xử lý</span></div>
+
+  <div class="module-card">
+    <div class="module-head">
+      <div class="module-title">
+        <span class="module-icon">📦</span>
+        <div><h2>Kiểm kê tài sản</h2><p class="muted">Quét QR, tạo mới, theo dõi tình trạng kiểm kê</p></div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="totalCount">0</b><span>Tổng tài sản</span></div>
+      <div class="stat"><b id="checkedCount">0</b><span>Đã kiểm</span></div>
+      <div class="stat"><b id="uncheckedCount">0</b><span>Chưa kiểm</span></div>
+      <div class="stat"><b id="exceptionCount">0</b><span>Cần xử lý</span></div>
+    </div>
+    <div class="card"><h3>Trạng thái kiểm kê</h3><div id="checkStats"></div></div>
+    <div class="quick">
+      <button data-page="scan">📷 Quét QR</button>
+      <button id="quickAddBtn" data-page="assetForm">＋ Tạo tài sản</button>
+      <button data-page="assets">📋 Danh sách tài sản</button>
+    </div>
   </div>
-  <div class="card"><h2>Trạng thái kiểm kê</h2><div id="checkStats"></div></div>
-  <div class="quick">
-    <button data-page="scan">📷 Quét QR</button>
-    <button id="quickAddBtn" data-page="assetForm">＋ Tạo tài sản</button>
-    <button data-page="assets">📋 Danh sách</button>
-    <button data-page="settings" class="admin-only">⇅ Dữ liệu</button>
-  </div>
-  <div class="card">
-    <h2>🎫 Ticket hỗ trợ</h2>
+
+  <div class="module-card">
+    <div class="module-head">
+      <div class="module-title">
+        <span class="module-icon">🛠</span>
+        <div><h2>Vận hành &amp; Hỗ trợ IT</h2><p class="muted">Ticket, hướng dẫn kỹ thuật, network, đơn hàng (PO)</p></div>
+      </div>
+    </div>
     <div class="stats">
       <div class="stat"><b id="ticketTotalCount">0</b><span>Tổng ticket</span></div>
       <div class="stat"><b id="ticketPendingCount">0</b><span>Chờ xử lý</span></div>
@@ -56,8 +70,12 @@
     </div>
     <div class="quick">
       <button id="quickAddTicketBtn" data-page="ticketForm">＋ Tạo ticket</button>
-      <button data-page="tickets">🎫 Danh sách ticket</button>
+      <button data-page="ops">🛠 Mở Vận hành IT</button>
     </div>
+  </div>
+
+  <div class="quick">
+    <button data-page="settings" class="admin-only">⇅ Quản trị dữ liệu</button>
   </div>
 </section>
 
@@ -160,6 +178,32 @@
   </form>
 </section>
 
+<section id="ops" class="page">
+  <div class="section-head"><h2>🛠 Vận hành &amp; Hỗ trợ IT</h2><button data-page="dashboard">←</button></div>
+  <p class="hint">Các mục hỗ trợ vận hành IT gộp chung một chỗ cho dễ tìm.</p>
+  <div class="module-nav">
+    <button class="module-nav-item" data-page="tickets">
+      <span class="module-nav-icon">🎫</span>
+      <span class="module-nav-text"><b>Ticket hỗ trợ</b><small>Theo dõi &amp; xử lý yêu cầu, sự cố IT</small></span>
+    </button>
+    <button class="module-nav-item" data-page="guides">
+      <span class="module-nav-icon">📘</span>
+      <span class="module-nav-text"><b>Hướng dẫn kỹ thuật</b><small>Tài liệu, quy trình xử lý sự cố thường gặp</small></span>
+      <span class="module-nav-soon">Sắp có</span>
+    </button>
+    <button class="module-nav-item" data-page="network">
+      <span class="module-nav-icon">🌐</span>
+      <span class="module-nav-text"><b>Network</b><small>Sơ đồ mạng, IP, switch/port, wifi</small></span>
+      <span class="module-nav-soon">Sắp có</span>
+    </button>
+    <button class="module-nav-item" data-page="po">
+      <span class="module-nav-icon">📑</span>
+      <span class="module-nav-text"><b>Đơn hàng (PO)</b><small>Theo dõi đơn đặt mua thiết bị, vật tư</small></span>
+      <span class="module-nav-soon">Sắp có</span>
+    </button>
+  </div>
+</section>
+
 <section id="tickets" class="page">
   <div class="section-head"><h2>Ticket hỗ trợ IT</h2><button id="ticketsAddBtn" data-page="ticketForm">＋ Thêm</button></div>
   <div class="filters">
@@ -244,6 +288,30 @@
   </form>
 </section>
 
+<section id="guides" class="page">
+  <div class="section-head"><h2>📘 Hướng dẫn kỹ thuật</h2><button data-page="ops">←</button></div>
+  <div class="card empty">
+    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted">Dự kiến: tài liệu xử lý sự cố thường gặp, hướng dẫn cài đặt/cấu hình máy, quy trình chuẩn cho IT.</p>
+  </div>
+</section>
+
+<section id="network" class="page">
+  <div class="section-head"><h2>🌐 Network</h2><button data-page="ops">←</button></div>
+  <div class="card empty">
+    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted">Dự kiến: sơ đồ mạng, bảng IP, thông tin switch/port, wifi.</p>
+  </div>
+</section>
+
+<section id="po" class="page">
+  <div class="section-head"><h2>📑 Đơn hàng (PO)</h2><button data-page="ops">←</button></div>
+  <div class="card empty">
+    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted">Dự kiến: theo dõi đơn đặt mua thiết bị/vật tư, trạng thái giao hàng, nhà cung cấp.</p>
+  </div>
+</section>
+
 <section id="settings" class="page">
   <div class="section-head"><h2>Dữ liệu</h2></div>
   <div class="card">
@@ -302,7 +370,7 @@
   <button data-page="dashboard">⌂<span>Tổng quan</span></button>
   <button data-page="scan">⌁<span>Quét QR</span></button>
   <button data-page="assets">▤<span>Tài sản</span></button>
-  <button data-page="tickets">🎫<span>Ticket</span></button>
+  <button data-page="ops">🛠<span>Vận hành</span></button>
   <button data-page="settings" class="admin-only">⚙<span>Dữ liệu</span></button>
 </nav>
 </div>
