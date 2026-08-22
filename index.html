@@ -27,49 +27,59 @@
 
 <main>
 <section id="dashboard" class="page active">
-
-  <div class="module-card">
-    <div class="module-head">
-      <div class="module-title">
-        <span class="module-icon">🛠</span>
-        <div><h2>Vận hành &amp; Hỗ trợ IT</h2><p class="muted">Ticket, hướng dẫn kỹ thuật, network, đơn hàng (PO)</p></div>
-      </div>
-    </div>
-    <div class="stats">
-      <div class="stat"><b id="ticketTotalCount">0</b><span>Tổng ticket</span></div>
-      <div class="stat"><b id="ticketPendingCount">0</b><span>Chờ xử lý</span></div>
-      <div class="stat"><b id="ticketInProgressCount">0</b><span>Đang xử lý</span></div>
-      <div class="stat"><b id="ticketDoneCount">0</b><span>Hoàn thành</span></div>
-    </div>
-    <div class="quick">
-      <button id="quickAddTicketBtn" data-page="ticketForm">＋ Tạo ticket</button>
-      <button data-page="ops">🛠 Mở Vận hành IT</button>
-    </div>
+  <div class="module-nav">
+    <button class="module-nav-item" data-page="ops">
+      <span class="module-nav-icon">🛠</span>
+      <span class="module-nav-text"><b>Vận hành &amp; Hỗ trợ IT</b><small>Ticket, hướng dẫn kỹ thuật, network, PO, quy trình</small></span>
+    </button>
+    <button class="module-nav-item" data-page="assetHub">
+      <span class="module-nav-icon">📦</span>
+      <span class="module-nav-text"><b>Quản lý tài sản</b><small>Kiểm kê, vòng đời tài sản</small></span>
+    </button>
+    <button class="module-nav-item admin-only" data-page="settings">
+      <span class="module-nav-icon">⇅</span>
+      <span class="module-nav-text"><b>Quản trị dữ liệu</b><small>Excel, backup, nhân viên (HR)</small></span>
+    </button>
   </div>
+</section>
 
-  <div class="module-card">
-    <div class="module-head">
-      <div class="module-title">
-        <span class="module-icon">📦</span>
-        <div><h2>Quản lý tài sản</h2><p class="muted">Quét QR, tạo mới, theo dõi tình trạng kiểm kê</p></div>
-      </div>
-    </div>
-    <div class="stats">
-      <div class="stat"><b id="totalCount">0</b><span>Tổng tài sản</span></div>
-      <div class="stat"><b id="checkedCount">0</b><span>Đã kiểm</span></div>
-      <div class="stat"><b id="uncheckedCount">0</b><span>Chưa kiểm</span></div>
-      <div class="stat"><b id="exceptionCount">0</b><span>Cần xử lý</span></div>
-    </div>
-    <div class="card"><h3>Trạng thái kiểm kê</h3><div id="checkStats"></div></div>
-    <div class="quick">
-      <button data-page="scan">📷 Quét QR</button>
-      <button id="quickAddBtn" data-page="assetForm">＋ Tạo tài sản</button>
-      <button data-page="assets">📋 Danh sách tài sản</button>
-    </div>
+<section id="assetHub" class="page">
+  <div class="section-head"><h2>📦 Quản lý tài sản</h2><button data-page="dashboard">←</button></div>
+  <p class="hint">Các mục quản lý tài sản gộp chung một chỗ.</p>
+  <div class="module-nav">
+    <button class="module-nav-item" data-page="inventory">
+      <span class="module-nav-icon">🔍</span>
+      <span class="module-nav-text"><b>Kiểm kê tài sản</b><small>Quét QR, tạo mới, theo dõi tình trạng kiểm kê</small></span>
+    </button>
+    <button class="module-nav-item" data-page="lifecycle">
+      <span class="module-nav-icon">♻️</span>
+      <span class="module-nav-text"><b>Vòng đời tài sản</b><small>Cấp phát, luân chuyển, bảo trì, thanh lý</small></span>
+      <span class="module-nav-soon">Sắp có</span>
+    </button>
   </div>
+</section>
 
+<section id="inventory" class="page">
+  <div class="section-head"><h2>🔍 Kiểm kê tài sản</h2><button data-page="assetHub">←</button></div>
+  <div class="stats">
+    <div class="stat"><b id="totalCount">0</b><span>Tổng tài sản</span></div>
+    <div class="stat"><b id="checkedCount">0</b><span>Đã kiểm</span></div>
+    <div class="stat"><b id="uncheckedCount">0</b><span>Chưa kiểm</span></div>
+    <div class="stat"><b id="exceptionCount">0</b><span>Cần xử lý</span></div>
+  </div>
+  <div class="card"><h3>Trạng thái kiểm kê</h3><div id="checkStats"></div></div>
   <div class="quick">
-    <button data-page="settings" class="admin-only">⇅ Quản trị dữ liệu</button>
+    <button data-page="scan">📷 Quét QR</button>
+    <button id="quickAddBtn" data-page="assetForm">＋ Tạo tài sản</button>
+    <button data-page="assets">📋 Danh sách tài sản</button>
+  </div>
+</section>
+
+<section id="lifecycle" class="page">
+  <div class="section-head"><h2>♻️ Vòng đời tài sản</h2><button data-page="assetHub">←</button></div>
+  <div class="card empty">
+    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted">Dự kiến: cấp phát cho nhân viên, luân chuyển giữa bộ phận, lịch bảo trì, thanh lý/hết khấu hao.</p>
   </div>
 </section>
 
@@ -174,7 +184,16 @@
 
 <section id="ops" class="page">
   <div class="section-head"><h2>🛠 Vận hành &amp; Hỗ trợ IT</h2><button data-page="dashboard">←</button></div>
-  <p class="hint">Các mục hỗ trợ vận hành IT gộp chung một chỗ cho dễ tìm.</p>
+  <div class="stats">
+    <div class="stat"><b id="ticketTotalCount">0</b><span>Tổng ticket</span></div>
+    <div class="stat"><b id="ticketPendingCount">0</b><span>Chờ xử lý</span></div>
+    <div class="stat"><b id="ticketInProgressCount">0</b><span>Đang xử lý</span></div>
+    <div class="stat"><b id="ticketDoneCount">0</b><span>Hoàn thành</span></div>
+  </div>
+  <div class="quick">
+    <button id="quickAddTicketBtn" data-page="ticketForm">＋ Tạo ticket</button>
+  </div>
+  <p class="hint" style="margin-top:14px">Các mục hỗ trợ vận hành IT gộp chung một chỗ cho dễ tìm.</p>
   <div class="module-nav">
     <button class="module-nav-item" data-page="tickets">
       <span class="module-nav-icon">🎫</span>
