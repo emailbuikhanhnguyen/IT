@@ -10,19 +10,24 @@
 </head>
 <body>
 <div id="loginScreen" class="login-screen">
+  <div class="lang-switch lang-switch-login">
+    <button type="button" data-lang="vi">VI</button>
+    <button type="button" data-lang="en">EN</button>
+    <button type="button" data-lang="zh">中文</button>
+  </div>
   <form id="loginForm" class="login-card">
     <h1>IT Asset Inventory</h1>
-    <p class="muted">Đăng nhập bằng tài khoản được cấp</p>
-    <label>Email<input id="loginEmail" type="email" required autocomplete="username" placeholder="ten@congty.com"></label>
-    <label>Mật khẩu<input id="loginPassword" type="password" required autocomplete="current-password"></label>
+    <p class="muted" data-i18n="login.subtitle">Đăng nhập bằng tài khoản được cấp</p>
+    <label>Email<input id="loginEmail" type="email" required autocomplete="username" data-i18n-placeholder="login.emailPh" placeholder="ten@congty.com"></label>
+    <label><span data-i18n="login.password">Mật khẩu</span><input id="loginPassword" type="password" required autocomplete="current-password"></label>
     <div id="loginError" class="login-error hidden"></div>
-    <button type="submit" id="loginSubmit">Đăng nhập</button>
+    <button type="submit" id="loginSubmit" data-i18n="login.submit">Đăng nhập</button>
   </form>
 </div>
 
 <div id="appShell" class="hidden">
 <header class="topbar">
-  <div><h1>IT Asset Inventory</h1><small>Kiểm kê • QR • Camera • Offline</small></div>
+  <div><h1>IT Asset Inventory</h1><small data-i18n="topbar.subtitle">Kiểm kê • QR • Camera • Offline</small></div>
 </header>
 
 <main>
@@ -30,417 +35,444 @@
   <div class="module-nav">
     <button class="module-nav-item" data-page="ops">
       <span class="module-nav-icon">🛠</span>
-      <span class="module-nav-text"><b>Vận hành &amp; Hỗ trợ IT</b><small>Ticket, hướng dẫn kỹ thuật, network, PO, quy trình</small></span>
+      <span class="module-nav-text"><b data-i18n="nav.ops">Vận hành &amp; Hỗ trợ IT</b><small data-i18n="nav.ops.desc">Ticket, hướng dẫn kỹ thuật, network, PO, quy trình</small></span>
     </button>
     <button class="module-nav-item" data-page="assetHub">
       <span class="module-nav-icon">📦</span>
-      <span class="module-nav-text"><b>Quản lý tài sản</b><small>Kiểm kê, vòng đời tài sản</small></span>
+      <span class="module-nav-text"><b data-i18n="nav.assetHub">Quản lý tài sản</b><small data-i18n="nav.assetHub.desc">Kiểm kê, vòng đời tài sản</small></span>
     </button>
     <button class="module-nav-item admin-only" data-page="settings">
       <span class="module-nav-icon">⇅</span>
-      <span class="module-nav-text"><b>Quản trị dữ liệu</b><small>Excel, backup, nhân viên (HR)</small></span>
+      <span class="module-nav-text"><b data-i18n="nav.settings">Quản trị dữ liệu</b><small data-i18n="nav.settings.desc">Excel, backup, nhân viên (HR)</small></span>
     </button>
   </div>
 </section>
 
 <section id="assetHub" class="page">
-  <div class="section-head"><h2>📦 Quản lý tài sản</h2><button data-page="dashboard">←</button></div>
-  <p class="hint">Các mục quản lý tài sản gộp chung một chỗ.</p>
+  <div class="section-head"><h2 data-i18n="assetHub.title">📦 Quản lý tài sản</h2><button data-page="dashboard">←</button></div>
+  <p class="hint" data-i18n="assetHub.hint">Các mục quản lý tài sản gộp chung một chỗ.</p>
   <div class="module-nav">
     <button class="module-nav-item" data-page="inventory">
       <span class="module-nav-icon">🔍</span>
-      <span class="module-nav-text"><b>Kiểm kê tài sản</b><small>Quét QR, tạo mới, theo dõi tình trạng kiểm kê</small></span>
+      <span class="module-nav-text"><b data-i18n="nav.inventory">Kiểm kê tài sản</b><small data-i18n="nav.inventory.desc">Quét QR, tạo mới, theo dõi tình trạng kiểm kê</small></span>
     </button>
     <button class="module-nav-item" data-page="lifecycle">
       <span class="module-nav-icon">♻️</span>
-      <span class="module-nav-text"><b>Vòng đời tài sản</b><small>Cấp phát, luân chuyển, bảo trì, thanh lý</small></span>
-      <span class="module-nav-soon">Sắp có</span>
+      <span class="module-nav-text"><b data-i18n="nav.lifecycle">Vòng đời tài sản</b><small data-i18n="nav.lifecycle.desc">Cấp phát, luân chuyển, bảo trì, thanh lý</small></span>
+      <span class="module-nav-soon" data-i18n="common.soon">Sắp có</span>
     </button>
   </div>
 </section>
 
 <section id="inventory" class="page">
-  <div class="section-head"><h2>🔍 Kiểm kê tài sản</h2><button data-page="assetHub">←</button></div>
+  <div class="section-head"><h2 data-i18n="inventory.title">🔍 Kiểm kê tài sản</h2><button data-page="assetHub">←</button></div>
   <div class="stats">
-    <div class="stat"><b id="totalCount">0</b><span>Tổng tài sản</span></div>
-    <div class="stat"><b id="checkedCount">0</b><span>Đã kiểm</span></div>
-    <div class="stat"><b id="uncheckedCount">0</b><span>Chưa kiểm</span></div>
-    <div class="stat"><b id="exceptionCount">0</b><span>Cần xử lý</span></div>
+    <div class="stat"><b id="totalCount">0</b><span data-i18n="stats.total">Tổng tài sản</span></div>
+    <div class="stat"><b id="checkedCount">0</b><span data-i18n="stats.checked">Đã kiểm</span></div>
+    <div class="stat"><b id="uncheckedCount">0</b><span data-i18n="stats.unchecked">Chưa kiểm</span></div>
+    <div class="stat"><b id="exceptionCount">0</b><span data-i18n="stats.exception">Cần xử lý</span></div>
   </div>
-  <div class="card"><h3>Trạng thái kiểm kê</h3><div id="checkStats"></div></div>
+  <div class="card"><h3 data-i18n="inventory.checkStatusTitle">Trạng thái kiểm kê</h3><div id="checkStats"></div></div>
   <div class="quick">
-    <button data-page="scan">📷 Quét QR</button>
-    <button id="quickAddBtn" class="creator-only" data-page="assetForm">＋ Tạo tài sản</button>
-    <button data-page="assets">📋 Danh sách tài sản</button>
+    <button data-page="scan" data-i18n="quick.scan">📷 Quét QR</button>
+    <button id="quickAddBtn" class="creator-only" data-page="assetForm" data-i18n="quick.createAsset">＋ Tạo tài sản</button>
+    <button data-page="assets" data-i18n="quick.assetList">📋 Danh sách tài sản</button>
   </div>
 </section>
 
 <section id="lifecycle" class="page">
-  <div class="section-head"><h2>♻️ Vòng đời tài sản</h2><button data-page="assetHub">←</button></div>
+  <div class="section-head"><h2 data-i18n="lifecycle.title">♻️ Vòng đời tài sản</h2><button data-page="assetHub">←</button></div>
   <div class="card empty">
-    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
-    <p class="muted">Dự kiến: cấp phát cho nhân viên, luân chuyển giữa bộ phận, lịch bảo trì, thanh lý/hết khấu hao.</p>
+    <p data-i18n="common.building">🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted" data-i18n="lifecycle.desc">Dự kiến: cấp phát cho nhân viên, luân chuyển giữa bộ phận, lịch bảo trì, thanh lý/hết khấu hao.</p>
   </div>
 </section>
 
 <section id="scan" class="page">
-  <div class="section-head"><h2>Kiểm kê bằng QR</h2><button data-page="dashboard">←</button></div>
+  <div class="section-head"><h2 data-i18n="scan.title">Kiểm kê bằng QR</h2><button data-page="dashboard">←</button></div>
   <div class="card">
-    <p class="hint">Quét QR trên thiết bị. Sau khi mở tài sản, dùng camera để bổ sung ảnh, IP/MAC/Serial và xác nhận thực tế.</p>
+    <p class="hint" data-i18n="scan.hint">Quét QR trên thiết bị. Sau khi mở tài sản, dùng camera để bổ sung ảnh, IP/MAC/Serial và xác nhận thực tế.</p>
     <div id="reader"></div>
     <div class="scan-actions">
-      <button id="startScan">▶ Bắt đầu quét</button>
-      <button id="stopScan" class="secondary">■ Dừng</button>
+      <button id="startScan" data-i18n="scan.start">▶ Bắt đầu quét</button>
+      <button id="stopScan" class="secondary" data-i18n="scan.stop">■ Dừng</button>
     </div>
     <div id="scanResult" class="scan-result hidden"></div>
   </div>
 </section>
 
 <section id="assets" class="page">
-  <div class="section-head"><h2>Danh sách tài sản</h2><button id="assetsAddBtn" class="creator-only" data-page="assetForm">＋ Thêm</button></div>
+  <div class="section-head"><h2 data-i18n="assets.title">Danh sách tài sản</h2><button id="assetsAddBtn" class="creator-only" data-page="assetForm" data-i18n="assets.add">＋ Thêm</button></div>
   <div class="filters">
-    <input id="search" placeholder="Tìm mã, serial, model, người dùng...">
-    <select id="filterSection"><option value="">Tất cả khu vực</option></select>
-    <select id="filterCheck"><option value="">Tất cả</option><option value="unchecked">Chưa kiểm</option><option value="checked">Đã kiểm</option><option value="exception">Cần xử lý</option></select>
+    <input id="search" data-i18n-placeholder="assets.searchPh" placeholder="Tìm mã, serial, model, người dùng...">
+    <select id="filterSection"><option value="" data-i18n="filter.allSections">Tất cả khu vực</option></select>
+    <select id="filterCheck"><option value="" data-i18n="filter.all">Tất cả</option><option value="unchecked" data-i18n="filter.unchecked">Chưa kiểm</option><option value="checked" data-i18n="filter.checked">Đã kiểm</option><option value="exception" data-i18n="filter.exception">Cần xử lý</option></select>
   </div>
   <div id="assetList"></div>
 </section>
 
 <section id="assetForm" class="page">
-  <div class="section-head"><h2 id="formTitle">Tạo tài sản</h2><button data-page="assets">←</button></div>
+  <div class="section-head"><h2 id="formTitle" data-i18n="assetForm.createTitle">Tạo tài sản</h2><button data-page="assets">←</button></div>
   <form id="assetFormEl" class="card">
-    <div id="lockedNotice" class="locked-notice hidden">🔒 Bạn chỉ có quyền xem tài sản này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.</div>
+    <div id="lockedNotice" class="locked-notice hidden" data-i18n="assetForm.lockedNotice">🔒 Bạn chỉ có quyền xem tài sản này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.</div>
     <input type="hidden" id="assetId">
-    <label class="autocomplete-field">Mã nhân viên
-      <input id="employeeCode" autocomplete="off" placeholder="Gõ hoặc chọn mã NV, có thể để trống">
+    <label class="autocomplete-field"><span data-i18n="field.employeeCode">Mã nhân viên</span>
+      <input id="employeeCode" autocomplete="off" data-i18n-placeholder="field.employeeCode.ph" placeholder="Gõ hoặc chọn mã NV, có thể để trống">
       <div id="employeeCodeSuggest" class="suggest-list hidden"></div>
     </label>
-    <label class="autocomplete-field">Người sử dụng
-      <input id="user" autocomplete="off" placeholder="Gõ tên để tìm trong danh sách nhân viên...">
+    <label class="autocomplete-field"><span data-i18n="field.user">Người sử dụng</span>
+      <input id="user" autocomplete="off" data-i18n-placeholder="field.user.ph" placeholder="Gõ tên để tìm trong danh sách nhân viên...">
       <div id="userSuggest" class="suggest-list hidden"></div>
     </label>
-    <label class="autocomplete-field">Bộ phận (Section)
-      <input id="section" autocomplete="off" placeholder="Tự điền khi chọn tên/mã NV ở trên, hoặc tự chọn/gõ, có thể để trống">
+    <label class="autocomplete-field"><span data-i18n="field.section">Bộ phận (Section)</span>
+      <input id="section" autocomplete="off" data-i18n-placeholder="field.section.ph" placeholder="Tự điền khi chọn tên/mã NV ở trên, hoặc tự chọn/gõ, có thể để trống">
       <div id="sectionSuggest" class="suggest-list hidden"></div>
     </label>
-    <label>Tổ/Chuyền (Group)<input id="group" placeholder="Tự động điền khi chọn tên ở trên, có thể để trống"></label>
-    <label>Mã tài sản*
-      <input id="code" required placeholder="Tự gợi ý theo Loại thiết bị + Bộ phận, có thể sửa tay">
-      <span class="hint">Tự động gợi ý dạng [Thiết bị]-[Bộ phận]-[số thứ tự], ví dụ LAP-AT-0001 — vẫn gõ tay/sửa lại được.</span>
+    <label><span data-i18n="field.group">Tổ/Chuyền (Group)</span><input id="group" data-i18n-placeholder="field.group.ph" placeholder="Tự động điền khi chọn tên ở trên, có thể để trống"></label>
+    <label><span data-i18n="field.code">Mã tài sản*</span>
+      <input id="code" required data-i18n-placeholder="field.code.ph" placeholder="Tự gợi ý theo Loại thiết bị + Bộ phận, có thể sửa tay">
+      <span class="hint" data-i18n="field.code.hint">Tự động gợi ý dạng [Thiết bị]-[Bộ phận]-[số thứ tự], ví dụ LAP-AT-0001 — vẫn gõ tay/sửa lại được.</span>
     </label>
-    <label>Loại thiết bị*<select id="type" required></select></label>
-    <label>Tên tài sản (Device name)<input id="deviceName" placeholder="Tên máy (hostname), VD: LAPTOP50 — tự điền qua PowerShell"></label>
-    <label>Model<input id="model" placeholder="Dell OptiPlex 7090"></label>
-    <label>Serial Number<input id="serial"></label>
-    <label>IP<input id="ip" inputmode="decimal"></label>
-    <label>MAC<input id="mac"></label>
-    <label>Cấu hình<input id="spec" placeholder="i5 / RAM 16GB / SSD 512GB"></label>
-    <label>Thông tin Windows<input id="winInfo" placeholder="VD: Windows 11 Pro 23H2 (Build 22631.6199) — tự điền qua PowerShell"></label>
-    <label>Tình trạng<select id="status"><option>Tốt</option><option>Đang sử dụng</option><option>Dự phòng</option><option>Hỏng</option><option>Mất</option><option>Thanh lý</option></select></label>
-    <label>Trạng thái kiểm kê<select id="checkStatus"><option>Chưa kiểm</option><option>Đã kiểm - OK</option><option>Sai thông tin</option><option>Không tìm thấy</option><option>Thiết bị mới</option></select></label>
-    <label>Ghi chú<textarea id="note" rows="3"></textarea></label>
+    <label><span data-i18n="field.type">Loại thiết bị*</span><select id="type" required></select></label>
+    <label><span data-i18n="field.deviceName">Tên tài sản (Device name)</span><input id="deviceName" data-i18n-placeholder="field.deviceName.ph" placeholder="Tên máy (hostname), VD: LAPTOP50 — tự điền qua PowerShell"></label>
+    <label><span data-i18n="field.model">Model</span><input id="model" placeholder="Dell OptiPlex 7090"></label>
+    <label><span data-i18n="field.serial">Serial Number</span><input id="serial"></label>
+    <label><span data-i18n="field.ip">IP</span><input id="ip" inputmode="decimal"></label>
+    <label><span data-i18n="field.mac">MAC</span><input id="mac"></label>
+    <label><span data-i18n="field.spec">Cấu hình</span><input id="spec" data-i18n-placeholder="field.spec.ph" placeholder="i5 / RAM 16GB / SSD 512GB"></label>
+    <label><span data-i18n="field.winInfo">Thông tin Windows</span><input id="winInfo" data-i18n-placeholder="field.winInfo.ph" placeholder="VD: Windows 11 Pro 23H2 (Build 22631.6199) — tự điền qua PowerShell"></label>
+    <label><span data-i18n="field.status">Tình trạng</span><select id="status">
+      <option value="Tốt" data-i18n="status.good">Tốt</option>
+      <option value="Đang sử dụng" data-i18n="status.inUse">Đang sử dụng</option>
+      <option value="Dự phòng" data-i18n="status.spare">Dự phòng</option>
+      <option value="Hỏng" data-i18n="status.broken">Hỏng</option>
+      <option value="Mất" data-i18n="status.lost">Mất</option>
+      <option value="Thanh lý" data-i18n="status.disposed">Thanh lý</option>
+    </select></label>
+    <label><span data-i18n="field.checkStatus">Trạng thái kiểm kê</span><select id="checkStatus">
+      <option value="Chưa kiểm" data-i18n="check.unchecked">Chưa kiểm</option>
+      <option value="Đã kiểm - OK" data-i18n="check.ok">Đã kiểm - OK</option>
+      <option value="Sai thông tin" data-i18n="check.wrongInfo">Sai thông tin</option>
+      <option value="Không tìm thấy" data-i18n="check.notFound">Không tìm thấy</option>
+      <option value="Thiết bị mới" data-i18n="check.newDevice">Thiết bị mới</option>
+    </select></label>
+    <label><span data-i18n="field.note">Ghi chú</span><textarea id="note" rows="3"></textarea></label>
 
     <div class="psbox">
-      <h3>⚙ Lấy thông tin máy (PC/Laptop)</h3>
-      <p class="hint">Bấm Copy → chạy trong PowerShell trên máy cần kiểm kê → chỉ copy đoạn giữa 2 dòng "===== KET QUA =====" → dán vào ô bên dưới → bấm Tự động điền.
+      <h3 data-i18n="psbox.title">⚙ Lấy thông tin máy (PC/Laptop)</h3>
+      <p class="hint" data-i18n-html="psbox.hint">Bấm Copy → chạy trong PowerShell trên máy cần kiểm kê → chỉ copy đoạn giữa 2 dòng "===== KET QUA =====" → dán vào ô bên dưới → bấm Tự động điền.
       Nếu máy đó <b>không có mạng</b>, dùng nút "Tạo QR" thay thế — script sẽ tự mở 1 trang có mã QR ngay trên máy, đưa điện thoại lên quét là form tự điền, không cần gõ tay.</p>
-      <button type="button" id="btnCopyPS" class="secondary">📋 Copy lệnh PowerShell</button>
-      <button type="button" id="btnCopyPSQR" class="secondary">📱 Copy lệnh PowerShell (Tạo QR — máy không có mạng)</button>
-      <textarea id="pasteInfoBox" rows="4" placeholder="MODEL: ...&#10;SERIAL: ...&#10;CAUHINH: ...&#10;IP: ...&#10;MAC: ..."></textarea>
-      <button type="button" id="btnAutofill">⚡ Tự động điền</button>
+      <button type="button" id="btnCopyPS" class="secondary" data-i18n="psbox.copyPS">📋 Copy lệnh PowerShell</button>
+      <button type="button" id="btnCopyPSQR" class="secondary" data-i18n="psbox.copyPSQR">📱 Copy lệnh PowerShell (Tạo QR — máy không có mạng)</button>
+      <textarea id="pasteInfoBox" rows="4" data-i18n-placeholder="psbox.pastePh" placeholder="MODEL: ...&#10;SERIAL: ...&#10;CAUHINH: ...&#10;IP: ...&#10;MAC: ..."></textarea>
+      <button type="button" id="btnAutofill" data-i18n="psbox.autofill">⚡ Tự động điền</button>
     </div>
 
     <div class="camera-grid">
-      <button type="button" id="takePhoto">📷 Chụp ảnh thiết bị</button>
-      <label class="button secondary">🖼 Chọn ảnh<input id="photo" type="file" accept="image/*" capture="environment" hidden></label>
+      <button type="button" id="takePhoto" data-i18n="camera.takePhoto">📷 Chụp ảnh thiết bị</button>
+      <label class="button secondary"><span data-i18n="camera.choosePhoto">🖼 Chọn ảnh</span><input id="photo" type="file" accept="image/*" capture="environment" hidden></label>
     </div>
     <img id="photoPreview" class="preview hidden">
 
     <div id="historyBox" class="card history-box hidden">
-      <h3>🕘 Lịch sử thay đổi</h3>
-      <p class="hint">Tự động ghi lại mỗi lần tạo/sửa tài sản này — không cần thao tác gì thêm.</p>
+      <h3 data-i18n="history.title">🕘 Lịch sử thay đổi</h3>
+      <p class="hint" data-i18n="history.hint">Tự động ghi lại mỗi lần tạo/sửa tài sản này — không cần thao tác gì thêm.</p>
       <div id="historyList"></div>
     </div>
 
     <div class="qrbox">
-      <h3>QR tài sản</h3>
+      <h3 data-i18n="qr.title">QR tài sản</h3>
       <div id="qrcode"></div>
       <p id="qrText" class="muted"></p>
       <div class="qr-btn-row">
-        <button type="button" id="downloadQR" class="secondary">⬇ Lưu QR</button>
-        <button type="button" id="printLabelBtn" class="secondary">🏷 In tem</button>
+        <button type="button" id="downloadQR" class="secondary" data-i18n="qr.download">⬇ Lưu QR</button>
+        <button type="button" id="printLabelBtn" class="secondary" data-i18n="qr.print">🏷 In tem</button>
       </div>
     </div>
 
     <div class="psbox admin-only">
-      <h3>🔒 Trạng thái xác nhận (chỉ Admin)</h3>
-      <p class="hint">Tài khoản "Thu thập dữ liệu" chỉ tạo mới được, không sửa lại được — bản ghi họ tạo tự động đánh dấu "Đã khóa" ở đây để bạn biết cần rà soát. Admin luôn sửa được bất kể ô này bật hay tắt.</p>
-      <label class="checkbox-label"><input id="assetLocked" type="checkbox"> Đã khóa (được nhập bởi tài khoản thu thập dữ liệu)</label>
+      <h3 data-i18n="confirmStatus.title">🔒 Trạng thái xác nhận (chỉ Admin)</h3>
+      <p class="hint" data-i18n="confirmStatus.hintAsset">Tài khoản "Thu thập dữ liệu" chỉ tạo mới được, không sửa lại được — bản ghi họ tạo tự động đánh dấu "Đã khóa" ở đây để bạn biết cần rà soát. Admin luôn sửa được bất kể ô này bật hay tắt.</p>
+      <label class="checkbox-label"><input id="assetLocked" type="checkbox"> <span data-i18n="confirmStatus.lockedAsset">Đã khóa (được nhập bởi tài khoản thu thập dữ liệu)</span></label>
     </div>
 
-    <div class="form-actions"><button type="submit" id="submitAssetBtn">Lưu tài sản</button><button type="button" class="secondary" id="resetForm">Xóa form</button></div>
+    <div class="form-actions"><button type="submit" id="submitAssetBtn" data-i18n="formActions.saveAsset">Lưu tài sản</button><button type="button" class="secondary" id="resetForm" data-i18n="formActions.reset">Xóa form</button></div>
   </form>
 </section>
 
 <section id="ops" class="page">
-  <div class="section-head"><h2>🛠 Vận hành &amp; Hỗ trợ IT</h2><button data-page="dashboard">←</button></div>
+  <div class="section-head"><h2 data-i18n="ops.title">🛠 Vận hành &amp; Hỗ trợ IT</h2><button data-page="dashboard">←</button></div>
   <div class="stats">
-    <div class="stat"><b id="ticketTotalCount">0</b><span>Tổng ticket</span></div>
-    <div class="stat"><b id="ticketPendingCount">0</b><span>Chờ xử lý</span></div>
-    <div class="stat"><b id="ticketInProgressCount">0</b><span>Đang xử lý</span></div>
-    <div class="stat"><b id="ticketDoneCount">0</b><span>Hoàn thành</span></div>
+    <div class="stat"><b id="ticketTotalCount">0</b><span data-i18n="stats.ticketTotal">Tổng ticket</span></div>
+    <div class="stat"><b id="ticketPendingCount">0</b><span data-i18n="stats.ticketPending">Chờ xử lý</span></div>
+    <div class="stat"><b id="ticketInProgressCount">0</b><span data-i18n="stats.ticketInProgress">Đang xử lý</span></div>
+    <div class="stat"><b id="ticketDoneCount">0</b><span data-i18n="stats.ticketDone">Hoàn thành</span></div>
   </div>
   <div class="quick">
-    <button id="quickAddTicketBtn" class="creator-only" data-page="ticketForm">＋ Tạo ticket</button>
+    <button id="quickAddTicketBtn" class="creator-only" data-page="ticketForm" data-i18n="quick.createTicket">＋ Tạo ticket</button>
   </div>
-  <p class="hint" style="margin-top:14px">Các mục hỗ trợ vận hành IT gộp chung một chỗ cho dễ tìm.</p>
+  <p class="hint" style="margin-top:14px" data-i18n="ops.hint">Các mục hỗ trợ vận hành IT gộp chung một chỗ cho dễ tìm.</p>
   <div class="module-nav">
     <button class="module-nav-item" data-page="tickets">
       <span class="module-nav-icon">🎫</span>
-      <span class="module-nav-text"><b>Ticket hỗ trợ</b><small>Theo dõi &amp; xử lý yêu cầu, sự cố IT</small></span>
+      <span class="module-nav-text"><b data-i18n="nav.tickets">Ticket hỗ trợ</b><small data-i18n="nav.tickets.desc">Theo dõi &amp; xử lý yêu cầu, sự cố IT</small></span>
     </button>
     <button class="module-nav-item" data-page="guides">
       <span class="module-nav-icon">📘</span>
-      <span class="module-nav-text"><b>Hướng dẫn kỹ thuật</b><small>Tài liệu, cách xử lý sự cố thường gặp</small></span>
-      <span class="module-nav-soon">Sắp có</span>
+      <span class="module-nav-text"><b data-i18n="nav.guides">Hướng dẫn kỹ thuật</b><small data-i18n="nav.guides.desc">Tài liệu, cách xử lý sự cố thường gặp</small></span>
+      <span class="module-nav-soon" data-i18n="common.soon">Sắp có</span>
     </button>
     <button class="module-nav-item" data-page="network">
       <span class="module-nav-icon">🌐</span>
-      <span class="module-nav-text"><b>Network</b><small>Sơ đồ mạng, IP, switch/port, wifi</small></span>
-      <span class="module-nav-soon">Sắp có</span>
+      <span class="module-nav-text"><b data-i18n="nav.network">Network</b><small data-i18n="nav.network.desc">Sơ đồ mạng, IP, switch/port, wifi</small></span>
+      <span class="module-nav-soon" data-i18n="common.soon">Sắp có</span>
     </button>
     <button class="module-nav-item" data-page="camera">
       <span class="module-nav-icon">📹</span>
-      <span class="module-nav-text"><b>Camera</b><small>Sơ đồ camera, NVR, phân quyền xem, cài iVMS</small></span>
-      <span class="module-nav-soon">Sắp có</span>
+      <span class="module-nav-text"><b data-i18n="nav.camera">Camera</b><small data-i18n="nav.camera.desc">Sơ đồ camera, NVR, phân quyền xem, cài iVMS</small></span>
+      <span class="module-nav-soon" data-i18n="common.soon">Sắp có</span>
     </button>
     <button class="module-nav-item" data-page="po">
       <span class="module-nav-icon">📑</span>
-      <span class="module-nav-text"><b>Đơn hàng (PO)</b><small>Theo dõi đơn đặt mua thiết bị, vật tư</small></span>
-      <span class="module-nav-soon">Sắp có</span>
+      <span class="module-nav-text"><b data-i18n="nav.po">Đơn hàng (PO)</b><small data-i18n="nav.po.desc">Theo dõi đơn đặt mua thiết bị, vật tư</small></span>
+      <span class="module-nav-soon" data-i18n="common.soon">Sắp có</span>
     </button>
     <button class="module-nav-item" data-page="sop">
       <span class="module-nav-icon">📋</span>
-      <span class="module-nav-text"><b>Quy trình (SOP)</b><small>Các bước chuẩn cho công việc thường gặp</small></span>
-      <span class="module-nav-soon">Sắp có</span>
+      <span class="module-nav-text"><b data-i18n="nav.sop">Quy trình (SOP)</b><small data-i18n="nav.sop.desc">Các bước chuẩn cho công việc thường gặp</small></span>
+      <span class="module-nav-soon" data-i18n="common.soon">Sắp có</span>
     </button>
   </div>
-  <p class="hint" style="margin-top:12px">💡 Định hướng: mọi yêu cầu công việc đều tạo thành 1 Ticket — sau này Ticket sẽ liên kết trực tiếp tới Nhân viên, PO và Quy trình (SOP) liên quan để tra cứu nhanh hơn.</p>
+  <p class="hint" style="margin-top:12px" data-i18n="ops.footerHint">💡 Định hướng: mọi yêu cầu công việc đều tạo thành 1 Ticket — sau này Ticket sẽ liên kết trực tiếp tới Nhân viên, PO và Quy trình (SOP) liên quan để tra cứu nhanh hơn.</p>
 </section>
 
 <section id="tickets" class="page">
-  <div class="section-head"><h2>Ticket hỗ trợ IT</h2><button id="ticketsAddBtn" class="creator-only" data-page="ticketForm">＋ Thêm</button></div>
+  <div class="section-head"><h2 data-i18n="tickets.title">Ticket hỗ trợ IT</h2><button id="ticketsAddBtn" class="creator-only" data-page="ticketForm" data-i18n="tickets.add">＋ Thêm</button></div>
   <div class="filters">
-    <input id="ticketSearch" placeholder="Tìm mã ticket, người yêu cầu, mô tả...">
-    <select id="filterTicketStatus"><option value="">Tất cả trạng thái</option><option>Chờ</option><option>Đang xử lý</option><option>Hoàn thành</option></select>
-    <select id="filterTicketPriority"><option value="">Tất cả mức ưu tiên</option><option>Khẩn</option><option>Cao</option><option>Trung bình</option><option>Thấp</option></select>
+    <input id="ticketSearch" data-i18n-placeholder="tickets.searchPh" placeholder="Tìm mã ticket, người yêu cầu, mô tả...">
+    <select id="filterTicketStatus"><option value="" data-i18n="filter.allStatus">Tất cả trạng thái</option><option data-i18n="ticket.status.pending">Chờ</option><option data-i18n="ticket.status.inProgress">Đang xử lý</option><option data-i18n="ticket.status.done">Hoàn thành</option></select>
+    <select id="filterTicketPriority"><option value="" data-i18n="filter.allPriority">Tất cả mức ưu tiên</option><option data-i18n="ticket.priority.urgent">Khẩn</option><option data-i18n="ticket.priority.high">Cao</option><option data-i18n="ticket.priority.medium">Trung bình</option><option data-i18n="ticket.priority.low">Thấp</option></select>
   </div>
   <div id="ticketList"></div>
 </section>
 
 <section id="ticketForm" class="page">
-  <div class="section-head"><h2 id="ticketFormTitle">Tạo ticket</h2><button data-page="tickets">←</button></div>
+  <div class="section-head"><h2 id="ticketFormTitle" data-i18n="ticketForm.createTitle">Tạo ticket</h2><button data-page="tickets">←</button></div>
   <form id="ticketFormEl" class="card">
-    <div id="ticketLockedNotice" class="locked-notice hidden">🔒 Bạn chỉ có quyền xem ticket này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.</div>
+    <div id="ticketLockedNotice" class="locked-notice hidden" data-i18n="ticketForm.lockedNotice">🔒 Bạn chỉ có quyền xem ticket này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.</div>
     <input type="hidden" id="ticketDocId">
     <input type="hidden" id="ticketAssetId">
-    <label>Mã ticket*
-      <input id="ticketId" required placeholder="Tự gợi ý dạng IT-YYYYMMDD-NNN, có thể sửa tay">
-      <span class="hint">Tự động gợi ý theo ngày tạo, ví dụ IT-20260822-001 — vẫn gõ tay/sửa lại được.</span>
+    <label><span data-i18n="field.ticketId">Mã ticket*</span>
+      <input id="ticketId" required data-i18n-placeholder="field.ticketId.ph" placeholder="Tự gợi ý dạng IT-YYYYMMDD-NNN, có thể sửa tay">
+      <span class="hint" data-i18n="field.ticketId.hint">Tự động gợi ý theo ngày tạo, ví dụ IT-20260822-001 — vẫn gõ tay/sửa lại được.</span>
     </label>
-    <label>Mức ưu tiên<select id="ticketPriority"><option>Thấp</option><option>Trung bình</option><option>Cao</option><option>Khẩn</option></select></label>
-    <label>Trạng thái<select id="ticketStatus"><option>Chờ</option><option>Đang xử lý</option><option>Hoàn thành</option></select></label>
-    <label class="autocomplete-field">Mã nhân viên
-      <input id="ticketEmployeeCode" autocomplete="off" placeholder="Gõ hoặc chọn mã NV, có thể để trống">
+    <label><span data-i18n="field.priority">Mức ưu tiên</span><select id="ticketPriority">
+      <option data-i18n="ticket.priority.low">Thấp</option>
+      <option data-i18n="ticket.priority.medium">Trung bình</option>
+      <option data-i18n="ticket.priority.high">Cao</option>
+      <option data-i18n="ticket.priority.urgent">Khẩn</option>
+    </select></label>
+    <label><span data-i18n="field.ticketStatus">Trạng thái</span><select id="ticketStatus">
+      <option data-i18n="ticket.status.pending">Chờ</option>
+      <option data-i18n="ticket.status.inProgress">Đang xử lý</option>
+      <option data-i18n="ticket.status.done">Hoàn thành</option>
+    </select></label>
+    <label class="autocomplete-field"><span data-i18n="field.employeeCode">Mã nhân viên</span>
+      <input id="ticketEmployeeCode" autocomplete="off" data-i18n-placeholder="field.ticketEmployeeCode.ph" placeholder="Gõ hoặc chọn mã NV, có thể để trống">
       <div id="ticketEmployeeCodeSuggest" class="suggest-list hidden"></div>
     </label>
-    <label class="autocomplete-field">Người yêu cầu
-      <input id="ticketRequester" autocomplete="off" placeholder="Gõ tên để tìm trong danh sách nhân viên, hoặc gõ tay">
+    <label class="autocomplete-field"><span data-i18n="field.requester">Người yêu cầu</span>
+      <input id="ticketRequester" autocomplete="off" data-i18n-placeholder="field.requester.ph" placeholder="Gõ tên để tìm trong danh sách nhân viên, hoặc gõ tay">
       <div id="ticketRequesterSuggest" class="suggest-list hidden"></div>
     </label>
-    <label class="autocomplete-field">Phòng ban
-      <input id="ticketDepartment" autocomplete="off" placeholder="Tự điền khi chọn Người yêu cầu, hoặc tự chọn/gõ">
+    <label class="autocomplete-field"><span data-i18n="field.department">Phòng ban</span>
+      <input id="ticketDepartment" autocomplete="off" data-i18n-placeholder="field.department.ph" placeholder="Tự điền khi chọn Người yêu cầu, hoặc tự chọn/gõ">
       <div id="ticketDepartmentSuggest" class="suggest-list hidden"></div>
     </label>
-    <label class="autocomplete-field">Liên kết tài sản (không bắt buộc)
-      <input id="ticketAsset" autocomplete="off" placeholder="Gõ mã tài sản / tên người dùng để tìm và liên kết">
+    <label class="autocomplete-field"><span data-i18n="field.linkedAsset">Liên kết tài sản (không bắt buộc)</span>
+      <input id="ticketAsset" autocomplete="off" data-i18n-placeholder="field.linkedAsset.ph" placeholder="Gõ mã tài sản / tên người dùng để tìm và liên kết">
       <div id="ticketAssetSuggest" class="suggest-list hidden"></div>
     </label>
-    <label>Thiết bị<input id="ticketDevice" placeholder="VD: Máy in màu, PC Lab 04 — tự điền khi liên kết tài sản, vẫn sửa được"></label>
-    <label>Mô tả sự cố / yêu cầu*<textarea id="ticketDescription" rows="3" required></textarea></label>
-    <label>Nguyên nhân<textarea id="ticketCause" rows="2"></textarea></label>
-    <label>Cách xử lý<textarea id="ticketResolution" rows="2"></textarea></label>
-    <label>Ghi chú<textarea id="ticketNote" rows="2"></textarea></label>
+    <label><span data-i18n="field.device">Thiết bị</span><input id="ticketDevice" data-i18n-placeholder="field.device.ph" placeholder="VD: Máy in màu, PC Lab 04 — tự điền khi liên kết tài sản, vẫn sửa được"></label>
+    <label><span data-i18n="field.description">Mô tả sự cố / yêu cầu*</span><textarea id="ticketDescription" rows="3" required></textarea></label>
+    <label><span data-i18n="field.cause">Nguyên nhân</span><textarea id="ticketCause" rows="2"></textarea></label>
+    <label><span data-i18n="field.resolution">Cách xử lý</span><textarea id="ticketResolution" rows="2"></textarea></label>
+    <label><span data-i18n="field.ticketNote">Ghi chú</span><textarea id="ticketNote" rows="2"></textarea></label>
 
     <div class="psbox">
-      <h3>🕒 Lịch sử xử lý (theo thời gian)</h3>
-      <p class="hint">Ghi lại từng mốc theo dõi/xử lý theo thời gian (vd: đã liên hệ NCC, đang chờ linh kiện, đã thay thế xong...) — khác với ô "Cách xử lý" ở trên chỉ lưu 1 kết quả cuối cùng. Mỗi mốc lưu kèm thời gian và người ghi.</p>
+      <h3 data-i18n="progress.title">🕒 Lịch sử xử lý (theo thời gian)</h3>
+      <p class="hint" data-i18n="progress.hint">Ghi lại từng mốc theo dõi/xử lý theo thời gian (vd: đã liên hệ NCC, đang chờ linh kiện, đã thay thế xong...) — khác với ô "Cách xử lý" ở trên chỉ lưu 1 kết quả cuối cùng. Mỗi mốc lưu kèm thời gian và người ghi.</p>
       <div id="ticketProgressList" class="history-box"></div>
-      <textarea id="ticketProgressNote" rows="2" placeholder="Nhập mốc xử lý mới rồi bấm Thêm..."></textarea>
-      <button type="button" id="addTicketProgressBtn">➕ Thêm mốc xử lý</button>
+      <textarea id="ticketProgressNote" rows="2" data-i18n-placeholder="progress.ph" placeholder="Nhập mốc xử lý mới rồi bấm Thêm..."></textarea>
+      <button type="button" id="addTicketProgressBtn" data-i18n="progress.add">➕ Thêm mốc xử lý</button>
     </div>
 
     <div class="psbox admin-only">
-      <h3>🔁 Ticket liên quan (lỗi lặp lại)</h3>
-      <p class="hint">Liên kết tới (các) ticket khác cùng 1 lỗi để theo dõi số lần lặp lại. Liên kết 2 chiều — ticket được chọn cũng tự hiện liên kết ngược lại. Gỡ liên kết ở đây không tự gỡ bên ticket kia.</p>
-      <label class="autocomplete-field">Tìm ticket để liên kết
-        <input id="ticketLinked" autocomplete="off" placeholder="Gõ mã ticket / mô tả để tìm">
+      <h3 data-i18n="linked.title">🔁 Ticket liên quan (lỗi lặp lại)</h3>
+      <p class="hint" data-i18n="linked.hint">Liên kết tới (các) ticket khác cùng 1 lỗi để theo dõi số lần lặp lại. Liên kết 2 chiều — ticket được chọn cũng tự hiện liên kết ngược lại. Gỡ liên kết ở đây không tự gỡ bên ticket kia.</p>
+      <label class="autocomplete-field"><span data-i18n="linked.search">Tìm ticket để liên kết</span>
+        <input id="ticketLinked" autocomplete="off" data-i18n-placeholder="linked.searchPh" placeholder="Gõ mã ticket / mô tả để tìm">
         <div id="ticketLinkedSuggest" class="suggest-list hidden"></div>
       </label>
       <div id="ticketLinkedChips"></div>
     </div>
 
     <div class="camera-grid">
-      <button type="button" id="ticketTakePhoto">📷 Chụp ảnh hiện trạng</button>
-      <label class="button secondary">🖼 Chọn ảnh<input id="ticketPhoto" type="file" accept="image/*" capture="environment" hidden></label>
+      <button type="button" id="ticketTakePhoto" data-i18n="camera.takePhotoTicket">📷 Chụp ảnh hiện trạng</button>
+      <label class="button secondary"><span data-i18n="camera.choosePhoto">🖼 Chọn ảnh</span><input id="ticketPhoto" type="file" accept="image/*" capture="environment" hidden></label>
     </div>
     <img id="ticketPhotoPreview" class="preview hidden">
 
     <div id="ticketHistoryBox" class="card history-box hidden">
-      <h3>🕘 Lịch sử thay đổi</h3>
-      <p class="hint">Tự động ghi lại mỗi lần tạo/sửa ticket này — không cần thao tác gì thêm.</p>
+      <h3 data-i18n="history.title">🕘 Lịch sử thay đổi</h3>
+      <p class="hint" data-i18n="ticketHistory.hint">Tự động ghi lại mỗi lần tạo/sửa ticket này — không cần thao tác gì thêm.</p>
       <div id="ticketHistoryList"></div>
     </div>
 
     <div class="psbox admin-only">
-      <h3>🔒 Trạng thái xác nhận (chỉ Admin)</h3>
-      <p class="hint">Tài khoản "Thu thập dữ liệu" chỉ tạo ticket mới được, không sửa lại được — ticket họ tạo tự động đánh dấu "Đã khóa" ở đây để bạn biết cần rà soát. Admin luôn sửa được bất kể ô này bật hay tắt.</p>
-      <label class="checkbox-label"><input id="ticketLocked" type="checkbox"> Đã khóa (được tạo bởi tài khoản thu thập dữ liệu)</label>
+      <h3 data-i18n="confirmStatus.title">🔒 Trạng thái xác nhận (chỉ Admin)</h3>
+      <p class="hint" data-i18n="confirmStatus.hintTicket">Tài khoản "Thu thập dữ liệu" chỉ tạo ticket mới được, không sửa lại được — ticket họ tạo tự động đánh dấu "Đã khóa" ở đây để bạn biết cần rà soát. Admin luôn sửa được bất kể ô này bật hay tắt.</p>
+      <label class="checkbox-label"><input id="ticketLocked" type="checkbox"> <span data-i18n="confirmStatus.lockedTicket">Đã khóa (được tạo bởi tài khoản thu thập dữ liệu)</span></label>
     </div>
 
-    <div class="form-actions"><button type="submit" id="submitTicketBtn">Lưu ticket</button><button type="button" class="secondary" id="resetTicketForm">Xóa form</button></div>
+    <div class="form-actions"><button type="submit" id="submitTicketBtn" data-i18n="formActions.saveTicket">Lưu ticket</button><button type="button" class="secondary" id="resetTicketForm" data-i18n="formActions.reset">Xóa form</button></div>
   </form>
 </section>
 
 <section id="guides" class="page">
-  <div class="section-head"><h2>📘 Hướng dẫn kỹ thuật</h2><button data-page="ops">←</button></div>
+  <div class="section-head"><h2 data-i18n="guides.title">📘 Hướng dẫn kỹ thuật</h2><button data-page="ops">←</button></div>
   <div class="card empty">
-    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
-    <p class="muted">Dự kiến: tài liệu xử lý sự cố thường gặp, hướng dẫn cài đặt/cấu hình máy, quy trình chuẩn cho IT.</p>
+    <p data-i18n="common.building">🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted" data-i18n="guides.desc">Dự kiến: tài liệu xử lý sự cố thường gặp, hướng dẫn cài đặt/cấu hình máy, quy trình chuẩn cho IT.</p>
   </div>
 </section>
 
 <section id="network" class="page">
-  <div class="section-head"><h2>🌐 Network</h2><button data-page="ops">←</button></div>
+  <div class="section-head"><h2 data-i18n="network.title">🌐 Network</h2><button data-page="ops">←</button></div>
   <div class="card empty">
-    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
-    <p class="muted">Dự kiến: sơ đồ mạng, bảng IP, thông tin switch/port, wifi.</p>
+    <p data-i18n="common.building">🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted" data-i18n="network.desc">Dự kiến: sơ đồ mạng, bảng IP, thông tin switch/port, wifi.</p>
   </div>
 </section>
 
 <section id="camera" class="page">
-  <div class="section-head"><h2>📹 Camera</h2><button data-page="ops">←</button></div>
+  <div class="section-head"><h2 data-i18n="camera.title">📹 Camera</h2><button data-page="ops">←</button></div>
   <div class="card empty">
-    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
-    <p class="muted">Dự kiến: sơ đồ vị trí camera theo khu vực, thông tin đầu ghi (NVR)/kênh, danh sách tài khoản xem &amp; phân quyền, hướng dẫn cài iVMS cho máy/điện thoại.</p>
+    <p data-i18n="common.building">🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted" data-i18n="camera.desc">Dự kiến: sơ đồ vị trí camera theo khu vực, thông tin đầu ghi (NVR)/kênh, danh sách tài khoản xem &amp; phân quyền, hướng dẫn cài iVMS cho máy/điện thoại.</p>
   </div>
 </section>
 
 <section id="po" class="page">
-  <div class="section-head"><h2>📑 Đơn hàng (PO)</h2><button data-page="ops">←</button></div>
+  <div class="section-head"><h2 data-i18n="po.title">📑 Đơn hàng (PO)</h2><button data-page="ops">←</button></div>
   <div class="card empty">
-    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
-    <p class="muted">Dự kiến: theo dõi đơn đặt mua thiết bị/vật tư, trạng thái giao hàng, nhà cung cấp — có thể liên kết với Ticket đã tạo.</p>
+    <p data-i18n="common.building">🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted" data-i18n="po.desc">Dự kiến: theo dõi đơn đặt mua thiết bị/vật tư, trạng thái giao hàng, nhà cung cấp — có thể liên kết với Ticket đã tạo.</p>
   </div>
 </section>
 
 <section id="sop" class="page">
-  <div class="section-head"><h2>📋 Quy trình (SOP)</h2><button data-page="ops">←</button></div>
+  <div class="section-head"><h2 data-i18n="sop.title">📋 Quy trình (SOP)</h2><button data-page="ops">←</button></div>
   <div class="card empty">
-    <p>🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
-    <p class="muted">Dự kiến: các bước chuẩn (SOP) cho công việc IT thường gặp — có thể gắn trực tiếp vào Ticket khi tạo, để người xử lý theo đúng quy trình.</p>
+    <p data-i18n="common.building">🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
+    <p class="muted" data-i18n="sop.desc">Dự kiến: các bước chuẩn (SOP) cho công việc IT thường gặp — có thể gắn trực tiếp vào Ticket khi tạo, để người xử lý theo đúng quy trình.</p>
   </div>
 </section>
 
 <section id="settings" class="page">
-  <div class="section-head"><h2>Dữ liệu</h2></div>
+  <div class="section-head"><h2 data-i18n="settings.title">Dữ liệu</h2></div>
   <div class="card">
-    <h3>👤 Người dùng &amp; phân quyền</h3>
-    <p class="hint">Tạo tài khoản mới, đổi vai trò, đặt lại mật khẩu, hoặc vô hiệu hóa/kích hoạt lại — tất cả ngay trong app, không cần vào Firebase Console. Xóa hẳn tài khoản (khỏi Authentication) vẫn phải làm trong Console.</p>
+    <h3 data-i18n="settings.usersTitle">👤 Người dùng &amp; phân quyền</h3>
+    <p class="hint" data-i18n="settings.usersHint">Tạo tài khoản mới, đổi vai trò, đặt lại mật khẩu, hoặc vô hiệu hóa/kích hoạt lại — tất cả ngay trong app, không cần vào Firebase Console. Xóa hẳn tài khoản (khỏi Authentication) vẫn phải làm trong Console.</p>
     <div id="userList"></div>
-    <button id="showAddUserBtn" class="secondary" style="margin-top:10px">＋ Thêm người dùng</button>
+    <button id="showAddUserBtn" class="secondary" style="margin-top:10px" data-i18n="settings.addUser">＋ Thêm người dùng</button>
     <div id="addUserForm" class="hidden" style="margin-top:12px">
-      <label>Email<input id="newUserEmail" type="email" placeholder="ten@congty.com"></label>
-      <label>Mật khẩu ban đầu (tối thiểu 6 ký tự)<input id="newUserPassword" type="text" placeholder="VD: Sec@2026"></label>
-      <label>Vai trò
+      <label><span data-i18n="addUser.email">Email</span><input id="newUserEmail" type="email" data-i18n-placeholder="addUser.emailPh" placeholder="ten@congty.com"></label>
+      <label><span data-i18n="addUser.password">Mật khẩu ban đầu (tối thiểu 6 ký tự)</span><input id="newUserPassword" type="text" data-i18n-placeholder="addUser.passwordPh" placeholder="VD: Sec@2026"></label>
+      <label><span data-i18n="addUser.role">Vai trò</span>
         <select id="newUserRole">
-          <option value="collector" selected>Collector (thu thập dữ liệu)</option>
-          <option value="viewer">Viewer (chỉ xem — Ban giám đốc)</option>
-          <option value="admin">Admin (IT)</option>
+          <option value="collector" selected data-i18n="role.collector">Collector (thu thập dữ liệu)</option>
+          <option value="viewer" data-i18n="role.viewer">Viewer (chỉ xem — Ban giám đốc)</option>
+          <option value="admin" data-i18n="role.admin">Admin (IT)</option>
         </select>
       </label>
       <div class="quick">
-        <button id="submitAddUserBtn">Tạo tài khoản</button>
-        <button id="cancelAddUserBtn" class="secondary">Hủy</button>
+        <button id="submitAddUserBtn" data-i18n="addUser.submit">Tạo tài khoản</button>
+        <button id="cancelAddUserBtn" class="secondary" data-i18n="addUser.cancel">Hủy</button>
       </div>
     </div>
   </div>
   <div class="card">
-    <h3>Excel — Tài sản</h3>
-    <p>Import danh sách kiểm kê hiện có hoặc export kết quả sau khi đi kiểm thực tế.</p>
+    <h3 data-i18n="settings.excelAssets">Excel — Tài sản</h3>
+    <p data-i18n="settings.excelAssetsDesc">Import danh sách kiểm kê hiện có hoặc export kết quả sau khi đi kiểm thực tế.</p>
     <div class="quick">
-      <button id="exportXlsx">⬇ Xuất Excel</button>
-      <label class="button secondary">⬆ Nhập Excel<input id="importXlsx" type="file" accept=".xlsx,.xls,.csv" hidden></label>
+      <button id="exportXlsx" data-i18n="btn.exportExcel">⬇ Xuất Excel</button>
+      <label class="button secondary"><span data-i18n="btn.importExcel">⬆ Nhập Excel</span><input id="importXlsx" type="file" accept=".xlsx,.xls,.csv" hidden></label>
     </div>
   </div>
   <div class="card">
-    <h3>Nhân viên (HR)</h3>
-    <p>Chọn thẳng file HR xuất ra (<code>ImportEmployeeProfile...xlsx</code>, không cần chỉnh sửa gì trước) để cập nhật danh sách gợi ý "Người sử dụng" — áp dụng ngay cho mọi thiết bị/tài khoản, không cần sửa tay <code>employees.js</code> nữa.</p>
+    <h3 data-i18n="settings.hr">Nhân viên (HR)</h3>
+    <p data-i18n-html="settings.hrDesc">Chọn thẳng file HR xuất ra (<code>ImportEmployeeProfile...xlsx</code>, không cần chỉnh sửa gì trước) để cập nhật danh sách gợi ý "Người sử dụng" — áp dụng ngay cho mọi thiết bị/tài khoản, không cần sửa tay <code>employees.js</code> nữa.</p>
     <div class="quick">
-      <label class="button secondary">⬆ Nhập Excel HR<input id="importEmployeesXlsx" type="file" accept=".xlsx,.xls" hidden></label>
+      <label class="button secondary"><span data-i18n="btn.importHrExcel">⬆ Nhập Excel HR</span><input id="importEmployeesXlsx" type="file" accept=".xlsx,.xls" hidden></label>
     </div>
   </div>
   <div class="card">
-    <h3>Excel — Ticket</h3>
-    <p>Import danh sách ticket hiện có (VD: file Helpdesk cũ) hoặc export toàn bộ ticket ra Excel.</p>
+    <h3 data-i18n="settings.excelTickets">Excel — Ticket</h3>
+    <p data-i18n="settings.excelTicketsDesc">Import danh sách ticket hiện có (VD: file Helpdesk cũ) hoặc export toàn bộ ticket ra Excel.</p>
     <div class="quick">
-      <button id="exportTicketsXlsx">⬇ Xuất Excel</button>
-      <label class="button secondary">⬆ Nhập Excel<input id="importTicketsXlsx" type="file" accept=".xlsx,.xls,.csv" hidden></label>
+      <button id="exportTicketsXlsx" data-i18n="btn.exportExcel">⬇ Xuất Excel</button>
+      <label class="button secondary"><span data-i18n="btn.importExcel">⬆ Nhập Excel</span><input id="importTicketsXlsx" type="file" accept=".xlsx,.xls,.csv" hidden></label>
     </div>
   </div>
   <div class="card">
-    <h3>Báo cáo PDF</h3>
-    <p>Xuất báo cáo kiểm kê dạng PDF có màu sắc, biểu đồ thống kê và bảng chi tiết — dùng để in hoặc gửi báo cáo.</p>
+    <h3 data-i18n="settings.pdfReport">Báo cáo PDF</h3>
+    <p data-i18n="settings.pdfReportDesc">Xuất báo cáo kiểm kê dạng PDF có màu sắc, biểu đồ thống kê và bảng chi tiết — dùng để in hoặc gửi báo cáo.</p>
     <div class="quick">
-      <button id="exportPdfReport">📄 Xuất báo cáo PDF</button>
+      <button id="exportPdfReport" data-i18n="btn.exportPdf">📄 Xuất báo cáo PDF</button>
     </div>
   </div>
   <div class="card">
-    <h3>Backup</h3>
-    <div class="quick"><button id="backupJson">Sao lưu JSON</button><label class="button secondary">Khôi phục JSON<input id="restoreJson" type="file" accept=".json" hidden></label></div>
+    <h3 data-i18n="settings.backup">Backup</h3>
+    <div class="quick"><button id="backupJson" data-i18n="btn.backupJson">Sao lưu JSON</button><label class="button secondary"><span data-i18n="btn.restoreJson">Khôi phục JSON</span><input id="restoreJson" type="file" accept=".json" hidden></label></div>
   </div>
   <div class="card">
-    <h3>Nguyên tắc dùng QR</h3>
+    <h3 data-i18n="settings.qrPrinciples">Nguyên tắc dùng QR</h3>
     <ol>
-      <li>Lần đầu: xác minh thiết bị → tạo mã → sinh QR → dán QR.</li>
-      <li>Lần sau: quét QR → xác nhận → cập nhật thông tin.</li>
-      <li>Không dùng QR để thay thế Serial của hãng.</li>
+      <li data-i18n="qr.step1">Lần đầu: xác minh thiết bị → tạo mã → sinh QR → dán QR.</li>
+      <li data-i18n="qr.step2">Lần sau: quét QR → xác nhận → cập nhật thông tin.</li>
+      <li data-i18n="qr.step3">Không dùng QR để thay thế Serial của hãng.</li>
     </ol>
   </div>
   <div class="card danger">
-    <h3>Xóa dữ liệu</h3>
+    <h3 data-i18n="settings.dangerZone">Xóa dữ liệu</h3>
     <div class="quick">
-      <button id="clearAll" class="dangerBtn">Xóa toàn bộ tài sản</button>
-      <button id="clearAllTickets" class="dangerBtn">Xóa toàn bộ ticket</button>
+      <button id="clearAll" class="dangerBtn" data-i18n="btn.clearAllAssets">Xóa toàn bộ tài sản</button>
+      <button id="clearAllTickets" class="dangerBtn" data-i18n="btn.clearAllTickets">Xóa toàn bộ ticket</button>
     </div>
   </div>
 </section>
 </main>
 
 <nav class="bottomnav">
-  <button data-page="dashboard">⌂<span>Tổng quan</span></button>
-  <button data-page="scan">⌁<span>Quét QR</span></button>
-  <button data-page="assets">▤<span>Tài sản</span></button>
-  <button data-page="ops">🛠<span>Vận hành</span></button>
-  <button data-page="settings" class="admin-only">⚙<span>Dữ liệu</span></button>
+  <button data-page="dashboard">⌂<span data-i18n="bottomnav.dashboard">Tổng quan</span></button>
+  <button data-page="scan">⌁<span data-i18n="bottomnav.scan">Quét QR</span></button>
+  <button data-page="assets">▤<span data-i18n="bottomnav.assets">Tài sản</span></button>
+  <button data-page="ops">🛠<span data-i18n="bottomnav.ops">Vận hành</span></button>
+  <button data-page="settings" class="admin-only">⚙<span data-i18n="bottomnav.settings">Dữ liệu</span></button>
 </nav>
 
 <div class="account-fab">
   <div id="accountPanel" class="account-panel hidden">
     <small id="userEmail" class="muted"></small>
     <span id="roleBadge" class="role-badge"></span>
-    <button id="installBtn" class="ghost hidden">Cài app</button>
-    <button id="logoutBtn" class="ghost">Đăng xuất</button>
+    <div class="lang-switch">
+      <button type="button" data-lang="vi">VI</button>
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="zh">中文</button>
+    </div>
+    <button id="installBtn" class="ghost hidden" data-i18n="account.install">Cài app</button>
+    <button id="logoutBtn" class="ghost" data-i18n="account.logout">Đăng xuất</button>
   </div>
   <button id="accountToggle" class="account-fab-btn">👤</button>
 </div>
@@ -467,6 +499,7 @@
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-storage-compat.js"></script>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

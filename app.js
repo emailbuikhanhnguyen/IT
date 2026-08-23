@@ -71,6 +71,24 @@ const CHECK_NEW = "Thiết bị mới";
 const CHECK_WRONG = "Sai thông tin";
 const CHECK_MISSING = "Không tìm thấy";
 
+/* Các giá trị status/checkStatus/priority... LUÔN được lưu trong Firestore
+   bằng tiếng Việt (không đổi theo ngôn ngữ hiển thị, để dữ liệu cũ/mới nhất
+   quán). Các hàm dưới đây chỉ dịch NHÃN HIỂN THỊ, giá trị lưu giữ nguyên. */
+const CHECK_LABEL_KEY = {
+  "Chưa kiểm": "check.unchecked", "Đã kiểm - OK": "check.ok", "Thiết bị mới": "check.newDevice",
+  "Sai thông tin": "check.wrongInfo", "Không tìm thấy": "check.notFound"
+};
+function checkLabel(status) { return CHECK_LABEL_KEY[status] ? tr(CHECK_LABEL_KEY[status]) : (status || tr("check.unchecked")); }
+const STATUS_LABEL_KEY = {
+  "Tốt": "status.good", "Đang sử dụng": "status.inUse", "Dự phòng": "status.spare",
+  "Hỏng": "status.broken", "Mất": "status.lost", "Thanh lý": "status.disposed"
+};
+function statusLabel(status) { return STATUS_LABEL_KEY[status] ? tr(STATUS_LABEL_KEY[status]) : status; }
+const TICKET_STATUS_LABEL_KEY = { "Chờ": "ticket.status.pending", "Đang xử lý": "ticket.status.inProgress", "Hoàn thành": "ticket.status.done" };
+function ticketStatusLabel(status) { return TICKET_STATUS_LABEL_KEY[status] ? tr(TICKET_STATUS_LABEL_KEY[status]) : (status || tr("ticket.status.pending")); }
+const TICKET_PRIORITY_LABEL_KEY = { "Khẩn": "ticket.priority.urgent", "Cao": "ticket.priority.high", "Trung bình": "ticket.priority.medium", "Thấp": "ticket.priority.low" };
+function ticketPriorityLabel(p) { return TICKET_PRIORITY_LABEL_KEY[p] ? tr(TICKET_PRIORITY_LABEL_KEY[p]) : p; }
+
 /* ---------- Lịch sử thay đổi (vòng đời tài sản) ----------
    Lưu trực tiếp trong field `history` (mảng) của chính document tài sản đó —
    KHÔNG dùng subcollection/collection riêng, nên không cần sửa gì thêm ở
@@ -80,24 +98,26 @@ const CHECK_MISSING = "Không tìm thấy";
                   changes: [{ field, label, from, to }] }
    Lưu ý: dùng Date.now() (không dùng serverTimestamp()) cho từng phần tử,
    vì Firestore không cho phép serverTimestamp() bên trong arrayUnion(). */
-const HISTORY_TRACK_FIELDS = [
-  ["employeeCode", "Mã nhân viên"],
-  ["user", "Người sử dụng"],
-  ["section", "Bộ phận"],
-  ["group", "Tổ/Chuyền"],
-  ["type", "Loại thiết bị"],
-  ["deviceName", "Device name"],
-  ["model", "Model"],
-  ["serial", "Serial Number"],
-  ["ip", "IP"],
-  ["mac", "MAC"],
-  ["spec", "Cấu hình"],
-  ["winInfo", "Thông tin Windows"],
-  ["status", "Tình trạng"],
-  ["checkStatus", "Trạng thái kiểm kê"],
-  ["note", "Ghi chú"],
-];
-const HISTORY_ACTION_LABEL = { create: "Tạo mới", update: "Cập nhật", rename: "Đổi mã", import: "Nhập từ Excel" };
+function HISTORY_TRACK_FIELDS_FN() { return [
+  ["employeeCode", tr("field.employeeCode")],
+  ["user", tr("field.user")],
+  ["section", tr("field.section")],
+  ["group", tr("field.group")],
+  ["type", tr("field.type")],
+  ["deviceName", tr("field.deviceName")],
+  ["model", tr("field.model")],
+  ["serial", tr("field.serial")],
+  ["ip", tr("field.ip")],
+  ["mac", tr("field.mac")],
+  ["spec", tr("field.spec")],
+  ["winInfo", tr("field.winInfo")],
+  ["status", tr("field.status")],
+  ["checkStatus", tr("field.checkStatus")],
+  ["note", tr("field.note")],
+]; }
+Object.defineProperty(window, "HISTORY_TRACK_FIELDS", { get: HISTORY_TRACK_FIELDS_FN });
+function HISTORY_ACTION_LABEL_FN() { return { create: tr("history.action.create"), update: tr("history.action.update"), rename: tr("history.action.rename"), import: tr("history.action.import") }; }
+Object.defineProperty(window, "HISTORY_ACTION_LABEL", { get: HISTORY_ACTION_LABEL_FN });
 
 // So sánh 1 tài sản cũ (đang có trên hệ thống) với dữ liệu mới sắp lưu,
 // trả về danh sách các trường thực sự thay đổi. Nếu truyền `onlyKeys` (vd:
@@ -120,7 +140,8 @@ function historyEntry(action, changes) {
 }
 
 function formatHistoryTime(ms) {
-  try { return new Date(ms).toLocaleString("vi-VN"); } catch (e) { return ""; }
+  const locale = { vi: "vi-VN", en: "en-US", zh: "zh-CN" }[getLang()] || "vi-VN";
+  try { return new Date(ms).toLocaleString(locale); } catch (e) { return ""; }
 }
 
 function renderHistoryBox(a) {
@@ -132,8 +153,8 @@ function renderHistoryBox(a) {
   box.classList.remove("hidden");
   list.innerHTML = entries.map(e => {
     const changesHtml = (e.changes || []).map(c => {
-      const from = c.from ? escapeHtml(c.from) : "<i>(trống)</i>";
-      const to = c.to ? escapeHtml(c.to) : "<i>(trống)</i>";
+      const from = c.from ? escapeHtml(c.from) : "<i>(" + tr("common.empty") + ")</i>";
+      const to = c.to ? escapeHtml(c.to) : "<i>(" + tr("common.empty") + ")</i>";
       return `<div class="history-change"><b>${escapeHtml(c.label)}:</b> ${from} → ${to}</div>`;
     }).join("");
     return `<div class="history-entry">
@@ -141,7 +162,7 @@ function renderHistoryBox(a) {
         <span class="history-action">${escapeHtml(HISTORY_ACTION_LABEL[e.action] || e.action || "")}</span>
         <span class="muted">${formatHistoryTime(e.at)} · ${escapeHtml(e.by || "")}</span>
       </div>
-      ${changesHtml || '<div class="history-change muted">Không có thay đổi chi tiết được ghi nhận.</div>'}
+      ${changesHtml || '<div class="history-change muted">' + tr("history.noChanges") + '</div>'}
     </div>`;
   }).join("");
 }
@@ -284,39 +305,40 @@ function stopUsersSync() {
   if (unsubscribeUsersSync) { unsubscribeUsersSync(); unsubscribeUsersSync = null; }
   userAccounts = [];
 }
-const ROLE_LABELS = { admin: "Quản trị (Admin)", collector: "Thu thập dữ liệu", viewer: "Chỉ xem" };
+const ROLE_LABELS_VI = { admin: "Quản trị (Admin)", collector: "Thu thập dữ liệu", viewer: "Chỉ xem" };
+function roleLabel(role) { return tr("role.label." + role) || ROLE_LABELS_VI[role] || role; }
 function renderUserList() {
   const box = $("userList");
   if (!box) return;
-  if (!userAccounts.length) { box.innerHTML = `<p class="muted">Chưa có tài khoản nào trong danh sách.</p>`; return; }
+  if (!userAccounts.length) { box.innerHTML = `<p class="muted">${tr("userList.empty")}</p>`; return; }
   const sorted = [...userAccounts].sort((a, b) => (a.email || "").localeCompare(b.email || ""));
   box.innerHTML = sorted.map(u => {
     const isSelf = u._uid === currentUid;
     const isDisabled = u.disabled === true;
-    const emailLabel = u.email || `<span class="muted">(chưa rõ email — tài khoản tạo qua Console)</span>`;
+    const emailLabel = u.email || `<span class="muted">(${tr("userList.unknownEmail")})</span>`;
     const roleOptions = ["admin", "collector", "viewer"].map(r =>
-      `<option value="${r}" ${u.role === r ? "selected" : ""}>${ROLE_LABELS[r]}</option>`).join("");
+      `<option value="${r}" ${u.role === r ? "selected" : ""}>${roleLabel(r)}</option>`).join("");
     return `<div class="asset">
       <div>
-        <h3>${emailLabel}${isSelf ? ` <span class="badge info">Bạn</span>` : ""}${isDisabled ? ` <span class="badge bad">Đã khóa</span>` : ""}</h3>
+        <h3>${emailLabel}${isSelf ? ` <span class="badge info">${tr("userList.you")}</span>` : ""}${isDisabled ? ` <span class="badge bad">${tr("userList.locked")}</span>` : ""}</h3>
         <span class="muted">UID: ${u._uid}</span>
       </div>
       <div class="asset-actions">
-        <select onchange="changeUserRole('${u._uid}', this.value)" ${isSelf ? "disabled title=\"Không tự đổi vai trò của chính mình\"" : ""}>${roleOptions}</select>
-        <button class="secondary" onclick="resetUserPassword('${u._uid}', '${escapeHtml(u.email || "")}')">🔑 Đặt lại mật khẩu</button>
-        <button class="secondary" onclick="toggleUserActive('${u._uid}', '${escapeHtml(u.email || u._uid)}', ${isDisabled})" ${isSelf ? "disabled title=\"Không tự khóa/mở khóa chính mình\"" : ""}>${isDisabled ? "✅ Kích hoạt lại" : "🚫 Vô hiệu hóa"}</button>
+        <select onchange="changeUserRole('${u._uid}', this.value)" ${isSelf ? `disabled title="${tr("userList.cantChangeOwnRoleTitle")}"` : ""}>${roleOptions}</select>
+        <button class="secondary" onclick="resetUserPassword('${u._uid}', '${escapeHtml(u.email || "")}')">🔑 ${tr("userList.resetPassword")}</button>
+        <button class="secondary" onclick="toggleUserActive('${u._uid}', '${escapeHtml(u.email || u._uid)}', ${isDisabled})" ${isSelf ? `disabled title="${tr("userList.cantLockSelfTitle")}"` : ""}>${isDisabled ? "✅ " + tr("action.enable") : "🚫 " + tr("action.disable")}</button>
       </div>
     </div>`;
   }).join("");
 }
 async function changeUserRole(uid, newRole) {
-  if (uid === currentUid) { alert("Không thể tự đổi vai trò của chính mình."); renderUserList(); return; }
-  if (!confirm(`Đổi vai trò tài khoản này thành "${ROLE_LABELS[newRole]}"?`)) { renderUserList(); return; }
+  if (uid === currentUid) { alert(tr("msg.cantChangeOwnRole")); renderUserList(); return; }
+  if (!confirm(tr("msg.confirmChangeRole", { role: roleLabel(newRole) }))) { renderUserList(); return; }
   try {
     await db.collection(USERS_COLLECTION).doc(uid).update({ role: newRole });
   } catch (err) {
     console.error(err);
-    alert("Lỗi đổi vai trò: " + (err.message || err));
+    alert(tr("msg.errChangeRole", { err: err.message || err }));
     renderUserList();
   }
 }
@@ -326,10 +348,10 @@ async function resetUserPassword(uid, email) {
   // làm được, app này không có backend riêng. Cách chuẩn: gửi email đặt
   // lại mật khẩu, người dùng tự bấm link và tự đặt mật khẩu mới.
   if (!email) {
-    email = (prompt("Chưa biết email đăng nhập của tài khoản này (tạo qua Firebase Console).\nNhập đúng email đăng nhập để gửi link đặt lại mật khẩu:") || "").trim();
+    email = (prompt(tr("prompt.needConsoleEmail")) || "").trim();
     if (!email || !email.includes("@")) return;
   }
-  if (!confirm(`Gửi email đặt lại mật khẩu tới "${email}"?\n\nNgười dùng sẽ nhận email chứa link — họ cần tự bấm vào và đặt mật khẩu mới, Admin không thấy/đặt được mật khẩu thay họ.`)) return;
+  if (!confirm(tr("msg.confirmResetPw", { email }))) return;
   try {
     await auth.sendPasswordResetEmail(email);
     const acct = userAccounts.find(u => u._uid === uid);
@@ -338,26 +360,26 @@ async function resetUserPassword(uid, email) {
       // để lần sau danh sách hiện đúng email, khỏi phải nhập lại.
       await db.collection(USERS_COLLECTION).doc(uid).update({ email });
     }
-    alert(`Đã gửi email đặt lại mật khẩu tới ${email}.`);
+    alert(tr("msg.resetPwSent", { email }));
   } catch (err) {
     console.error(err);
     let msg = err.message || String(err);
-    if (err.code === "auth/user-not-found") msg = "Không tìm thấy tài khoản Authentication với email này — kiểm tra lại email có đúng không.";
-    alert("Lỗi gửi email đặt lại mật khẩu: " + msg);
+    if (err.code === "auth/user-not-found") msg = tr("msg.authUserNotFound");
+    alert(tr("msg.errResetPw", { err: msg }));
   }
 }
 async function toggleUserActive(uid, label, currentlyDisabled) {
-  if (uid === currentUid) { alert("Không thể tự khóa/mở khóa chính mình."); return; }
-  const action = currentlyDisabled ? "Kích hoạt lại" : "Vô hiệu hóa";
+  if (uid === currentUid) { alert(tr("msg.cantLockSelf")); return; }
+  const action = currentlyDisabled ? tr("action.enable") : tr("action.disable");
   const note = currentlyDisabled
-    ? `Tài khoản "${label}" sẽ dùng lại được app với vai trò hiện có.`
-    : `Tài khoản "${label}" sẽ bị chặn ngay lần đăng nhập tiếp theo, nhưng vẫn còn trong danh sách để mở khóa lại sau này. Email/mật khẩu đăng nhập (Firebase Authentication) không bị ảnh hưởng.`;
-  if (!confirm(`${action} tài khoản này?\n\n${note}`)) return;
+    ? tr("msg.noteWillReenable", { label })
+    : tr("msg.noteWillDisable", { label });
+  if (!confirm(tr("msg.confirmLockAction", { action, note }))) return;
   try {
     await db.collection(USERS_COLLECTION).doc(uid).update({ disabled: !currentlyDisabled });
   } catch (err) {
     console.error(err);
-    alert(`Lỗi ${action.toLowerCase()}: ` + (err.message || err));
+    alert(tr("msg.errLockAction", { action: action.toLowerCase(), err: err.message || err }));
   }
 }
 $("showAddUserBtn").addEventListener("click", () => {
@@ -374,8 +396,8 @@ $("submitAddUserBtn").addEventListener("click", async () => {
   const email = $("newUserEmail").value.trim();
   const password = $("newUserPassword").value;
   const role = $("newUserRole").value;
-  if (!email || !email.includes("@")) { alert("Nhập email hợp lệ."); return; }
-  if (!password || password.length < 6) { alert("Mật khẩu tối thiểu 6 ký tự."); return; }
+  if (!email || !email.includes("@")) { alert(tr("msg.invalidEmail")); return; }
+  if (!password || password.length < 6) { alert(tr("msg.pwMinLen")); return; }
   const btn = $("submitAddUserBtn");
   btn.disabled = true;
   try {
@@ -387,7 +409,7 @@ $("submitAddUserBtn").addEventListener("click", async () => {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       createdBy: currentUid
     });
-    alert(`Đã tạo tài khoản ${email} với vai trò "${ROLE_LABELS[role]}".`);
+    alert(tr("msg.userCreated", { email, role: roleLabel(role) }));
     $("newUserEmail").value = "";
     $("newUserPassword").value = "";
     $("addUserForm").classList.add("hidden");
@@ -395,8 +417,8 @@ $("submitAddUserBtn").addEventListener("click", async () => {
   } catch (err) {
     console.error(err);
     let msg = err.message || String(err);
-    if (err.code === "auth/email-already-in-use") msg = "Email này đã có tài khoản rồi.";
-    alert("Lỗi tạo tài khoản: " + msg);
+    if (err.code === "auth/email-already-in-use") msg = tr("msg.emailInUse");
+    alert(tr("msg.errCreateUser", { err: msg }));
   } finally {
     btn.disabled = false;
   }
@@ -429,9 +451,9 @@ function renderDashboard() {
   $("exceptionCount").textContent = exception;
 
   const pct = total ? Math.round((checked / total) * 100) : 0;
-  let html = `<div class="hint">Tổng tiến độ: ${checked}/${total} (${pct}%)</div>
+  let html = `<div class="hint">${tr("dashboard.progress", { checked, total, pct })}</div>
     <div class="bar"><i style="width:${pct}%"></i></div>`;
-  if (!total) html = `<div class="empty">Chưa có tài sản nào. Bấm "＋ Tạo tài sản" để bắt đầu.</div>`;
+  if (!total) html = `<div class="empty">${tr("dashboard.noAssets")}</div>`;
   $("checkStats").innerHTML = html;
 
   // Thống kê Ticket hỗ trợ trên dashboard
@@ -467,7 +489,7 @@ function populateSectionFilter() {
   const prev = sel.value;
   const sections = Array.from(new Set(assets.map(a => (a.section || "").trim()).filter(Boolean)))
     .sort((a, b) => a.localeCompare(b, "vi"));
-  sel.innerHTML = `<option value="">Tất cả khu vực</option>` +
+  sel.innerHTML = `<option value="">${tr("filter.allSections")}</option>` +
     sections.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
   if (prev && sections.includes(prev)) sel.value = prev;
 }
@@ -488,15 +510,15 @@ function renderAssetList() {
   if (sectionF) list = list.filter(a => (a.section || "").trim() === sectionF);
 
   if (!list.length) {
-    $("assetList").innerHTML = `<div class="empty">Không có tài sản phù hợp.</div>`;
+    $("assetList").innerHTML = `<div class="empty">${tr("assets.noneFound")}</div>`;
     return;
   }
   $("assetList").innerHTML = list.map(a => {
     const editBtn = isAdmin
-      ? `<button onclick="editAsset('${a._id}')">✎ Sửa</button>`
-      : `<button onclick="editAsset('${a._id}')">👁 Xem</button>`;
+      ? `<button onclick="editAsset('${a._id}')">✎ ${tr("action.edit")}</button>`
+      : `<button onclick="editAsset('${a._id}')">👁 ${tr("action.view")}</button>`;
     const deleteBtn = isAdmin
-      ? `<button class="secondary" onclick="deleteAsset('${a._id}')">🗑 Xóa</button>`
+      ? `<button class="secondary" onclick="deleteAsset('${a._id}')">🗑 ${tr("action.delete")}</button>`
       : "";
     return `
     <div class="asset">
@@ -505,12 +527,12 @@ function renderAssetList() {
         <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}</div>
         <div class="muted">${a.user ? "👤 " + escapeHtml(a.user) : ""}${a.employeeCode ? " (" + escapeHtml(a.employeeCode) + ")" : ""}</div>
         ${a.section ? `<div class="muted">🏢 ${escapeHtml(a.section)}</div>` : ""}
-        <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(a.checkStatus || CHECK_UNCHECKED)}</span>
-        ${!isAdmin ? `<span class="badge view-only-tag">👁 Chỉ xem</span>` : ""}
+        <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(checkLabel(a.checkStatus))}</span>
+        ${!isAdmin ? `<span class="badge view-only-tag">👁 ${tr("action.viewOnly")}</span>` : ""}
       </div>
       <div class="asset-actions">
         ${editBtn}
-        <button class="secondary" onclick="printLabel('${a._id}')">🏷 In tem</button>
+        <button class="secondary" onclick="printLabel('${a._id}')">🏷 ${tr("qr.print")}</button>
         ${deleteBtn}
       </div>
     </div>
@@ -546,7 +568,7 @@ function setupAutocomplete(inputId, boxId, getItems, renderItem, onSelect, opts 
       return;
     }
     if (!items.length) {
-      box.innerHTML = `<div class="suggest-empty">Không có gợi ý khớp — vẫn có thể nhập tay hoặc để trống.</div>`;
+      box.innerHTML = `<div class="suggest-empty">${tr("suggest.empty")}</div>`;
       box.classList.remove("hidden");
       return;
     }
@@ -725,7 +747,7 @@ function setFormLocked(locked) {
 function clearForm() {
   $("assetFormEl").reset();
   $("assetId").value = "";
-  $("formTitle").textContent = "Tạo tài sản";
+  $("formTitle").textContent = tr("assetForm.createTitle");
   currentPhotoData = "";
   $("photoPreview").classList.add("hidden");
   $("photoPreview").src = "";
@@ -774,7 +796,7 @@ function fillFormFromAsset(a) {
     $("photoPreview").classList.add("hidden");
   }
   $("assetLocked").checked = !!a.locked;
-  $("formTitle").textContent = "Sửa tài sản: " + (a.code || "");
+  $("formTitle").textContent = tr("assetForm.editTitle", { code: a.code || "" });
   renderQR(a.code);
   renderHistoryBox(a);
 
@@ -795,16 +817,16 @@ window.deleteAsset = function (id) {
   if (!isAdmin) return; // UI already hides this button for non-admins; Firestore Rules enforce it server-side too
   const a = assets.find(x => x._id === id);
   if (!a) return;
-  if (!confirm(`Xóa tài sản "${a.code}"? Không thể hoàn tác.`)) return;
-  db.collection(COLLECTION).doc(id).delete().catch(err => alert("Lỗi xóa: " + err.message));
+  if (!confirm(tr("msg.confirmDeleteAsset", { code: a.code }))) return;
+  db.collection(COLLECTION).doc(id).delete().catch(err => alert(tr("msg.errDelete", { err: err.message })));
 };
 
 $("assetFormEl").addEventListener("submit", e => {
   e.preventDefault();
   const code = $("code").value.trim();
-  if (!code) { alert("Vui lòng nhập Mã tài sản."); return; }
+  if (!code) { alert(tr("msg.needAssetCode")); return; }
   const newId = sanitizeId(code);
-  if (!newId) { alert("Mã tài sản không hợp lệ."); return; }
+  if (!newId) { alert(tr("msg.invalidAssetCode")); return; }
   const oldId = $("assetId").value;
   const oldAsset = oldId ? assets.find(a => a._id === oldId) : null;
 
@@ -813,7 +835,7 @@ $("assetFormEl").addEventListener("submit", e => {
   // real enforcement layer regardless — the collector account can only
   // ever create brand-new docs, never update one that already exists.
   if (!isAdmin && oldId) {
-    alert("Bạn không có quyền sửa tài sản đã tồn tại. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.");
+    alert(tr("msg.noPermEditAsset"));
     return;
   }
 
@@ -854,7 +876,7 @@ $("assetFormEl").addEventListener("submit", e => {
       action = "create";
     } else if (oldId !== newId) {
       action = "rename";
-      fieldChanges.unshift({ field: "code", label: "Mã tài sản", from: oldAsset ? oldAsset.code : oldId, to: code });
+      fieldChanges.unshift({ field: "code", label: tr("field.code").replace("*", ""), from: oldAsset ? oldAsset.code : oldId, to: code });
       carriedHistory = (oldAsset && Array.isArray(oldAsset.history)) ? oldAsset.history : [];
     } else {
       action = "update";
@@ -872,9 +894,8 @@ $("assetFormEl").addEventListener("submit", e => {
   if (data.serial) {
     const dup = assets.find(a => a._id !== oldId && (a.serial || "").trim().toLowerCase() === data.serial.toLowerCase());
     if (dup) {
-      alert(`Serial "${data.serial}" đã tồn tại ở tài sản "${dup.code}". Không thể lưu tài sản trùng Serial.` +
-        (isAdmin ? " Nếu đây thực sự là 1 thiết bị mới, kiểm tra lại Serial hoặc sửa tài sản cũ." :
-          " Vui lòng kiểm tra lại, hoặc liên hệ Admin nếu tài sản cũ bị sai thông tin."));
+      alert(tr("msg.dupSerial", { serial: data.serial, code: dup.code }) +
+        (isAdmin ? " " + tr("msg.dupSerialAdminHint") : " " + tr("msg.dupSerialStaffHint")));
       return;
     }
   }
@@ -882,7 +903,7 @@ $("assetFormEl").addEventListener("submit", e => {
   const submitBtn = $("assetFormEl").querySelector('button[type="submit"]');
   const originalLabel = submitBtn.textContent;
   submitBtn.disabled = true;
-  submitBtn.textContent = "Đang lưu...";
+  submitBtn.textContent = tr("common.saving");
 
   // IMPORTANT: do NOT await this. With offline persistence enabled, the write
   // is applied to the local cache synchronously and the UI (via onSnapshot)
@@ -894,9 +915,7 @@ $("assetFormEl").addEventListener("submit", e => {
   const writeOp = db.collection(COLLECTION).doc(newId).set(data, { merge: true })
     .then(() => (oldId && oldId !== newId) ? db.collection(COLLECTION).doc(oldId).delete() : null)
     .catch(err => {
-      alert("Lỗi đồng bộ lên máy chủ: " + err.message +
-        "\n\nDữ liệu vẫn được lưu tạm trên máy này và sẽ tự thử lại. " +
-        "Nếu lỗi là 'permission-denied', kiểm tra lại Firestore Rules đã Publish chưa.");
+      alert(tr("msg.errSyncServer", { err: err.message }) + "\n\n" + tr("msg.errSyncServerHint"));
     });
 
   // Give the local write a brief moment to land in the cache, then proceed —
@@ -906,7 +925,7 @@ $("assetFormEl").addEventListener("submit", e => {
     submitBtn.textContent = originalLabel;
     renderQR(code);
     $("assetId").value = newId;
-    $("formTitle").textContent = "Sửa tài sản: " + code;
+    $("formTitle").textContent = tr("assetForm.editTitle", { code });
     goPage("assets");
   }, 150);
 
@@ -936,7 +955,7 @@ $("downloadQR").addEventListener("click", () => {
   let dataUrl = "";
   if (canvas) dataUrl = canvas.toDataURL("image/png");
   else if (img) dataUrl = img.src;
-  if (!dataUrl) { alert("Chưa có QR để lưu. Nhập Mã tài sản trước."); return; }
+  if (!dataUrl) { alert(tr("msg.needQrFirst")); return; }
   const a = document.createElement("a");
   a.href = dataUrl;
   a.download = (($("code").value.trim() || "qr") + ".png");
@@ -971,7 +990,7 @@ window.printLabel = function (id) {
 };
 $("printLabelBtn").addEventListener("click", () => {
   const code = $("code").value.trim();
-  if (!code) { alert("Nhập Mã tài sản trước khi in tem."); return; }
+  if (!code) { alert(tr("msg.needCodeBeforePrint")); return; }
   const employeeCode = $("employeeCode").value.trim();
   renderPrintLabel({
     code,
@@ -1018,7 +1037,7 @@ $("photo").addEventListener("change", async e => {
     $("photoPreview").src = dataUrl;
     $("photoPreview").classList.remove("hidden");
   } catch (err) {
-    alert("Không đọc được ảnh: " + err.message);
+    alert(tr("msg.errReadImage", { err: err.message }));
   }
   e.target.value = "";
 });
@@ -1057,10 +1076,9 @@ Write-Output "===== HET - COPY DEN DAY ====="`;
 $("btnCopyPS").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(PS_SCRIPT);
-    alert("Đã copy lệnh PowerShell. Chạy trên máy Windows cần kiểm kê, sau đó CHỈ copy đoạn nằm giữa 2 dòng " +
-      "\"===== KET QUA - COPY TU DAY =====\" và \"===== HET - COPY DEN DAY =====\", rồi dán vào ô bên dưới.");
+    alert(tr("msg.psCopied"));
   } catch (e) {
-    prompt("Copy đoạn PowerShell sau:", PS_SCRIPT);
+    prompt(tr("prompt.copyPsScript"), PS_SCRIPT);
   }
 });
 
@@ -1154,17 +1172,15 @@ Write-Output "Neu trinh duyet khong tu mo, hay mo file nay bang tay roi dua dien
 $("btnCopyPSQR").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(PS_SCRIPT_QR);
-    alert("Đã copy lệnh PowerShell (bản tạo QR). Chạy trên máy Windows KHÔNG CÓ MẠNG cần kiểm kê — " +
-      "script sẽ tự mở 1 trang có mã QR ngay trên máy đó (không cần Internet). " +
-      "Bấm \"▶ Bắt đầu quét\" ở đây rồi đưa điện thoại lên quét mã QR đó, form sẽ tự điền.");
+    alert(tr("msg.psQrCopied"));
   } catch (e) {
-    prompt("Copy đoạn PowerShell sau (bản tạo QR):", PS_SCRIPT_QR);
+    prompt(tr("prompt.copyPsScriptQr"), PS_SCRIPT_QR);
   }
 });
 
 $("btnAutofill").addEventListener("click", () => {
   const text = $("pasteInfoBox").value;
-  if (!text.trim()) { alert("Chưa có nội dung để tự động điền."); return; }
+  if (!text.trim()) { alert(tr("msg.needPasteContent")); return; }
 
   const map = { TENMAY: "deviceName", MODEL: "model", SERIAL: "serial", CAUHINH: "spec", WININFO: "winInfo", IP: "ip", MAC: "mac" };
   let filled = 0;
@@ -1178,19 +1194,16 @@ $("btnAutofill").addEventListener("click", () => {
 
   if (filled === 0) {
     if (/Write-Output|Get-CimInstance|^\s*#\s*get-info\.ps1/im.test(text)) {
-      alert("Ô này cần dán KẾT QUẢ sau khi chạy lệnh PowerShell, không phải đoạn lệnh. " +
-        "Hãy chạy lệnh trên máy Windows trước, rồi copy phần kết quả in ra (MODEL:, SERIAL:...) và dán lại vào đây.");
+      alert(tr("msg.pasteWrongContent"));
     } else {
-      alert("Không nhận diện được trường nào. Kiểm tra lại nội dung dán vào có đúng định dạng " +
-        "\"MODEL: ...\", \"SERIAL: ...\", \"CAUHINH: ...\", \"IP: ...\", \"MAC: ...\" không.");
+      alert(tr("msg.noFieldRecognized"));
     }
     return;
   }
   if (!/^\s*MAC\s*:/im.test(text) || !/^\s*IP\s*:/im.test(text)) {
-    if (!confirm(`Đã điền ${filled} trường, nhưng có vẻ thiếu dòng IP hoặc MAC (có thể do copy chưa hết). ` +
-      "Bấm OK để giữ những gì đã điền, hoặc Cancel để dán lại đầy đủ hơn rồi thử lại.")) return;
+    if (!confirm(tr("msg.confirmMissingIpMac", { filled }))) return;
   }
-  alert(`Đã tự động điền ${filled} trường.`);
+  alert(tr("msg.autofilled", { filled }));
 });
 
 /* ---------- QR Scanning ---------- */
@@ -1208,7 +1221,7 @@ function startScanner() {
     () => {}
   ).catch(err => {
     scanning = false;
-    alert("Không mở được camera: " + err);
+    alert(tr("msg.cameraError", { err }));
   });
 }
 function stopScanner() {
@@ -1226,7 +1239,7 @@ function b64ToUtf8(b64) {
 function onDevInfoScan(b64) {
   let data;
   try { data = JSON.parse(b64ToUtf8(b64)); } catch (e) {
-    alert("QR không đọc được (dữ liệu lỗi). Hãy tạo lại QR trên máy cần kiểm kê.");
+    alert(tr("msg.qrDecodeError"));
     return;
   }
   clearForm();
@@ -1238,7 +1251,7 @@ function onDevInfoScan(b64) {
   $("ip").value = data.IP || "";
   $("mac").value = data.MAC || "";
   goPage("assetForm");
-  toast(`Đã điền thông tin từ QR (${data.TENMAY || "máy không tên"}). Chọn Loại thiết bị/Bộ phận rồi lưu.`);
+  toast(tr("toast.qrFilled", { name: data.TENMAY || tr("toast.unnamedDevice") }));
 }
 function onScanSuccess(decodedText) {
   if (decodedText.startsWith("DEVINFO:")) {
@@ -1254,20 +1267,20 @@ function onScanSuccess(decodedText) {
   const existing = assets.find(a => a.code === code);
   if (existing) {
     const rows = [
-      ["💻 Tên tài sản", existing.deviceName],
-      ["🔢 Serial", existing.serial],
-      ["👤 Người sử dụng", existing.user],
-      ["🆔 Mã nhân viên", existing.employeeCode],
+      ["💻 " + tr("field.deviceName"), existing.deviceName],
+      ["🔢 " + tr("field.serial"), existing.serial],
+      ["👤 " + tr("field.user"), existing.user],
+      ["🆔 " + tr("field.employeeCode"), existing.employeeCode],
     ].filter(([, v]) => v)
      .map(([label, v]) => `<div class="scan-row"><span class="muted">${label}</span> ${escapeHtml(v)}</div>`)
      .join("");
     resBox.innerHTML = `<b>${escapeHtml(code)}</b> — ${escapeHtml(existing.model || existing.type || "")}<br>
-      <span class="badge ${badgeClass(existing.checkStatus)}">${escapeHtml(existing.checkStatus || CHECK_UNCHECKED)}</span>
+      <span class="badge ${badgeClass(existing.checkStatus)}">${escapeHtml(checkLabel(existing.checkStatus))}</span>
       ${rows ? `<div class="scan-info">${rows}</div>` : ""}
-      <button style="margin-top:8px" onclick="editAsset('${existing._id}')">Mở để cập nhật kiểm kê</button>`;
+      <button style="margin-top:8px" onclick="editAsset('${existing._id}')">${tr("scan.openToUpdate")}</button>`;
   } else {
-    resBox.innerHTML = `<b>${escapeHtml(code)}</b> — chưa có trong hệ thống.<br>
-      <button style="margin-top:8px" onclick="quickCreate('${escapeHtml(code)}')">Tạo tài sản mới với mã này</button>`;
+    resBox.innerHTML = `<b>${escapeHtml(code)}</b> — ${tr("scan.notInSystem")}<br>
+      <button style="margin-top:8px" onclick="quickCreate('${escapeHtml(code)}')">${tr("scan.createNewWithCode")}</button>`;
   }
 }
 window.quickCreate = function (code) {
@@ -1312,7 +1325,7 @@ COLUMNS.forEach(c => {
 });
 
 $("exportXlsx").addEventListener("click", () => {
-  if (!assets.length) { alert("Chưa có dữ liệu để xuất."); return; }
+  if (!assets.length) { alert(tr("msg.noDataExport")); return; }
   const rows = assets.map(a => {
     const row = {};
     COLUMNS.forEach(c => { row[COLUMN_LABELS_VN[c]] = a[c] || ""; });
@@ -1401,15 +1414,15 @@ function pdfBadgeColors(status) {
 
 async function generatePdfReport() {
   if (!window.jspdf || !window.html2canvas || !window.Chart) {
-    alert("Không tải được thư viện xuất PDF (cần Internet ở lần đầu). Kiểm tra kết nối mạng rồi thử lại.");
+    alert(tr("msg.pdfLibError"));
     return;
   }
-  if (!assets.length) { alert("Chưa có dữ liệu để xuất báo cáo."); return; }
+  if (!assets.length) { alert(tr("msg.noDataReport")); return; }
 
   const btn = $("exportPdfReport");
   const oldText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "⏳ Đang tạo PDF...";
+  btn.textContent = "⏳ " + tr("common.generatingPdf");
 
   ensurePdfReportStyles();
   const root = document.createElement("div");
@@ -1425,18 +1438,19 @@ async function generatePdfReport() {
     list.forEach(a => {
       const c = classifyCheck(a.checkStatus);
       if (c === "checked") checked++; else if (c === "exception") exception++; else unchecked++;
-      const sec = (a.section || "").trim() || "Chưa gán";
+      const sec = (a.section || "").trim() || tr("pdf.unassigned");
       bySection[sec] = (bySection[sec] || 0) + 1;
-      const typ = a.type || "Khác";
+      const typ = a.type || tr("pdf.other");
       byType[typ] = (byType[typ] || 0) + 1;
-      const st = a.status || "Không rõ";
+      const st = a.status || tr("pdf.unknown");
       byStatus[st] = (byStatus[st] || 0) + 1;
     });
     const pct = total ? Math.round((checked / total) * 100) : 0;
     const now = new Date();
-    const dateStr = now.toLocaleDateString("vi-VN");
-    const headerBar = `<div class="pdf-header"><span>BÁO CÁO KIỂM KÊ TÀI SẢN IT</span><span>SEC — IT Asset Inventory</span></div>`;
-    const footerBar = pageNum => `<div class="pdf-footer"><span>Xuất ngày ${dateStr}</span><span>Trang ${pageNum}</span></div>`;
+    const dateLocale = { vi: "vi-VN", en: "en-US", zh: "zh-CN" }[getLang()] || "vi-VN";
+    const dateStr = now.toLocaleDateString(dateLocale);
+    const headerBar = `<div class="pdf-header"><span>${tr("pdf.title")}</span><span>SEC — IT Asset Inventory</span></div>`;
+    const footerBar = pageNum => `<div class="pdf-footer"><span>${tr("pdf.exportedOn", { date: dateStr })}</span><span>${tr("pdf.page", { n: pageNum })}</span></div>`;
 
     /* ---- Trang bìa ---- */
     const cover = document.createElement("div");
@@ -1444,9 +1458,9 @@ async function generatePdfReport() {
     cover.innerHTML = `
       <div class="pdf-blob1"></div><div class="pdf-blob2"></div>
       <div class="pdf-icon"><div class="pdf-icon-inner"></div></div>
-      <h1>BÁO CÁO KIỂM KÊ TÀI SẢN IT</h1>
+      <h1>${tr("pdf.title")}</h1>
       <div class="pdf-sub">SEC — IT Asset Inventory</div>
-      <div class="pdf-meta">Ngày xuất báo cáo: ${dateStr}<br>Tổng số tài sản: ${total}</div>`;
+      <div class="pdf-meta">${tr("pdf.coverMeta", { date: dateStr, total })}</div>`;
     root.appendChild(cover);
 
     /* ---- Trang tổng quan ---- */
@@ -1455,24 +1469,24 @@ async function generatePdfReport() {
     overview.innerHTML = `
       ${headerBar}
       <div class="pdf-content">
-        <div class="pdf-h1">1. Thống kê tổng quan</div>
+        <div class="pdf-h1">${tr("pdf.section1Title")}</div>
         <hr class="pdf-hr">
         <div class="pdf-cards">
-          <div class="pdf-card" style="--accent:${PDF_PALETTE.blue}"><b>${total}</b><span>Tổng tài sản</span></div>
-          <div class="pdf-card" style="--accent:${PDF_PALETTE.green}"><b>${checked}</b><span>Đã kiểm</span></div>
-          <div class="pdf-card" style="--accent:${PDF_PALETTE.amber}"><b>${unchecked}</b><span>Chưa kiểm</span></div>
-          <div class="pdf-card" style="--accent:${PDF_PALETTE.red}"><b>${exception}</b><span>Cần xử lý</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.blue}"><b>${total}</b><span>${tr("stats.total")}</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.green}"><b>${checked}</b><span>${tr("stats.checked")}</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.amber}"><b>${unchecked}</b><span>${tr("stats.unchecked")}</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.red}"><b>${exception}</b><span>${tr("stats.exception")}</span></div>
         </div>
         <div class="pdf-progress-wrap">
-          <div class="pdf-body">Tiến độ kiểm kê tổng thể: <b>${checked}/${total} (${pct}%)</b></div>
+          <div class="pdf-body">${tr("pdf.overallProgress", { checked, total, pct })}</div>
           <div class="pdf-progress-bar"><i style="width:${pct}%"></i></div>
         </div>
-        <div class="pdf-h2">Tỉ lệ trạng thái kiểm kê</div>
+        <div class="pdf-h2">${tr("pdf.checkRatio")}</div>
         <div class="pdf-chart-box"><canvas id="pdfChartDonut" width="440" height="440"></canvas></div>
         <div class="pdf-legend">
-          <span><i style="background:${PDF_PALETTE.green}"></i>Đã kiểm (${checked})</span>
-          <span><i style="background:${PDF_PALETTE.amber}"></i>Chưa kiểm (${unchecked})</span>
-          <span><i style="background:${PDF_PALETTE.red}"></i>Cần xử lý (${exception})</span>
+          <span><i style="background:${PDF_PALETTE.green}"></i>${tr("stats.checked")} (${checked})</span>
+          <span><i style="background:${PDF_PALETTE.amber}"></i>${tr("stats.unchecked")} (${unchecked})</span>
+          <span><i style="background:${PDF_PALETTE.red}"></i>${tr("stats.exception")} (${exception})</span>
         </div>
       </div>
       ${footerBar(1)}`;
@@ -1486,11 +1500,11 @@ async function generatePdfReport() {
     chartsPage.innerHTML = `
       ${headerBar}
       <div class="pdf-content">
-        <div class="pdf-h1">2. Thống kê theo Bộ phận</div>
+        <div class="pdf-h1">${tr("pdf.section2Title")}</div>
         <hr class="pdf-hr">
-        <div class="pdf-body">Số lượng tài sản đang được quản lý theo từng Bộ phận (Section).</div>
+        <div class="pdf-body">${tr("pdf.bySectionDesc")}</div>
         <div class="pdf-chart-box"><canvas id="pdfChartSection" width="700" height="${Math.max(200, sectionEntries.length * 34 + 50)}"></canvas></div>
-        <div class="pdf-h2">3. Thống kê theo Loại thiết bị</div>
+        <div class="pdf-h2">${tr("pdf.section3Title")}</div>
         <div class="pdf-chart-box"><canvas id="pdfChartType" width="700" height="300"></canvas></div>
       </div>
       ${footerBar(2)}`;
@@ -1503,7 +1517,7 @@ async function generatePdfReport() {
     statusPage.innerHTML = `
       ${headerBar}
       <div class="pdf-content">
-        <div class="pdf-h1">4. Thống kê theo Tình trạng thiết bị</div>
+        <div class="pdf-h1">${tr("pdf.section4Title")}</div>
         <hr class="pdf-hr">
         <div class="pdf-chart-box"><canvas id="pdfChartStatus" width="700" height="300"></canvas></div>
       </div>
@@ -1519,8 +1533,8 @@ async function generatePdfReport() {
       const page = document.createElement("div");
       page.className = "pdf-page";
       const heading = idx === 0
-        ? `<div class="pdf-h1">5. Danh sách chi tiết tài sản</div><hr class="pdf-hr"><div class="pdf-body">Toàn bộ tài sản hiện có, màu theo trạng thái kiểm kê.</div>`
-        : `<div class="pdf-h1">5. Danh sách chi tiết tài sản (tiếp theo)</div><hr class="pdf-hr">`;
+        ? `<div class="pdf-h1">${tr("pdf.section5Title")}</div><hr class="pdf-hr"><div class="pdf-body">${tr("pdf.allAssetsDesc")}</div>`
+        : `<div class="pdf-h1">${tr("pdf.section5TitleCont")}</div><hr class="pdf-hr">`;
       const rows = chunk.map(a => {
         const bc = pdfBadgeColors(a.checkStatus || CHECK_UNCHECKED);
         return `<tr>
@@ -1529,22 +1543,22 @@ async function generatePdfReport() {
           <td>${escapeHtml(a.model || "")}</td>
           <td>${escapeHtml(a.user || "—")}</td>
           <td>${escapeHtml(a.section || "")}</td>
-          <td>${escapeHtml(a.status || "")}</td>
-          <td><span class="pdf-badge" style="background:${bc.bg};color:${bc.fg}">${escapeHtml(a.checkStatus || CHECK_UNCHECKED)}</span></td>
+          <td>${escapeHtml(statusLabel(a.status || ""))}</td>
+          <td><span class="pdf-badge" style="background:${bc.bg};color:${bc.fg}">${escapeHtml(checkLabel(a.checkStatus))}</span></td>
         </tr>`;
       }).join("");
       const legend = idx === chunks.length - 1 ? `
         <div class="pdf-legend" style="margin-top:16px">
-          <span><i style="background:${PDF_PALETTE.greenBg};border:1px solid ${PDF_PALETTE.green}"></i>Đã kiểm</span>
-          <span><i style="background:${PDF_PALETTE.amberBg};border:1px solid ${PDF_PALETTE.amber}"></i>Chưa kiểm</span>
-          <span><i style="background:${PDF_PALETTE.redBg};border:1px solid ${PDF_PALETTE.red}"></i>Cần xử lý</span>
+          <span><i style="background:${PDF_PALETTE.greenBg};border:1px solid ${PDF_PALETTE.green}"></i>${tr("stats.checked")}</span>
+          <span><i style="background:${PDF_PALETTE.amberBg};border:1px solid ${PDF_PALETTE.amber}"></i>${tr("stats.unchecked")}</span>
+          <span><i style="background:${PDF_PALETTE.redBg};border:1px solid ${PDF_PALETTE.red}"></i>${tr("stats.exception")}</span>
         </div>` : "";
       page.innerHTML = `
         ${headerBar}
         <div class="pdf-content">
           ${heading}
           <table class="pdf-table">
-            <thead><tr><th>Mã tài sản</th><th>Loại</th><th>Model</th><th>Người dùng</th><th>Bộ phận</th><th>Tình trạng</th><th>Kiểm kê</th></tr></thead>
+            <thead><tr><th>${tr("pdf.colCode")}</th><th>${tr("pdf.colType")}</th><th>${tr("pdf.colModel")}</th><th>${tr("pdf.colUser")}</th><th>${tr("pdf.colSection")}</th><th>${tr("pdf.colStatus")}</th><th>${tr("pdf.colCheck")}</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
           ${legend}
@@ -1559,7 +1573,7 @@ async function generatePdfReport() {
     chartInstances.push(new Chart($("pdfChartDonut"), {
       type: "doughnut",
       data: {
-        labels: ["Đã kiểm", "Chưa kiểm", "Cần xử lý"],
+        labels: [tr("stats.checked"), tr("stats.unchecked"), tr("stats.exception")],
         datasets: [{ data: [checked, unchecked, exception], backgroundColor: [PDF_PALETTE.green, PDF_PALETTE.amber, PDF_PALETTE.red], borderColor: "#fff", borderWidth: 3 }]
       },
       options: { animation: false, responsive: false, cutout: "58%", plugins: { legend: { display: false } } }
@@ -1590,7 +1604,7 @@ async function generatePdfReport() {
     chartInstances.push(new Chart($("pdfChartStatus"), {
       type: "bar",
       data: {
-        labels: statusEntries.map(e => e[0]),
+        labels: statusEntries.map(e => statusLabel(e[0])),
         datasets: [{ data: statusEntries.map(e => e[1]), backgroundColor: statusEntries.map(e => PDF_STATUS_COLORS[e[0]] || "#64748b") }]
       },
       options: { animation: false, responsive: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
@@ -1616,7 +1630,7 @@ async function generatePdfReport() {
     pdf.save(`bao-cao-kiem-ke-${now.toISOString().slice(0, 10)}.pdf`);
   } catch (err) {
     console.error(err);
-    alert("Lỗi tạo báo cáo PDF: " + err.message);
+    alert(tr("msg.errPdfReport", { err: err.message }));
   } finally {
     chartInstances.forEach(c => c.destroy());
     root.remove();
@@ -1670,9 +1684,9 @@ $("importXlsx").addEventListener("change", async e => {
     }
     if (count > 0) chunks.push(batch);
     for (const b of chunks) await b.commit();
-    alert(`Đã nhập ${imported} tài sản từ Excel.`);
+    alert(tr("msg.importedAssets", { count: imported }));
   } catch (err) {
-    alert("Lỗi nhập Excel: " + err.message);
+    alert(tr("msg.errImportExcel", { err: err.message }));
   }
   e.target.value = "";
 });
@@ -1763,9 +1777,9 @@ $("importEmployeesXlsx").addEventListener("change", async e => {
     if (count > 0) chunks.push(batch);
     for (const b of chunks) await b.commit();
 
-    alert(`Đã nhập ${list.length} nhân viên từ file HR. Danh sách gợi ý sẽ tự cập nhật trên mọi thiết bị.`);
+    alert(tr("msg.importedEmployees", { count: list.length }));
   } catch (err) {
-    alert("Lỗi nhập danh sách nhân viên: " + err.message);
+    alert(tr("msg.errImportEmployees", { err: err.message }));
   }
   e.target.value = "";
 });
@@ -1783,19 +1797,20 @@ $("importEmployeesXlsx").addEventListener("change", async e => {
 const TICKET_PRIORITIES = ["Thấp", "Trung bình", "Cao", "Khẩn"];
 const TICKET_STATUSES = ["Chờ", "Đang xử lý", "Hoàn thành"];
 
-const TICKET_HISTORY_FIELDS = [
-  ["priority", "Mức ưu tiên"],
-  ["status", "Trạng thái"],
-  ["employeeCode", "Mã nhân viên"],
-  ["requester", "Người yêu cầu"],
-  ["department", "Phòng ban"],
-  ["assetCode", "Tài sản liên kết"],
-  ["device", "Thiết bị"],
-  ["description", "Mô tả"],
-  ["cause", "Nguyên nhân"],
-  ["resolution", "Cách xử lý"],
-  ["note", "Ghi chú"],
-];
+function TICKET_HISTORY_FIELDS_FN() { return [
+  ["priority", tr("field.priority")],
+  ["status", tr("field.ticketStatus")],
+  ["employeeCode", tr("field.employeeCode")],
+  ["requester", tr("field.requester")],
+  ["department", tr("field.department")],
+  ["assetCode", tr("field.linkedAsset").replace(" (không bắt buộc)", "").replace(" (optional)", "").replace("（可选）", "")],
+  ["device", tr("field.device")],
+  ["description", tr("field.description").replace("*", "")],
+  ["cause", tr("field.cause")],
+  ["resolution", tr("field.resolution")],
+  ["note", tr("field.ticketNote")],
+]; }
+Object.defineProperty(window, "TICKET_HISTORY_FIELDS", { get: TICKET_HISTORY_FIELDS_FN });
 function diffTicketFields(oldT, newData, onlyKeys) {
   const fields = onlyKeys ? TICKET_HISTORY_FIELDS.filter(([key]) => onlyKeys.includes(key)) : TICKET_HISTORY_FIELDS;
   const changes = [];
@@ -1815,8 +1830,8 @@ function renderTicketHistoryBox(t) {
   box.classList.remove("hidden");
   list.innerHTML = entries.map(e => {
     const changesHtml = (e.changes || []).map(c => {
-      const from = c.from ? escapeHtml(c.from) : "<i>(trống)</i>";
-      const to = c.to ? escapeHtml(c.to) : "<i>(trống)</i>";
+      const from = c.from ? escapeHtml(c.from) : "<i>(" + tr("common.empty") + ")</i>";
+      const to = c.to ? escapeHtml(c.to) : "<i>(" + tr("common.empty") + ")</i>";
       return `<div class="history-change"><b>${escapeHtml(c.label)}:</b> ${from} → ${to}</div>`;
     }).join("");
     return `<div class="history-entry">
@@ -1824,7 +1839,7 @@ function renderTicketHistoryBox(t) {
         <span class="history-action">${escapeHtml(HISTORY_ACTION_LABEL[e.action] || e.action || "")}</span>
         <span class="muted">${formatHistoryTime(e.at)} · ${escapeHtml(e.by || "")}</span>
       </div>
-      ${changesHtml || '<div class="history-change muted">Không có thay đổi chi tiết được ghi nhận.</div>'}
+      ${changesHtml || '<div class="history-change muted">' + tr("history.noChanges") + '</div>'}
     </div>`;
   }).join("");
 }
@@ -1840,7 +1855,7 @@ function renderTicketProgressList() {
   const box = $("ticketProgressList");
   if (!box) return;
   if (!currentProgressLog.length) {
-    box.innerHTML = `<div class="muted" style="padding:4px 0 10px">Chưa có mốc xử lý nào.</div>`;
+    box.innerHTML = `<div class="muted" style="padding:4px 0 10px">${tr("progress.none")}</div>`;
     return;
   }
   const order = currentProgressLog.map((e, i) => ({ e, i })).sort((a, b) => (b.e.at || 0) - (a.e.at || 0));
@@ -1915,26 +1930,26 @@ function renderTicketList() {
   if (prioF) list = list.filter(t => (t.priority || "Trung bình") === prioF);
 
   if (!list.length) {
-    $("ticketList").innerHTML = `<div class="empty">Không có ticket phù hợp.</div>`;
+    $("ticketList").innerHTML = `<div class="empty">${tr("tickets.noneFound")}</div>`;
     return;
   }
   $("ticketList").innerHTML = list.map(t => {
     const editBtn = isAdmin
-      ? `<button onclick="editTicket('${t._id}')">✎ Sửa</button>`
-      : `<button onclick="editTicket('${t._id}')">👁 Xem</button>`;
+      ? `<button onclick="editTicket('${t._id}')">✎ ${tr("action.edit")}</button>`
+      : `<button onclick="editTicket('${t._id}')">👁 ${tr("action.view")}</button>`;
     const deleteBtn = isAdmin
-      ? `<button class="secondary" onclick="deleteTicket('${t._id}')">🗑 Xóa</button>`
+      ? `<button class="secondary" onclick="deleteTicket('${t._id}')">🗑 ${tr("action.delete")}</button>`
       : "";
     const hasExtra = t.cause || t.resolution || t.note;
     const expanded = expandedTicketIds.has(t._id);
     const detailBtn = hasExtra
-      ? `<button class="ghost" onclick="toggleTicketDetail('${t._id}')">${expanded ? "▲ Thu gọn" : "👁 Chi tiết"}</button>`
+      ? `<button class="ghost" onclick="toggleTicketDetail('${t._id}')">${expanded ? "▲ " + tr("action.collapse") : "👁 " + tr("action.details")}</button>`
       : "";
     const detailRow = (expanded && hasExtra) ? `
         <div class="scan-info">
-          ${t.cause ? `<div class="scan-row"><span class="muted">Nguyên nhân:</span> ${escapeHtml(t.cause)}</div>` : ""}
-          ${t.resolution ? `<div class="scan-row"><span class="muted">Cách xử lý:</span> ${escapeHtml(t.resolution)}</div>` : ""}
-          ${t.note ? `<div class="scan-row"><span class="muted">Ghi chú:</span> ${escapeHtml(t.note)}</div>` : ""}
+          ${t.cause ? `<div class="scan-row"><span class="muted">${tr("field.cause")}:</span> ${escapeHtml(t.cause)}</div>` : ""}
+          ${t.resolution ? `<div class="scan-row"><span class="muted">${tr("field.resolution")}:</span> ${escapeHtml(t.resolution)}</div>` : ""}
+          ${t.note ? `<div class="scan-row"><span class="muted">${tr("field.ticketNote")}:</span> ${escapeHtml(t.note)}</div>` : ""}
         </div>` : "";
     return `
     <div class="asset">
@@ -1943,14 +1958,14 @@ function renderTicketList() {
         <div class="muted">${t.requester ? "👤 " + escapeHtml(t.requester) : ""}${t.employeeCode ? " (" + escapeHtml(t.employeeCode) + ")" : ""}${t.department ? " · 🏢 " + escapeHtml(t.department) : ""}</div>
         ${t.device || t.assetCode ? `<div class="muted">💻 ${escapeHtml(t.device || "")}${t.assetCode ? " (" + escapeHtml(t.assetCode) + ")" : ""}</div>` : ""}
         <div class="muted">${escapeHtml(t.description || "")}</div>
-        <span class="badge ${ticketBadgeClass(t.status)}">${escapeHtml(t.status || "Chờ")}</span>
-        <span class="prio-badge prio-${prioritySlug(t.priority)}">${escapeHtml(t.priority || "Trung bình")}</span>
+        <span class="badge ${ticketBadgeClass(t.status)}">${escapeHtml(ticketStatusLabel(t.status))}</span>
+        <span class="prio-badge prio-${prioritySlug(t.priority)}">${escapeHtml(ticketPriorityLabel(t.priority || "Trung bình"))}</span>
         ${(t.linkedTicketIds && t.linkedTicketIds.length) ? t.linkedTicketIds.map((lid, i) => {
           const code = (t.linkedTicketCodes && t.linkedTicketCodes[i]) || lid;
-          return `<span class="badge recur-badge" style="cursor:pointer" title="Xem ticket liên quan" onclick="event.stopPropagation();editTicket('${lid}')">🔁 ${escapeHtml(code)}</span>`;
+          return `<span class="badge recur-badge" style="cursor:pointer" title="${tr("linked.view")}" onclick="event.stopPropagation();editTicket('${lid}')">🔁 ${escapeHtml(code)}</span>`;
         }).join("") : ""}
-        ${(t.progressLog && t.progressLog.length) ? `<span class="badge info">🕒 ${t.progressLog.length} mốc xử lý</span>` : ""}
-        ${!isAdmin ? `<span class="badge view-only-tag">👁 Chỉ xem</span>` : ""}
+        ${(t.progressLog && t.progressLog.length) ? `<span class="badge info">🕒 ${tr("progress.count", { count: t.progressLog.length })}</span>` : ""}
+        ${!isAdmin ? `<span class="badge view-only-tag">👁 ${tr("action.viewOnly")}</span>` : ""}
         ${detailRow}
       </div>
       <div class="asset-actions">
@@ -2022,7 +2037,7 @@ setupAutocomplete("ticketLinked", "ticketLinkedSuggest",
     if (query) list = list.filter(t => [t.ticketId, t.description, t.device].some(v => (v || "").toLowerCase().includes(query)));
     return list.slice(0, 20);
   },
-  t => `${escapeHtml(t.ticketId)}<span class="muted">${escapeHtml((t.description || "").slice(0, 60))}${t.status ? " · " + escapeHtml(t.status) : ""}</span>`,
+  t => `${escapeHtml(t.ticketId)}<span class="muted">${escapeHtml((t.description || "").slice(0, 60))}${t.status ? " · " + escapeHtml(ticketStatusLabel(t.status)) : ""}</span>`,
   t => {
     currentLinkedTickets.push({ id: t._id, ticketId: t.ticketId });
     $("ticketLinked").value = "";
@@ -2032,7 +2047,7 @@ setupAutocomplete("ticketLinked", "ticketLinkedSuggest",
 
 $("addTicketProgressBtn").addEventListener("click", () => {
   const note = $("ticketProgressNote").value.trim();
-  if (!note) { alert("Nhập nội dung mốc xử lý trước khi thêm."); return; }
+  if (!note) { alert(tr("msg.needProgressNote")); return; }
   currentProgressLog.push({ at: Date.now(), by: currentEmail || "?", note });
   $("ticketProgressNote").value = "";
   renderTicketProgressList();
@@ -2133,7 +2148,7 @@ function fillFormFromTicket(t) {
     ? t.linkedTicketIds.map((id, i) => ({ id, ticketId: (t.linkedTicketCodes && t.linkedTicketCodes[i]) || id }))
     : [];
   renderTicketLinkedChips();
-  $("ticketFormTitle").textContent = "Sửa ticket: " + (t.ticketId || "");
+  $("ticketFormTitle").textContent = tr("ticketForm.editTitle", { id: t.ticketId || "" });
   renderTicketHistoryBox(t);
 
   // Chỉ Admin mới đổi được Mã ticket hoặc sửa 1 ticket đã tồn tại — giống
@@ -2151,22 +2166,22 @@ window.deleteTicket = function (id) {
   if (!isAdmin) return; // UI đã ẩn nút này cho non-admin; Firestore Rules chặn thật sự phía server
   const t = ticketRecords.find(x => x._id === id);
   if (!t) return;
-  if (!confirm(`Xóa ticket "${t.ticketId}"? Không thể hoàn tác.`)) return;
-  db.collection(TICKET_COLLECTION).doc(id).delete().catch(err => alert("Lỗi xóa: " + err.message));
+  if (!confirm(tr("msg.confirmDeleteTicket", { id: t.ticketId }))) return;
+  db.collection(TICKET_COLLECTION).doc(id).delete().catch(err => alert(tr("msg.errDelete", { err: err.message })));
 };
 
 $("ticketFormEl").addEventListener("submit", e => {
   e.preventDefault();
   const ticketId = $("ticketId").value.trim();
-  if (!ticketId) { alert("Vui lòng nhập Mã ticket."); return; }
-  if (!$("ticketDescription").value.trim()) { alert("Vui lòng nhập Mô tả sự cố / yêu cầu."); return; }
+  if (!ticketId) { alert(tr("msg.needTicketId")); return; }
+  if (!$("ticketDescription").value.trim()) { alert(tr("msg.needTicketDesc")); return; }
   const newId = sanitizeId(ticketId);
-  if (!newId) { alert("Mã ticket không hợp lệ."); return; }
+  if (!newId) { alert(tr("msg.invalidTicketId")); return; }
   const oldId = $("ticketDocId").value;
   const oldTicket = oldId ? ticketRecords.find(t => t._id === oldId) : null;
 
   if (!isAdmin && oldId) {
-    alert("Bạn không có quyền sửa ticket đã tồn tại. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.");
+    alert(tr("msg.noPermEditTicket"));
     return;
   }
 
@@ -2210,7 +2225,7 @@ $("ticketFormEl").addEventListener("submit", e => {
       action = "create";
     } else if (oldId !== newId) {
       action = "rename";
-      fieldChanges.unshift({ field: "ticketId", label: "Mã ticket", from: oldTicket ? oldTicket.ticketId : oldId, to: ticketId });
+      fieldChanges.unshift({ field: "ticketId", label: tr("field.ticketId").replace("*", ""), from: oldTicket ? oldTicket.ticketId : oldId, to: ticketId });
       carriedHistory = (oldTicket && Array.isArray(oldTicket.history)) ? oldTicket.history : [];
     } else {
       action = "update";
@@ -2224,7 +2239,7 @@ $("ticketFormEl").addEventListener("submit", e => {
   const submitBtn = $("ticketFormEl").querySelector('button[type="submit"]');
   const originalLabel = submitBtn.textContent;
   submitBtn.disabled = true;
-  submitBtn.textContent = "Đang lưu...";
+  submitBtn.textContent = tr("common.saving");
 
   // Không await — giống hệt logic lưu tài sản, để UI phản hồi ngay cả khi
   // offline (xem giải thích chi tiết ở khối lưu tài sản phía trên).
@@ -2244,16 +2259,14 @@ $("ticketFormEl").addEventListener("submit", e => {
       ));
     })
     .catch(err => {
-      alert("Lỗi đồng bộ lên máy chủ: " + err.message +
-        "\n\nDữ liệu vẫn được lưu tạm trên máy này và sẽ tự thử lại. " +
-        "Nếu lỗi là 'permission-denied', kiểm tra lại Firestore Rules đã Publish chưa.");
+      alert(tr("msg.errSyncServer", { err: err.message }) + "\n\n" + tr("msg.errSyncServerHint"));
     });
 
   setTimeout(() => {
     submitBtn.disabled = false;
     submitBtn.textContent = originalLabel;
     $("ticketDocId").value = newId;
-    $("ticketFormTitle").textContent = "Sửa ticket: " + ticketId;
+    $("ticketFormTitle").textContent = tr("ticketForm.editTitle", { id: ticketId });
     goPage("tickets");
   }, 150);
 
@@ -2274,7 +2287,7 @@ $("ticketPhoto").addEventListener("change", async e => {
     $("ticketPhotoPreview").src = dataUrl;
     $("ticketPhotoPreview").classList.remove("hidden");
   } catch (err) {
-    alert("Không đọc được ảnh: " + err.message);
+    alert(tr("msg.errReadImage", { err: err.message }));
   }
   e.target.value = "";
 });
@@ -2313,7 +2326,7 @@ function normalizeTicketEnum(value, aliasMap, fallback) {
 }
 
 $("exportTicketsXlsx").addEventListener("click", () => {
-  if (!ticketRecords.length) { alert("Chưa có dữ liệu ticket để xuất."); return; }
+  if (!ticketRecords.length) { alert(tr("msg.noTicketDataExport")); return; }
   const rows = ticketRecords.slice().sort((a, b) => (a.ticketId || "").localeCompare(b.ticketId || "")).map(t => {
     const row = {};
     TICKET_COLUMNS.forEach(c => { row[TICKET_COLUMN_LABELS_VN[c]] = t[c] || ""; });
@@ -2380,18 +2393,18 @@ $("importTicketsXlsx").addEventListener("change", async e => {
     }
     if (count > 0) chunks.push(batch);
     for (const b of chunks) await b.commit();
-    alert(`Đã nhập ${imported} ticket từ Excel.` +
-      (dupCount ? `\n\nLưu ý: phát hiện ${dupCount} dòng trùng Mã ticket với 1 dòng khác NGAY TRONG FILE — đã tự thêm hậu tố (VD: "-2") để không mất dữ liệu. Nên vào từng ticket đó đổi lại Mã cho gọn nếu cần.` : ""));
+    alert(tr("msg.importedTickets", { count: imported }) +
+      (dupCount ? "\n\n" + tr("msg.dupTicketNote", { count: dupCount }) : ""));
   } catch (err) {
-    alert("Lỗi nhập Excel: " + err.message);
+    alert(tr("msg.errImportExcel", { err: err.message }));
   }
   e.target.value = "";
 });
 
 /* ---------- Xóa toàn bộ ticket ---------- */
 $("clearAllTickets").addEventListener("click", async () => {
-  if (!confirm("Xóa TOÀN BỘ ticket? Hành động này không thể hoàn tác.")) return;
-  if (!confirm("Xác nhận lần 2: bạn chắc chắn muốn xóa hết ticket?")) return;
+  if (!confirm(tr("msg.confirmClearAllTickets"))) return;
+  if (!confirm(tr("msg.confirmClearAllTickets2"))) return;
   try {
     const snap = await db.collection(TICKET_COLLECTION).get();
     let batch = db.batch();
@@ -2405,15 +2418,15 @@ $("clearAllTickets").addEventListener("click", async () => {
     if (count > 0) chunks.push(batch);
     for (const b of chunks) await b.commit();
     localStorage.removeItem("ita_tickets_cache");
-    alert("Đã xóa toàn bộ ticket.");
+    alert(tr("msg.clearedAllTickets"));
   } catch (err) {
-    alert("Lỗi xóa dữ liệu: " + err.message);
+    alert(tr("msg.errClearData", { err: err.message }));
   }
 });
 
 /* ---------- JSON backup/restore ---------- */
 $("backupJson").addEventListener("click", () => {
-  if (!assets.length) { alert("Chưa có dữ liệu để sao lưu."); return; }
+  if (!assets.length) { alert(tr("msg.noDataBackup")); return; }
   const clean = assets.map(a => {
     const c = Object.assign({}, a);
     delete c.updatedAt;
@@ -2450,17 +2463,17 @@ $("restoreJson").addEventListener("change", async e => {
     }
     if (count > 0) chunks.push(batch);
     for (const b of chunks) await b.commit();
-    alert(`Đã khôi phục ${total} tài sản từ file JSON.`);
+    alert(tr("msg.restoredAssets", { count: total }));
   } catch (err) {
-    alert("Lỗi khôi phục: " + err.message);
+    alert(tr("msg.errRestore", { err: err.message }));
   }
   e.target.value = "";
 });
 
 /* ---------- Clear all ---------- */
 $("clearAll").addEventListener("click", async () => {
-  if (!confirm("Xóa TOÀN BỘ tài sản? Hành động này không thể hoàn tác.")) return;
-  if (!confirm("Xác nhận lần 2: bạn chắc chắn muốn xóa hết dữ liệu?")) return;
+  if (!confirm(tr("msg.confirmClearAllAssets"))) return;
+  if (!confirm(tr("msg.confirmClearAllAssets2"))) return;
   try {
     const snap = await db.collection(COLLECTION).get();
     let batch = db.batch();
@@ -2474,9 +2487,9 @@ $("clearAll").addEventListener("click", async () => {
     if (count > 0) chunks.push(batch);
     for (const b of chunks) await b.commit();
     localStorage.removeItem("ita_assets_cache");
-    alert("Đã xóa toàn bộ dữ liệu.");
+    alert(tr("msg.clearedAllAssets"));
   } catch (err) {
-    alert("Lỗi xóa dữ liệu: " + err.message);
+    alert(tr("msg.errClearData", { err: err.message }));
   }
 });
 
@@ -2510,29 +2523,29 @@ $("loginForm").addEventListener("submit", async e => {
   const submitBtn = $("loginSubmit");
   errBox.classList.add("hidden");
   submitBtn.disabled = true;
-  submitBtn.textContent = "Đang đăng nhập...";
+  submitBtn.textContent = tr("common.signingIn");
   try {
     await auth.signInWithEmailAndPassword(email, password);
     $("loginPassword").value = "";
   } catch (err) {
     const messages = {
-      "auth/invalid-email": "Email không hợp lệ.",
-      "auth/user-disabled": "Tài khoản đã bị vô hiệu hóa.",
-      "auth/user-not-found": "Không tìm thấy tài khoản này. Liên hệ quản trị để được cấp.",
-      "auth/wrong-password": "Sai mật khẩu.",
-      "auth/unauthorized-domain": "Domain này chưa được cấp phép đăng nhập. Vào Firebase Console → Authentication → Settings → Authorized domains để thêm domain đang chạy app.",
-      "auth/invalid-credential": "Email hoặc mật khẩu không đúng.",
-      "auth/too-many-requests": "Thử sai quá nhiều lần. Vui lòng đợi rồi thử lại."
+      "auth/invalid-email": tr("auth.invalidEmail"),
+      "auth/user-disabled": tr("auth.userDisabled"),
+      "auth/user-not-found": tr("auth.userNotFound"),
+      "auth/wrong-password": tr("auth.wrongPassword"),
+      "auth/unauthorized-domain": tr("auth.unauthorizedDomain"),
+      "auth/invalid-credential": tr("auth.invalidCredential"),
+      "auth/too-many-requests": tr("auth.tooManyRequests")
     };
-    errBox.textContent = messages[err.code] || ("Lỗi đăng nhập: " + err.message);
+    errBox.textContent = messages[err.code] || tr("auth.loginError", { err: err.message });
     errBox.classList.remove("hidden");
   }
   submitBtn.disabled = false;
-  submitBtn.textContent = "Đăng nhập";
+  submitBtn.textContent = tr("login.submit");
 });
 
 $("logoutBtn").addEventListener("click", () => {
-  if (!confirm("Đăng xuất khỏi ứng dụng?")) return;
+  if (!confirm(tr("msg.confirmLogout"))) return;
   auth.signOut();
 });
 
@@ -2565,21 +2578,16 @@ async function loadRole(user) {
   // role-viewer: ẩn thêm mọi thứ .creator-only — Viewer xem được toàn bộ
   // nhưng không tạo mới được tài sản/ticket (khớp Firestore Rules).
   document.body.classList.toggle("role-viewer", isViewer);
-  const badge = $("roleBadge");
-  if (isAdmin) {
-    badge.textContent = "Quản trị";
-    badge.classList.add("admin");
-  } else if (isCollector) {
-    badge.textContent = "Thu thập dữ liệu";
-    badge.classList.remove("admin");
-  } else if (isViewer) {
-    badge.textContent = "Chỉ xem";
-    badge.classList.remove("admin");
-  } else {
-    badge.textContent = "Chưa cấp quyền";
-    badge.classList.remove("admin");
-  }
+  updateRoleBadge();
   return isAdmin || isCollector || isViewer;
+}
+function updateRoleBadge() {
+  const badge = $("roleBadge");
+  if (!badge) return;
+  if (isAdmin) { badge.textContent = tr("roleBadge.admin"); badge.classList.add("admin"); }
+  else if (isCollector) { badge.textContent = tr("roleBadge.collector"); badge.classList.remove("admin"); }
+  else if (isViewer) { badge.textContent = tr("roleBadge.viewer"); badge.classList.remove("admin"); }
+  else { badge.textContent = tr("roleBadge.none"); badge.classList.remove("admin"); }
 }
 
 auth.onAuthStateChanged(async user => {
@@ -2589,7 +2597,7 @@ auth.onAuthStateChanged(async user => {
     $("userEmail").textContent = user.email || "";
     const authorized = await loadRole(user);
     if (!authorized) {
-      alert("Tài khoản này chưa được cấp quyền sử dụng ứng dụng. Liên hệ quản trị viên (IT).");
+      alert(tr("msg.noAppAccess"));
       auth.signOut();
       return;
     }
