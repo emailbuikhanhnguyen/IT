@@ -1641,6 +1641,229 @@ async function generatePdfReport() {
 
 $("exportPdfReport").addEventListener("click", generatePdfReport);
 
+/* ---------- PDF report export (Ticket) ----------
+   Xuất báo cáo Ticket dạng PDF: trang bìa + trang tổng quan (thẻ số liệu +
+   bảng danh sách toàn bộ ticket) + 1 trang chi tiết cho MỖI ticket (thông
+   tin, mô tả/nguyên nhân/cách xử lý, lịch sử xử lý nếu có, và ẢNH ĐÍNH KÈM
+   nếu ticket đó có ảnh). Dùng lại đúng cơ chế render HTML ẩn ngoài màn hình
+   rồi chụp html2canvas + ghép jsPDF như báo cáo tài sản (generatePdfReport)
+   ở trên — không thêm thư viện mới, giữ nguyên palette PDF_PALETTE.
+*/
+const TPDF_STATUS_COLORS = {
+  "Chờ": { bg: PDF_PALETTE.amberBg, fg: PDF_PALETTE.amber },
+  "Đang xử lý": { bg: "#dbeafe", fg: "#1e40af" },
+  "Hoàn thành": { bg: PDF_PALETTE.greenBg, fg: PDF_PALETTE.green }
+};
+const TPDF_PRIORITY_COLORS = {
+  "Khẩn": { bg: "#fee2e2", fg: "#991b1b" },
+  "Cao": { bg: "#fef3c7", fg: "#92400e" },
+  "Trung bình": { bg: "#dbeafe", fg: "#1e40af" },
+  "Thấp": { bg: "#e2e8f0", fg: "#334155" }
+};
+function tpdfStatusColors(status) { return TPDF_STATUS_COLORS[status] || TPDF_STATUS_COLORS["Chờ"]; }
+function tpdfPriorityColors(p) { return TPDF_PRIORITY_COLORS[p] || TPDF_PRIORITY_COLORS["Trung bình"]; }
+
+// Suy ra thời điểm/tài khoản tạo ticket từ Lịch sử thay đổi (history), vì
+// ticket không lưu riêng field createdAt/createdBy — history[0] (hoặc entry
+// action "create") là gần đúng nhất.
+function ticketCreatedInfo(t) {
+  const list = Array.isArray(t.history) ? t.history : [];
+  const entry = list.find(e => e.action === "create") || list[0];
+  if (!entry) return "";
+  const time = formatHistoryTime(entry.at);
+  return entry.by ? `${time} · ${entry.by}` : time;
+}
+
+function ensureTicketPdfReportStyles() {
+  if ($("tpdfReportStyles")) return;
+  const style = document.createElement("style");
+  style.id = "tpdfReportStyles";
+  style.textContent = `
+  .tk-topbar{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px}
+  .tk-id{font-size:22px; font-weight:800; color:${PDF_PALETTE.navy}}
+  .tk-sub{font-size:11px; color:${PDF_PALETTE.slate}; margin-top:2px}
+  .tk-badges{display:flex; gap:6px; flex-shrink:0}
+  .tk-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin:16px 0; font-size:11.5px}
+  .tk-field b{display:block; color:${PDF_PALETTE.slate}; font-size:9.5px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; font-weight:700}
+  .tk-field span{color:#1e293b}
+  .tk-section-title{font-size:12.5px; font-weight:800; color:${PDF_PALETTE.navy}; margin:16px 0 6px; padding-bottom:4px; border-bottom:2px solid ${PDF_PALETTE.slateLight}}
+  .tk-text{font-size:11.5px; color:#334155; line-height:1.6; background:${PDF_PALETTE.slateLight}; border-radius:8px; padding:10px 12px; margin-bottom:2px; white-space:pre-wrap}
+  .tk-photo-wrap{margin-top:6px; text-align:center}
+  .tk-photo-wrap img{max-width:100%; max-height:280px; border-radius:10px; border:1px solid #e2e8f0}
+  .tk-photo-caption{font-size:9.5px; color:${PDF_PALETTE.slate}; margin-top:6px}
+  .tk-progress-item{display:flex; gap:10px; font-size:10.5px; padding:6px 0; border-bottom:1px dashed #e2e8f0}
+  .tk-progress-time{color:${PDF_PALETTE.slate}; white-space:nowrap; min-width:120px}
+  table.tpdf-list-table{width:100%; border-collapse:collapse; font-size:10.5px; table-layout:fixed}
+  table.tpdf-list-table thead th{background:${PDF_PALETTE.navy}; color:#fff; text-align:left; padding:8px 8px; font-size:10px}
+  table.tpdf-list-table tbody td{padding:6px 8px; border-bottom:1px solid #e2e8f0; vertical-align:top; word-break:break-word}
+  table.tpdf-list-table tbody tr:nth-child(even) td{background:${PDF_PALETTE.slateLight}}
+  `;
+  document.head.appendChild(style);
+}
+
+async function generateTicketPdfReport() {
+  if (!window.jspdf || !window.html2canvas) {
+    alert(tr("msg.pdfLibError"));
+    return;
+  }
+  if (!ticketRecords.length) { alert(tr("msg.noTicketDataReport")); return; }
+
+  const btn = $("exportTicketPdfReport");
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ " + tr("common.generatingPdf");
+
+  ensurePdfReportStyles();
+  ensureTicketPdfReportStyles();
+  const root = document.createElement("div");
+  root.id = "pdfReportRoot";
+  document.body.appendChild(root);
+
+  try {
+    const list = ticketRecords.slice().sort((a, b) => (b.ticketId || "").localeCompare(a.ticketId || ""));
+    const total = list.length;
+    let pending = 0, inProgress = 0, done = 0;
+    list.forEach(t => {
+      const st = t.status || "Chờ";
+      if (st === "Hoàn thành") done++;
+      else if (st === "Đang xử lý") inProgress++;
+      else pending++;
+    });
+    const now = new Date();
+    const dateLocale = { vi: "vi-VN", en: "en-US", zh: "zh-CN" }[getLang()] || "vi-VN";
+    const dateStr = now.toLocaleDateString(dateLocale);
+    const headerBar = `<div class="pdf-header"><span>${tr("tpdf.title")}</span><span>SEC — IT Helpdesk Report</span></div>`;
+    const footerBar = pageNum => `<div class="pdf-footer"><span>${tr("pdf.exportedOn", { date: dateStr })}</span><span>${tr("pdf.page", { n: pageNum })}</span></div>`;
+
+    /* ---- Trang bìa ---- */
+    const cover = document.createElement("div");
+    cover.className = "pdf-page pdf-cover";
+    cover.innerHTML = `
+      <div class="pdf-blob1"></div><div class="pdf-blob2"></div>
+      <div class="pdf-icon"><div class="pdf-icon-inner"></div></div>
+      <h1>${tr("tpdf.title")}</h1>
+      <div class="pdf-sub">SEC — IT Helpdesk Report</div>
+      <div class="pdf-meta">${tr("tpdf.coverMeta", { date: dateStr, total })}</div>`;
+    root.appendChild(cover);
+
+    /* ---- Trang tổng quan: thẻ số liệu + bảng danh sách ---- */
+    const listRows = list.map(t => {
+      const sc = tpdfStatusColors(t.status || "Chờ");
+      const pc = tpdfPriorityColors(t.priority || "Trung bình");
+      return `<tr>
+        <td><b>${escapeHtml(t.ticketId)}</b></td>
+        <td><span class="pdf-badge" style="background:${pc.bg};color:${pc.fg}">${escapeHtml(ticketPriorityLabel(t.priority || "Trung bình"))}</span></td>
+        <td><span class="pdf-badge" style="background:${sc.bg};color:${sc.fg}">${escapeHtml(ticketStatusLabel(t.status))}</span></td>
+        <td>${escapeHtml(t.requester || tr("tpdf.noValue"))}</td>
+        <td>${escapeHtml(t.department || "")}</td>
+        <td>${escapeHtml(t.device || "")}</td>
+        <td>${t.photo ? tr("tpdf.photoYes") : tr("tpdf.photoNo")}</td>
+      </tr>`;
+    }).join("");
+    const overview = document.createElement("div");
+    overview.className = "pdf-page";
+    overview.innerHTML = `
+      ${headerBar}
+      <div class="pdf-content">
+        <div class="pdf-h1">${tr("tpdf.section1Title")}</div>
+        <hr class="pdf-hr">
+        <div class="pdf-cards">
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.blue}"><b>${total}</b><span>${tr("tpdf.statTotal")}</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.amber}"><b>${pending}</b><span>${tr("tpdf.statPending")}</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.blue}"><b>${inProgress}</b><span>${tr("tpdf.statInProgress")}</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.green}"><b>${done}</b><span>${tr("tpdf.statDone")}</span></div>
+        </div>
+        <div class="pdf-h2">${tr("tpdf.listTitle")}</div>
+        <table class="tpdf-list-table">
+          <thead><tr>
+            <th style="width:16%">${tr("tpdf.colTicketId")}</th>
+            <th style="width:11%">${tr("tpdf.colPriority")}</th>
+            <th style="width:13%">${tr("tpdf.colStatus")}</th>
+            <th style="width:16%">${tr("tpdf.colRequester")}</th>
+            <th style="width:14%">${tr("tpdf.colDepartment")}</th>
+            <th style="width:20%">${tr("tpdf.colDevice")}</th>
+            <th style="width:10%">${tr("tpdf.colPhoto")}</th>
+          </tr></thead>
+          <tbody>${listRows}</tbody>
+        </table>
+      </div>
+      ${footerBar(1)}`;
+    root.appendChild(overview);
+
+    /* ---- 1 trang chi tiết cho mỗi ticket ---- */
+    list.forEach((t, idx) => {
+      const sc = tpdfStatusColors(t.status || "Chờ");
+      const pc = tpdfPriorityColors(t.priority || "Trung bình");
+      const created = ticketCreatedInfo(t);
+      const progressRows = (t.progressLog && t.progressLog.length)
+        ? t.progressLog.map(p => `<div class="tk-progress-item"><span class="tk-progress-time">${escapeHtml(formatHistoryTime(p.at))}${p.by ? " · " + escapeHtml(p.by) : ""}</span><span>${escapeHtml(p.note || "")}</span></div>`).join("")
+        : "";
+      const photoBlock = t.photo ? `
+        <div class="tk-section-title">${tr("tpdf.sectionPhoto")}</div>
+        <div class="tk-photo-wrap">
+          <img src="${t.photo}">
+          <div class="tk-photo-caption">${tr("tpdf.photoCaption", { id: t.ticketId })}</div>
+        </div>` : "";
+      const page = document.createElement("div");
+      page.className = "pdf-page";
+      page.innerHTML = `
+        ${headerBar}
+        <div class="pdf-content">
+          ${idx === 0 ? `<div class="pdf-h1">${tr("tpdf.section2Title")}</div><hr class="pdf-hr">` : ""}
+          <div class="tk-topbar">
+            <div>
+              <div class="tk-id">${escapeHtml(t.ticketId)}</div>
+              ${created ? `<div class="tk-sub">${escapeHtml(created)}</div>` : ""}
+            </div>
+            <div class="tk-badges">
+              <span class="pdf-badge" style="background:${pc.bg};color:${pc.fg}">${escapeHtml(ticketPriorityLabel(t.priority || "Trung bình"))}</span>
+              <span class="pdf-badge" style="background:${sc.bg};color:${sc.fg}">${escapeHtml(ticketStatusLabel(t.status))}</span>
+            </div>
+          </div>
+          <div class="tk-grid">
+            <div class="tk-field"><b>${tr("tpdf.fieldRequester")}</b><span>${escapeHtml(t.requester || tr("tpdf.noValue"))}${t.employeeCode ? " (" + escapeHtml(t.employeeCode) + ")" : ""}</span></div>
+            <div class="tk-field"><b>${tr("tpdf.fieldDepartment")}</b><span>${escapeHtml(t.department || tr("tpdf.noValue"))}</span></div>
+            <div class="tk-field"><b>${tr("tpdf.fieldDevice")}</b><span>${escapeHtml(t.device || tr("tpdf.noValue"))}</span></div>
+            <div class="tk-field"><b>${tr("tpdf.fieldLinkedAsset")}</b><span>${escapeHtml(t.assetCode || tr("tpdf.noValue"))}</span></div>
+          </div>
+          ${t.description ? `<div class="tk-section-title">${tr("tpdf.sectionDescription")}</div><div class="tk-text">${escapeHtml(t.description)}</div>` : ""}
+          ${t.cause ? `<div class="tk-section-title">${tr("tpdf.sectionCause")}</div><div class="tk-text">${escapeHtml(t.cause)}</div>` : ""}
+          ${t.resolution ? `<div class="tk-section-title">${tr("tpdf.sectionResolution")}</div><div class="tk-text">${escapeHtml(t.resolution)}</div>` : ""}
+          ${t.note ? `<div class="tk-section-title">${tr("tpdf.sectionNote")}</div><div class="tk-text">${escapeHtml(t.note)}</div>` : ""}
+          ${progressRows ? `<div class="tk-section-title">${tr("tpdf.sectionProgress")}</div>${progressRows}` : ""}
+          ${photoBlock}
+        </div>
+        ${footerBar(2 + idx)}`;
+      root.appendChild(page);
+    });
+
+    /* ---- Chụp từng trang & ghép vào PDF (giống báo cáo tài sản) ---- */
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const pageEls = Array.from(root.querySelectorAll(".pdf-page"));
+    for (let i = 0; i < pageEls.length; i++) {
+      const canvas = await html2canvas(pageEls[i], { scale: 2, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const pageW = 210, pageH = 297;
+      const ratio = canvas.height / canvas.width;
+      let imgW = pageW, imgH = pageW * ratio;
+      if (imgH > pageH) { imgH = pageH; imgW = pageH / ratio; }
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
+    }
+    pdf.save(`bao-cao-ticket-${now.toISOString().slice(0, 10)}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert(tr("msg.errTicketPdfReport", { err: err.message }));
+  } finally {
+    root.remove();
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+}
+
+$("exportTicketPdfReport").addEventListener("click", generateTicketPdfReport);
+
 $("importXlsx").addEventListener("change", async e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -2013,9 +2236,15 @@ setupAutocomplete("ticketDepartment", "ticketDepartmentSuggest",
 // người dùng đã gõ sẵn). Gõ tay lại vào ô này (không chọn từ gợi ý) sẽ hủy
 // liên kết cũ để tránh lưu nhầm ticket vào tài sản không đúng.
 setupAutocomplete("ticketAsset", "ticketAssetSuggest",
-  q => filterList(assets.map(a => a.code), q, 20)
-    .map(code => assets.find(a => a.code === code))
-    .filter(Boolean),
+  q => {
+    const query = q.trim().toLowerCase();
+    let list = assets;
+    if (query) {
+      list = assets.filter(a => [a.code, a.user, a.employeeCode, a.type, a.model, a.serial, a.section]
+        .some(v => (v || "").toLowerCase().includes(query)));
+    }
+    return list.slice(0, 20);
+  },
   a => `${escapeHtml(a.code)}<span class="muted">${escapeHtml(a.type || "")}${a.model ? " · " + escapeHtml(a.model) : ""}${a.user ? " · " + escapeHtml(a.user) : ""}</span>`,
   a => {
     $("ticketAsset").value = a.code;
