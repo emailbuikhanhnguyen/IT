@@ -1368,11 +1368,15 @@ function ensurePdfReportStyles() {
   .pdf-cover .pdf-icon{width:70px; height:86px; background:${PDF_PALETTE.blue}; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:28px}
   .pdf-cover .pdf-icon-inner{width:54px; height:68px; background:#fff; border-radius:6px; position:relative}
   .pdf-cover .pdf-icon-inner:before{content:"";position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:22px;height:10px;background:${PDF_PALETTE.blue};border-radius:4px}
+  .pdf-cover .pdf-logo-wrap{background:#fff; border-radius:16px; padding:16px 26px; margin-bottom:28px; display:inline-flex}
+  .pdf-cover .pdf-logo-wrap img{height:54px; display:block}
+  .pdf-header-logo{height:20px; display:block; background:#fff; border-radius:4px; padding:2px 6px; margin-right:10px}
   .pdf-cover h1{font-size:30px; margin:0 0 10px; letter-spacing:.5px}
   .pdf-cover .pdf-sub{font-size:16px; color:${PDF_PALETTE.blueLight}; margin-bottom:18px}
   .pdf-cover .pdf-meta{font-size:12px; color:#cbd5e1; line-height:1.6}
   .pdf-content{padding:36px 40px 60px}
-  .pdf-header{background:${PDF_PALETTE.navy}; color:#fff; padding:14px 40px; display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:14px}
+  .pdf-header{background:${PDF_PALETTE.navy}; color:#fff; padding:14px 40px; display:flex; align-items:center; font-weight:700; font-size:14px}
+  .pdf-header span:first-of-type{flex:1}
   .pdf-header span:last-child{font-weight:400; color:${PDF_PALETTE.blueLight}; font-size:11px}
   .pdf-h1{font-size:20px; font-weight:800; color:${PDF_PALETTE.navy}; margin:0 0 6px}
   .pdf-hr{border:none; border-top:1px solid #e2e8f0; margin:0 0 14px}
@@ -1449,7 +1453,7 @@ async function generatePdfReport() {
     const now = new Date();
     const dateLocale = { vi: "vi-VN", en: "en-US", zh: "zh-CN" }[getLang()] || "vi-VN";
     const dateStr = now.toLocaleDateString(dateLocale);
-    const headerBar = `<div class="pdf-header"><span>${tr("pdf.title")}</span><span>SEC — IT Asset Inventory</span></div>`;
+    const headerBar = `<div class="pdf-header"><img src="logo.png" class="pdf-header-logo"><span>${tr("pdf.title")}</span><span class="pdf-header-sub">SEC — IT Asset Inventory</span></div>`;
     const footerBar = pageNum => `<div class="pdf-footer"><span>${tr("pdf.exportedOn", { date: dateStr })}</span><span>${tr("pdf.page", { n: pageNum })}</span></div>`;
 
     /* ---- Trang bìa ---- */
@@ -1457,7 +1461,7 @@ async function generatePdfReport() {
     cover.className = "pdf-page pdf-cover";
     cover.innerHTML = `
       <div class="pdf-blob1"></div><div class="pdf-blob2"></div>
-      <div class="pdf-icon"><div class="pdf-icon-inner"></div></div>
+      <div class="pdf-logo-wrap"><img src="logo.png" alt="S.E.C."></div>
       <h1>${tr("pdf.title")}</h1>
       <div class="pdf-sub">SEC — IT Asset Inventory</div>
       <div class="pdf-meta">${tr("pdf.coverMeta", { date: dateStr, total })}</div>`;
@@ -1720,7 +1724,17 @@ async function generateTicketPdfReport() {
   document.body.appendChild(root);
 
   try {
-    const list = ticketRecords.slice().sort((a, b) => (b.ticketId || "").localeCompare(a.ticketId || ""));
+    const statusFilter = $("ticketPdfStatusFilter") ? $("ticketPdfStatusFilter").value : "";
+    const list = ticketRecords.slice()
+      .filter(t => !statusFilter || (t.status || "Chờ") === statusFilter)
+      .sort((a, b) => (b.ticketId || "").localeCompare(a.ticketId || ""));
+    if (!list.length) {
+      alert(tr("msg.noTicketDataReport"));
+      root.remove();
+      btn.disabled = false;
+      btn.textContent = oldText;
+      return;
+    }
     const total = list.length;
     let pending = 0, inProgress = 0, done = 0;
     list.forEach(t => {
@@ -1732,7 +1746,7 @@ async function generateTicketPdfReport() {
     const now = new Date();
     const dateLocale = { vi: "vi-VN", en: "en-US", zh: "zh-CN" }[getLang()] || "vi-VN";
     const dateStr = now.toLocaleDateString(dateLocale);
-    const headerBar = `<div class="pdf-header"><span>${tr("tpdf.title")}</span><span>SEC — IT Helpdesk Report</span></div>`;
+    const headerBar = `<div class="pdf-header"><img src="logo.png" class="pdf-header-logo"><span>${tr("tpdf.title")}</span><span class="pdf-header-sub">SEC — IT Helpdesk Report</span></div>`;
     const footerBar = pageNum => `<div class="pdf-footer"><span>${tr("pdf.exportedOn", { date: dateStr })}</span><span>${tr("pdf.page", { n: pageNum })}</span></div>`;
 
     /* ---- Trang bìa ---- */
@@ -1740,10 +1754,10 @@ async function generateTicketPdfReport() {
     cover.className = "pdf-page pdf-cover";
     cover.innerHTML = `
       <div class="pdf-blob1"></div><div class="pdf-blob2"></div>
-      <div class="pdf-icon"><div class="pdf-icon-inner"></div></div>
+      <div class="pdf-logo-wrap"><img src="logo.png" alt="S.E.C."></div>
       <h1>${tr("tpdf.title")}</h1>
       <div class="pdf-sub">SEC — IT Helpdesk Report</div>
-      <div class="pdf-meta">${tr("tpdf.coverMeta", { date: dateStr, total })}</div>`;
+      <div class="pdf-meta">${tr("tpdf.coverMeta", { date: dateStr, total })}${statusFilter ? `<br>${tr("tpdf.filterStatusLabel")}: ${escapeHtml(tr(statusFilter === "Chờ" ? "ticket.status.pending" : statusFilter === "Đang xử lý" ? "ticket.status.inProgress" : "ticket.status.done"))}` : ""}</div>`;
     root.appendChild(cover);
 
     /* ---- Trang tổng quan: thẻ số liệu + bảng danh sách ---- */
@@ -1851,7 +1865,8 @@ async function generateTicketPdfReport() {
       if (i > 0) pdf.addPage();
       pdf.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
     }
-    pdf.save(`bao-cao-ticket-${now.toISOString().slice(0, 10)}.pdf`);
+    const statusSlug = { "Chờ": "cho-xu-ly", "Đang xử lý": "dang-xu-ly", "Hoàn thành": "hoan-thanh" }[statusFilter] || "";
+    pdf.save(`bao-cao-ticket${statusSlug ? "-" + statusSlug : ""}-${now.toISOString().slice(0, 10)}.pdf`);
   } catch (err) {
     console.error(err);
     alert(tr("msg.errTicketPdfReport", { err: err.message }));

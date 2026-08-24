@@ -16,6 +16,7 @@
     <button type="button" data-lang="zh">中文</button>
   </div>
   <form id="loginForm" class="login-card">
+    <img src="logo.png" alt="S.E.C." class="login-logo">
     <h1>IT Asset Inventory</h1>
     <p class="muted" data-i18n="login.subtitle">Đăng nhập bằng tài khoản được cấp</p>
     <label>Email<input id="loginEmail" type="email" required autocomplete="username" data-i18n-placeholder="login.emailPh" placeholder="ten@congty.com"></label>
@@ -27,7 +28,7 @@
 
 <div id="appShell" class="hidden">
 <header class="topbar">
-  <div><h1>IT Asset Inventory</h1><small data-i18n="topbar.subtitle">Kiểm kê • QR • Camera • Offline</small></div>
+  <div class="topbar-brand"><img src="logo.png" alt="S.E.C." class="topbar-logo"><div><h1>IT Asset Inventory</h1><small data-i18n="topbar.subtitle">Kiểm kê • QR • Camera • Offline</small></div></div>
 </header>
 
 <main>
@@ -435,6 +436,14 @@
   <div class="card">
     <h3 data-i18n="settings.ticketPdfReport">Báo cáo PDF — Ticket</h3>
     <p data-i18n="settings.ticketPdfReportDesc">Xuất báo cáo Ticket dạng PDF: trang tổng quan + 1 trang chi tiết cho mỗi ticket, kèm ảnh hiện trạng đã đính kèm (nếu có) — dùng để in hoặc lưu hồ sơ.</p>
+    <label><span data-i18n="tpdf.filterStatusLabel">Xuất theo trạng thái</span>
+      <select id="ticketPdfStatusFilter">
+        <option value="" data-i18n="filter.allStatus">Tất cả trạng thái</option>
+        <option value="Chờ" data-i18n="ticket.status.pending">Chờ</option>
+        <option value="Đang xử lý" data-i18n="ticket.status.inProgress">Đang xử lý</option>
+        <option value="Hoàn thành" data-i18n="ticket.status.done">Hoàn thành</option>
+      </select>
+    </label>
     <div class="quick">
       <button id="exportTicketPdfReport" data-i18n="btn.exportTicketPdf">📄 Xuất báo cáo PDF Ticket</button>
     </div>

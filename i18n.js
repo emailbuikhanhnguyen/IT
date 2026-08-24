@@ -428,6 +428,7 @@ const I18N = {
     "pdf.other": "Khác",
     "pdf.unknown": "Không rõ",
 
+    "tpdf.filterStatusLabel": "Xuất theo trạng thái",
     "tpdf.title": "BÁO CÁO TICKET HỖ TRỢ IT",
     "tpdf.coverMeta": "Ngày xuất báo cáo: {{date}}<br>Tổng số ticket: {{total}}",
     "tpdf.section1Title": "1. Tổng quan",
@@ -882,6 +883,7 @@ const I18N = {
     "pdf.other": "Other",
     "pdf.unknown": "Unknown",
 
+    "tpdf.filterStatusLabel": "Export by status",
     "tpdf.title": "IT HELPDESK TICKET REPORT",
     "tpdf.coverMeta": "Report export date: {{date}}<br>Total tickets: {{total}}",
     "tpdf.section1Title": "1. Overview",
@@ -1336,6 +1338,7 @@ const I18N = {
     "pdf.other": "其他",
     "pdf.unknown": "未知",
 
+    "tpdf.filterStatusLabel": "按状态导出",
     "tpdf.title": "IT工单支持报告",
     "tpdf.coverMeta": "报告导出日期：{{date}}<br>工单总数：{{total}}",
     "tpdf.section1Title": "1. 总览",
