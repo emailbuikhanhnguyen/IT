@@ -43,6 +43,15 @@ let scanning = false;
 let currentPhotoData = "";    // base64 dataURL of the photo currently in the form
 let deferredInstallPrompt = null;
 
+/* ---------- Link tem QR trỏ về app + mở thẳng tài sản sau khi đăng nhập ---------- */
+const SEC_APP_URL = "https://emailbuikhanhnguyen.github.io/SEC/";
+function assetLinkFor(code) {
+  return SEC_APP_URL + "?code=" + encodeURIComponent(code || "");
+}
+// Mã tài sản lấy từ QR link (?code=...) khi trang được mở từ việc quét tem —
+// dùng để mở thẳng trang tài sản đó ngay sau khi đăng nhập.
+let pendingScanCode = new URLSearchParams(location.search).get("code") || "";
+
 /* ---------- Role / permissions ----------
    Only 2 kinds of accounts exist:
    - "admin"     (IT): full read/write/delete on every asset, plus Excel/
@@ -942,7 +951,7 @@ function renderQR(code) {
   const box = $("qrcode");
   box.innerHTML = "";
   if (!code) { $("qrText").textContent = ""; return; }
-  const text = "ITASSET:" + code;
+  const text = assetLinkFor(code);
   new QRCode(box, { text, width: 200, height: 200 });
   $("qrText").textContent = text;
 }
@@ -984,7 +993,7 @@ function renderPrintLabel(data) {
   specEl.textContent = data.spec || "";
   specEl.style.display = data.spec ? "" : "none";
   $("plQr").innerHTML = "";
-  new QRCode($("plQr"), { text: "ITASSET:" + (data.code || ""), width: 300, height: 300 });
+  new QRCode($("plQr"), { text: assetLinkFor(data.code || ""), width: 300, height: 300 });
 }
 window.printLabel = function (id) {
   const a = assets.find(x => x._id === id);
@@ -1259,15 +1268,18 @@ function onDevInfoScan(b64) {
   goPage("assetForm");
   toast(tr("toast.qrFilled", { name: data.TENMAY || tr("toast.unnamedDevice") }));
 }
-function onScanSuccess(decodedText) {
-  if (decodedText.startsWith("DEVINFO:")) {
-    stopScanner();
-    onDevInfoScan(decodedText.slice(8).trim());
-    return;
-  }
-  if (!decodedText.startsWith("ITASSET:")) return;
-  const code = decodedText.slice(8).trim();
-  stopScanner();
+function extractAssetCodeFromScan(decodedText) {
+  const text = (decodedText || "").trim();
+  if (text.startsWith("ITASSET:")) return text.slice(8).trim(); // tương thích tem cũ
+  try {
+    const u = new URL(text);
+    const c = u.searchParams.get("code");
+    if (c) return c.trim();
+  } catch (e) { /* không phải URL hợp lệ */ }
+  return null;
+}
+function handleScannedAssetCode(code) {
+  goPage("scan");
   const resBox = $("scanResult");
   resBox.classList.remove("hidden");
   const existing = assets.find(a => a.code === code);
@@ -1288,6 +1300,17 @@ function onScanSuccess(decodedText) {
     resBox.innerHTML = `<b>${escapeHtml(code)}</b> — ${tr("scan.notInSystem")}<br>
       <button style="margin-top:8px" onclick="quickCreate('${escapeHtml(code)}')">${tr("scan.createNewWithCode")}</button>`;
   }
+}
+function onScanSuccess(decodedText) {
+  if (decodedText.startsWith("DEVINFO:")) {
+    stopScanner();
+    onDevInfoScan(decodedText.slice(8).trim());
+    return;
+  }
+  const code = extractAssetCodeFromScan(decodedText);
+  if (!code) return;
+  stopScanner();
+  handleScannedAssetCode(code);
 }
 window.quickCreate = function (code) {
   clearForm();
@@ -2840,6 +2863,26 @@ function updateRoleBadge() {
   else { badge.textContent = tr("roleBadge.none"); badge.classList.remove("admin"); }
 }
 
+/* ---------- Mở thẳng trang tài sản khi vào app từ link QR trên tem (?code=...) ---------- */
+function openPendingScanCodeAsset() {
+  const code = pendingScanCode;
+  pendingScanCode = "";
+  try {
+    const url = new URL(location.href);
+    url.searchParams.delete("code");
+    history.replaceState(null, "", url.toString());
+  } catch (e) { /* bỏ qua nếu trình duyệt không hỗ trợ */ }
+  let attempts = 0;
+  const tryOpen = () => {
+    attempts++;
+    const existing = assets.find(a => a.code === code);
+    if (existing) { editAsset(existing._id); return; }
+    if (attempts < 20) { setTimeout(tryOpen, 250); return; } // đợi dữ liệu đồng bộ từ Firestore (tối đa ~5s)
+    handleScannedAssetCode(code); // hết thời gian chờ vẫn không thấy — hiện màn hình quét (có nút tạo mới nếu mã chưa tồn tại)
+  };
+  tryOpen();
+}
+
 auth.onAuthStateChanged(async user => {
   if (user) {
     $("loginScreen").classList.add("hidden");
@@ -2856,6 +2899,7 @@ auth.onAuthStateChanged(async user => {
     initEmployeesSync();
     if (isAdmin) initUsersSync(); // chỉ Admin đọc được toàn bộ collection users (theo Rules)
     goPage("dashboard");
+    if (pendingScanCode) openPendingScanCodeAsset();
   } else {
     stopSync();
     stopTicketSync();
