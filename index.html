@@ -108,6 +108,11 @@
     <input id="search" data-i18n-placeholder="assets.searchPh" placeholder="Tìm mã, serial, model, người dùng...">
     <select id="filterSection"><option value="" data-i18n="filter.allSections">Tất cả khu vực</option></select>
     <select id="filterCheck"><option value="" data-i18n="filter.all">Tất cả</option><option value="unchecked" data-i18n="filter.unchecked">Chưa kiểm</option><option value="checked" data-i18n="filter.checked">Đã kiểm</option><option value="exception" data-i18n="filter.exception">Cần xử lý</option></select>
+    <div class="filter-dates">
+      <label class="filter-date"><span data-i18n="filter.createdFrom">Tạo từ ngày</span><input type="date" id="filterCreatedFrom"></label>
+      <label class="filter-date"><span data-i18n="filter.createdTo">Đến ngày</span><input type="date" id="filterCreatedTo"></label>
+      <button type="button" id="clearDateFilterBtn" class="secondary hidden" data-i18n="filter.clearDates">✕ Bỏ lọc ngày</button>
+    </div>
   </div>
   <div id="assetList"></div>
 </section>

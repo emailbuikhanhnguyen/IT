@@ -153,6 +153,31 @@ function formatHistoryTime(ms) {
   try { return new Date(ms).toLocaleString(locale); } catch (e) { return ""; }
 }
 
+// Trả về thời điểm tạo (epoch ms) của 1 tài sản, hoặc null nếu không xác
+// định được. Ưu tiên field `createdAt` (Firestore Timestamp, có từ khi thêm
+// tính năng lọc theo ngày tạo). Tài sản tạo TRƯỚC thời điểm đó chưa có field
+// này — fallback sang mốc "create" đầu tiên trong `history` (đã có sẵn từ
+// lâu hơn); tài sản import Excel hàng loạt không có cả hai thì coi là không
+// xác định (không hiện ngày, bị loại khỏi kết quả khi có lọc theo ngày).
+function assetCreatedMs(a) {
+  if (!a) return null;
+  if (a.createdAt && typeof a.createdAt.toMillis === "function") return a.createdAt.toMillis();
+  if (a.createdAt instanceof Date) return a.createdAt.getTime();
+  if (Array.isArray(a.history) && a.history.length) {
+    // Không chắc mốc nào là "create" (asset cũ có thể chỉ có toàn entry
+    // "import" nếu chưa từng sửa tay lần nào) — lấy mốc SỚM NHẤT trong
+    // lịch sử làm giá trị gần đúng cho thời điểm tạo.
+    const earliest = a.history.reduce((min, e) => (e.at && (!min || e.at < min)) ? e.at : min, null);
+    if (earliest) return earliest;
+  }
+  return null;
+}
+function formatAssetDate(ms) {
+  if (!ms) return "";
+  const locale = { vi: "vi-VN", en: "en-US", zh: "zh-CN" }[getLang()] || "vi-VN";
+  try { return new Date(ms).toLocaleDateString(locale); } catch (e) { return ""; }
+}
+
 function renderHistoryBox(a) {
   const box = $("historyBox");
   const list = $("historyList");
@@ -508,6 +533,13 @@ function renderAssetList() {
   const q = ($("search").value || "").trim().toLowerCase();
   const checkF = $("filterCheck").value;
   const sectionF = $("filterSection").value;
+  const fromV = $("filterCreatedFrom").value; // yyyy-mm-dd hoặc ""
+  const toV = $("filterCreatedTo").value;
+  // Mốc đầu ngày "Từ" và cuối ngày "Đến" theo giờ máy (local), để lọc trọn
+  // cả 2 ngày biên chứ không cắt theo giờ.
+  const fromMs = fromV ? new Date(fromV + "T00:00:00").getTime() : null;
+  const toMs = toV ? new Date(toV + "T23:59:59.999").getTime() : null;
+  $("clearDateFilterBtn").classList.toggle("hidden", !fromV && !toV);
 
   let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
   if (q) {
@@ -517,6 +549,15 @@ function renderAssetList() {
   }
   if (checkF) list = list.filter(a => classifyCheck(a.checkStatus) === checkF);
   if (sectionF) list = list.filter(a => (a.section || "").trim() === sectionF);
+  if (fromMs || toMs) {
+    list = list.filter(a => {
+      const ms = assetCreatedMs(a);
+      if (!ms) return false; // không rõ ngày tạo -> loại khỏi kết quả khi đang lọc theo ngày
+      if (fromMs && ms < fromMs) return false;
+      if (toMs && ms > toMs) return false;
+      return true;
+    });
+  }
 
   if (!list.length) {
     $("assetList").innerHTML = `<div class="empty">${tr("assets.noneFound")}</div>`;
@@ -536,6 +577,7 @@ function renderAssetList() {
         <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}</div>
         <div class="muted">${a.user ? "👤 " + escapeHtml(a.user) : ""}${a.employeeCode ? " (" + escapeHtml(a.employeeCode) + ")" : ""}</div>
         ${a.section ? `<div class="muted">🏢 ${escapeHtml(a.section)}</div>` : ""}
+        ${assetCreatedMs(a) ? `<div class="muted">🗓 ${tr("field.createdAt")}: ${escapeHtml(formatAssetDate(assetCreatedMs(a)))}</div>` : ""}
         <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(checkLabel(a.checkStatus))}</span>
         ${!isAdmin ? `<span class="badge view-only-tag">👁 ${tr("action.viewOnly")}</span>` : ""}
       </div>
@@ -551,6 +593,13 @@ function renderAssetList() {
 $("search").addEventListener("input", renderAssetList);
 $("filterCheck").addEventListener("change", renderAssetList);
 $("filterSection").addEventListener("change", renderAssetList);
+$("filterCreatedFrom").addEventListener("change", renderAssetList);
+$("filterCreatedTo").addEventListener("change", renderAssetList);
+$("clearDateFilterBtn").addEventListener("click", () => {
+  $("filterCreatedFrom").value = "";
+  $("filterCreatedTo").value = "";
+  renderAssetList();
+});
 
 /* ---------- Autocomplete dropdowns (Người sử dụng / Mã NV / Bộ phận) ----------
    Dùng chung 1 cơ chế: gõ hoặc bấm vào ô sẽ hiện danh sách gợi ý (tối đa 20
@@ -868,6 +917,9 @@ $("assetFormEl").addEventListener("submit", e => {
     photo: currentPhotoData || "",
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
+  // createdAt chỉ set 1 lần lúc tạo mới (không ghi đè khi sửa/đổi mã), để
+  // dùng cho việc hiển thị + lọc theo ngày tạo trên trang Danh sách tài sản.
+  if (!oldId) data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
 
   // Admin can freely toggle the "locked" audit flag. The collector account
   // always creates records already marked locked:true — purely
@@ -1939,6 +1991,9 @@ $("importXlsx").addEventListener("change", async e => {
       // với bản hiện tại thì bỏ qua, tránh rác lịch sử khi import lại file
       // cũ không có gì mới.
       const existing = assets.find(a => a._id === id);
+      // createdAt chỉ set khi đây thực sự là dòng MỚI (chưa từng có id này) —
+      // import lại (merge) 1 file cũ không được phép ghi đè ngày tạo gốc.
+      if (!existing) obj.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       const importedKeys = Object.keys(obj).filter(k => HISTORY_TRACK_FIELDS.some(([hk]) => hk === k));
       const fieldChanges = diffAssetFields(existing, obj, importedKeys);
       if (!existing || fieldChanges.length) {

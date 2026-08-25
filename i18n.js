@@ -56,6 +56,10 @@ const I18N = {
     "filter.unchecked": "Chưa kiểm",
     "filter.checked": "Đã kiểm",
     "filter.exception": "Cần xử lý",
+    "filter.createdFrom": "Tạo từ ngày",
+    "filter.createdTo": "Đến ngày",
+    "filter.clearDates": "✕ Bỏ lọc ngày",
+    "field.createdAt": "Ngày tạo",
 
     "assetForm.createTitle": "Tạo tài sản",
     "assetForm.lockedNotice": "🔒 Bạn chỉ có quyền xem tài sản này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.",
@@ -512,6 +516,10 @@ const I18N = {
     "filter.unchecked": "Unchecked",
     "filter.checked": "Checked",
     "filter.exception": "Needs attention",
+    "filter.createdFrom": "Created from",
+    "filter.createdTo": "To",
+    "filter.clearDates": "✕ Clear dates",
+    "field.createdAt": "Created",
 
     "assetForm.createTitle": "Create asset",
     "assetForm.lockedNotice": "🔒 You have view-only access to this asset. Contact the IT admin if you need to make changes.",
@@ -967,6 +975,10 @@ const I18N = {
     "filter.unchecked": "未盘点",
     "filter.checked": "已盘点",
     "filter.exception": "待处理",
+    "filter.createdFrom": "创建日期从",
+    "filter.createdTo": "到",
+    "filter.clearDates": "✕ 清除日期筛选",
+    "field.createdAt": "创建日期",
 
     "assetForm.createTitle": "新建资产",
     "assetForm.lockedNotice": "🔒 您仅有此资产的查看权限。如需修改，请联系IT管理员。",
