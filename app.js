@@ -977,8 +977,12 @@ function printWithFilename(suggestedName) {
 function renderPrintLabel(data) {
   $("plCode").textContent = data.code || "";
   $("plTypeModel").textContent = [data.type, data.model].filter(Boolean).join(" · ");
-  $("plUser").textContent = data.user ? ("👤 " + data.user + (data.employeeCode ? ` (${data.employeeCode})` : "")) : "";
-  $("plSection").textContent = data.section ? ("🏢 " + data.section) : "";
+  const serialEl = $("plSerial");
+  serialEl.textContent = data.serial ? ("SN: " + data.serial) : "";
+  serialEl.style.display = data.serial ? "" : "none";
+  const specEl = $("plSpec");
+  specEl.textContent = data.spec || "";
+  specEl.style.display = data.spec ? "" : "none";
   $("plQr").innerHTML = "";
   new QRCode($("plQr"), { text: "ITASSET:" + (data.code || ""), width: 300, height: 300 });
 }
@@ -996,6 +1000,8 @@ $("printLabelBtn").addEventListener("click", () => {
     code,
     type: $("type").value,
     model: $("model").value.trim(),
+    serial: $("serial").value.trim(),
+    spec: $("spec").value.trim(),
     user: $("user").value.trim(),
     employeeCode,
     section: $("section").value.trim()
