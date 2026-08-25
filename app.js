@@ -2653,14 +2653,31 @@ function normalizeTicketEnum(value, aliasMap, fallback) {
   return aliasMap[key] || fallback;
 }
 
+// Tô vàng toàn bộ dòng có Trạng thái = "Đang xử lý" khi xuất Excel, để dễ
+// nhận ra ngay những ticket còn đang mở giữa danh sách dài. Dùng thư viện
+// xlsx-js-style (thay cho xlsx bản community) vì bản community không ghi
+// được style (màu nền) ra file .xlsx.
+const TICKET_ROW_HIGHLIGHT_STATUS = "Đang xử lý";
+const TICKET_ROW_HIGHLIGHT_FILL = { fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } } };
+
 $("exportTicketsXlsx").addEventListener("click", () => {
   if (!ticketRecords.length) { alert(tr("msg.noTicketDataExport")); return; }
-  const rows = ticketRecords.slice().sort((a, b) => (a.ticketId || "").localeCompare(b.ticketId || "")).map(t => {
+  const sorted = ticketRecords.slice().sort((a, b) => (a.ticketId || "").localeCompare(b.ticketId || ""));
+  const rows = sorted.map(t => {
     const row = {};
     TICKET_COLUMNS.forEach(c => { row[TICKET_COLUMN_LABELS_VN[c]] = t[c] || ""; });
     return row;
   });
   const ws = XLSX.utils.json_to_sheet(rows);
+  sorted.forEach((t, i) => {
+    if (t.status !== TICKET_ROW_HIGHLIGHT_STATUS) return;
+    const r = i + 1; // hàng 0 là header
+    TICKET_COLUMNS.forEach((c, colIdx) => {
+      const addr = XLSX.utils.encode_cell({ r, c: colIdx });
+      if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+      ws[addr].s = TICKET_ROW_HIGHLIGHT_FILL;
+    });
+  });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Tickets");
   const ts = new Date().toISOString().slice(0, 10);
