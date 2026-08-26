@@ -2728,37 +2728,39 @@ function normalizeTicketEnum(value, aliasMap, fallback) {
 // sẵn AutoFilter cho toàn bộ bảng + chỉnh độ rộng cột hợp lý hơn để dễ đọc.
 // Thêm cột "Ngày tạo ticket" (suy ra qua ticketCreatedMs — xem định nghĩa
 // phía trên, áp dụng cả cho ticket import Excel cũ) để lọc/sắp xếp theo
-// ngày ngay trong Excel — ghi dưới dạng ô Date thật (không phải chuỗi chữ)
-// định dạng dd-mm-yyyy. Vẫn dùng xlsx-js-style (thay cho xlsx bản
-// community) vì bản community không ghi được style/định dạng số ra .xlsx.
+// ngày ngay trong Excel — ghi dưới dạng ô Date thật (không phải chuỗi chữ),
+// định dạng dd.mm.yyyy. Set trực tiếp {t:"d", v, z} cho từng ô sau khi
+// json_to_sheet dựng bảng, vì json_to_sheet tự quy đổi Date sang định dạng
+// mặc định theo locale (kiểu m/d/yyyy) chứ không giữ định dạng mình muốn.
+// Vẫn dùng xlsx-js-style (thay cho xlsx bản community) vì bản community
+// không ghi được style/định dạng số ra .xlsx.
 const TICKET_EXPORT_COLUMNS = ["ticketId", "createdDate", "priority", "status", "employeeCode", "requester", "department", "assetCode", "device", "description", "cause", "resolution", "note"];
 const TICKET_EXPORT_COLUMN_LABELS_VN = Object.assign({ createdDate: "Ngày tạo ticket" }, TICKET_COLUMN_LABELS_VN);
+const TICKET_CREATED_DATE_NUMFMT = "dd.mm.yyyy";
 
 $("exportTicketsXlsx").addEventListener("click", () => {
   if (!ticketRecords.length) { alert(tr("msg.noTicketDataExport")); return; }
   const sorted = ticketRecords.slice().sort((a, b) => (a.ticketId || "").localeCompare(b.ticketId || ""));
-  const rows = sorted.map(t => {
+  const createdDates = sorted.map(t => {
+    const ms = ticketCreatedMs(t);
+    return ms ? new Date(ms) : null;
+  });
+  const rows = sorted.map((t, i) => {
     const row = {};
     TICKET_EXPORT_COLUMNS.forEach(c => {
-      if (c === "createdDate") {
-        const ms = ticketCreatedMs(t);
-        row[TICKET_EXPORT_COLUMN_LABELS_VN.createdDate] = ms ? new Date(ms) : "";
-        return;
-      }
+      if (c === "createdDate") { row[TICKET_EXPORT_COLUMN_LABELS_VN.createdDate] = createdDates[i] || ""; return; }
       row[TICKET_EXPORT_COLUMN_LABELS_VN[c]] = t[c] || "";
     });
     return row;
   });
   const ws = XLSX.utils.json_to_sheet(rows);
 
-  // Ép định dạng ngày dd-mm-yyyy cho cột "Ngày tạo ticket" (chỉ set khi có giá trị Date thật).
+  // Ép lại từng ô ngày về đúng {t:"d", v: Date, z: "dd.mm.yyyy"}.
   const dateColIdx = TICKET_EXPORT_COLUMNS.indexOf("createdDate");
-  sorted.forEach((t, i) => {
+  createdDates.forEach((d, i) => {
+    if (!d) return;
     const dateAddr = XLSX.utils.encode_cell({ r: i + 1, c: dateColIdx }); // hàng 0 là header
-    if (ws[dateAddr] && ws[dateAddr].v instanceof Date) {
-      ws[dateAddr].t = "d";
-      ws[dateAddr].z = "dd-mm-yyyy";
-    }
+    ws[dateAddr] = { t: "d", v: d, z: TICKET_CREATED_DATE_NUMFMT };
   });
 
   ws["!cols"] = TICKET_EXPORT_COLUMNS.map(c => (c === "ticketId" ? { wch: 22 } : c === "createdDate" ? { wch: 14 } : { wch: 18 }));
