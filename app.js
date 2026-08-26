@@ -2738,6 +2738,15 @@ const TICKET_EXPORT_COLUMNS = ["ticketId", "createdDate", "priority", "status", 
 const TICKET_EXPORT_COLUMN_LABELS_VN = Object.assign({ createdDate: "Ngày tạo ticket" }, TICKET_COLUMN_LABELS_VN);
 const TICKET_CREATED_DATE_NUMFMT = "dd.mm.yyyy";
 
+// Lấy tên đăng nhập ngắn gọn (phần trước @ trong email) để gắn vào tên file
+// báo cáo xuất ra — giúp biết ai là người xuất file khi có nhiều người dùng
+// chung app. Bỏ ký tự không hợp lệ trong tên file (/ \ : * ? " < > |).
+function currentUserFileTag() {
+  const local = (currentEmail || "").split("@")[0];
+  const safe = local.replace(/[\\/:*?"<>|]/g, "").trim();
+  return safe || "";
+}
+
 $("exportTicketsXlsx").addEventListener("click", () => {
   if (!ticketRecords.length) { alert(tr("msg.noTicketDataExport")); return; }
   const sorted = ticketRecords.slice().sort((a, b) => (a.ticketId || "").localeCompare(b.ticketId || ""));
@@ -2769,7 +2778,8 @@ $("exportTicketsXlsx").addEventListener("click", () => {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Tickets");
   const ts = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `it-helpdesk-tickets-${ts}.xlsx`);
+  const userTag = currentUserFileTag();
+  XLSX.writeFile(wb, `it-helpdesk-tickets-${ts}${userTag ? ` (${userTag})` : ""}.xlsx`);
 });
 
 $("importTicketsXlsx").addEventListener("change", async e => {
