@@ -3063,10 +3063,10 @@ async function convertReportFile(file) {
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, pageCanvas.width, h);
       ctx.drawImage(fullCanvas, 0, yStart, fullCanvas.width, h, 0, 0, fullCanvas.width, h);
-      reportPages.push({ dataUrl: pageCanvas.toDataURL("image/jpeg", quality), index: reportPages.length + 1 });
+      reportPages.push({ dataUrl: pageCanvas.toDataURL("image/jpeg", quality), canvas: pageCanvas, index: reportPages.length + 1 });
     }
     if (reportPages.length === 0) {
-      reportPages.push({ dataUrl: fullCanvas.toDataURL("image/jpeg", quality), index: 1 });
+      reportPages.push({ dataUrl: fullCanvas.toDataURL("image/jpeg", quality), canvas: fullCanvas, index: 1 });
     }
     renderReportPages();
     toast(tr("report.done", { n: reportPages.length }));
@@ -3109,17 +3109,34 @@ if ($("reportFile")) {
 }
 if ($("reportDownloadAllBtn")) {
   $("reportDownloadAllBtn").addEventListener("click", () => {
-    // Trình duyệt thường chặn nhiều download cùng lúc -> giãn cách nhẹ
-    reportPages.forEach((p, idx) => {
-      setTimeout(() => {
-        const a = document.createElement("a");
-        a.href = p.dataUrl;
-        a.download = `${reportSourceName}-trang${String(p.index).padStart(2, "0")}.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }, idx * 350);
+    if (!reportPages.length) return;
+    // Ghép toàn bộ các trang thành 1 ảnh JPG duy nhất (xếp dọc, có vạch
+    // xám mảnh phân cách giữa các trang cho dễ nhìn ranh giới) thay vì
+    // tải nhiều file riêng — tránh bị trình duyệt chặn bớt khi tải
+    // nhiều file cùng lúc, và tiện gửi/lưu như 1 ảnh duy nhất.
+    const gap = 24;
+    const maxWidth = Math.max(...reportPages.map(p => p.canvas.width));
+    const totalHeight = reportPages.reduce((sum, p) => sum + p.canvas.height, 0)
+      + gap * (reportPages.length - 1);
+    const combined = document.createElement("canvas");
+    combined.width = maxWidth;
+    combined.height = totalHeight;
+    const ctx = combined.getContext("2d");
+    ctx.fillStyle = "#cbd5e1";
+    ctx.fillRect(0, 0, maxWidth, totalHeight);
+    let y = 0;
+    reportPages.forEach(p => {
+      ctx.drawImage(p.canvas, 0, y);
+      y += p.canvas.height + gap;
     });
+    const quality = (parseInt($("reportQuality").value, 10) || 85) / 100;
+    const dataUrl = combined.toDataURL("image/jpeg", quality);
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `${reportSourceName}-full.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   });
 }
 
