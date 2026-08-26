@@ -2766,11 +2766,34 @@ $("exportTicketsXlsx").addEventListener("click", () => {
 
   // Ép lại từng ô ngày về đúng {t:"d", v: Date, z: "dd.mm.yyyy"}.
   const dateColIdx = TICKET_EXPORT_COLUMNS.indexOf("createdDate");
+  const dateCellStyle = { alignment: { vertical: "center", horizontal: "center" } };
   createdDates.forEach((d, i) => {
     if (!d) return;
     const dateAddr = XLSX.utils.encode_cell({ r: i + 1, c: dateColIdx }); // hàng 0 là header
-    ws[dateAddr] = { t: "d", v: d, z: TICKET_CREATED_DATE_NUMFMT };
+    ws[dateAddr] = { t: "d", v: d, z: TICKET_CREATED_DATE_NUMFMT, s: dateCellStyle };
   });
+
+  // Merge các ô liền kề cùng ngày ở cột "Ngày tạo ticket" (danh sách đã
+  // sort theo Ticket ID nên các ticket cùng ngày luôn nằm sát nhau) — chỉ
+  // ô đầu tiên của mỗi nhóm giữ giá trị, các ô còn lại xóa trắng và merge
+  // vào ô đầu để nhìn gọn hơn khi nhiều ticket cùng ngày.
+  const merges = [];
+  let runStart = 0;
+  for (let i = 1; i <= createdDates.length; i++) {
+    const sameDay = i < createdDates.length && createdDates[i] && createdDates[runStart] &&
+      createdDates[i].toDateString() === createdDates[runStart].toDateString();
+    if (!sameDay) {
+      if (i - runStart > 1) {
+        merges.push({ s: { r: runStart + 1, c: dateColIdx }, e: { r: i - 1 + 1, c: dateColIdx } });
+        for (let k = runStart + 1; k < i; k++) {
+          const addr = XLSX.utils.encode_cell({ r: k + 1, c: dateColIdx });
+          if (ws[addr]) ws[addr].v = "";
+        }
+      }
+      runStart = i;
+    }
+  }
+  ws["!merges"] = merges;
 
   ws["!cols"] = TICKET_EXPORT_COLUMNS.map(c => (c === "ticketId" ? { wch: 22 } : c === "createdDate" ? { wch: 14 } : { wch: 18 }));
   ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: TICKET_EXPORT_COLUMNS.length - 1 } }) };
