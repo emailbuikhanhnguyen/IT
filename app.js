@@ -3069,7 +3069,7 @@ async function convertReportFile(file) {
       reportPages.push({ dataUrl: fullCanvas.toDataURL("image/jpeg", quality), index: 1 });
     }
     renderReportPages();
-    toast(tr("report.done", { n: totalPages }));
+    toast(tr("report.done", { n: reportPages.length }));
   } catch (e) {
     console.error(e);
     alert(tr("report.convertError") + (e && e.message ? (": " + e.message) : ""));
