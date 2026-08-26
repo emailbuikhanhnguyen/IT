@@ -38,6 +38,11 @@
 .checkbox-label input{width:auto}
 .role-staff .admin-only{display:none!important}
 .role-viewer .creator-only{display:none!important}
+/* role-reportonly: tài khoản chỉ dùng để vào thẳng trang "Chuyển đổi báo
+   cáo" — ẩn hết bottomnav và nút "←" (không có trang nào khác để quay
+   lại/điều hướng tới cho vai trò này, xem thêm goPage() trong app.js). */
+.role-reportonly .bottomnav{display:none!important}
+.role-reportonly #reportConvert .section-head button[data-page]{display:none!important}
 .view-only-tag{background:#e2e8f0;color:#334155}
 .autocomplete-field{position:relative}
 .suggest-list{position:absolute;left:0;right:0;top:100%;margin-top:2px;background:#fff;border:1px solid #cbd5e1;border-radius:9px;box-shadow:0 8px 24px #00000022;max-height:220px;overflow-y:auto;z-index:30}

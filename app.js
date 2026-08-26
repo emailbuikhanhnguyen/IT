@@ -69,6 +69,11 @@ let pendingScanCode = new URLSearchParams(location.search).get("code") || "";
 let isAdmin = false;
 let isCollector = false;
 let isViewer = false;
+// reportonly: tài khoản chỉ dùng để vào thẳng và chỉ thấy đúng 1 trang
+// "Chuyển đổi báo cáo" (Word -> JPG) — không thấy dashboard/menu/trang nào
+// khác, không đọc/ghi bất kỳ collection Firestore nào (tài sản, ticket,
+// nhân viên...) vì tính năng này chạy 100% trên thiết bị.
+let isReportOnly = false;
 let currentEmail = "";
 let currentUid = "";
 
@@ -223,6 +228,10 @@ function toast(msg) {
 
 /* ---------- Navigation ---------- */
 function goPage(name) {
+  // Tài khoản "reportonly" chỉ được phép ở đúng 1 trang duy nhất — mọi
+  // điều hướng khác (kể cả bấm nhầm nút ẩn, nút "←", hay link cũ) đều bị
+  // kéo thẳng về lại trang Chuyển đổi báo cáo.
+  if (isReportOnly) name = "reportConvert";
   if (name === "settings" && !isAdmin) name = "dashboard"; // settings/backup/import are admin-only
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = $(name);
@@ -339,7 +348,7 @@ function stopUsersSync() {
   if (unsubscribeUsersSync) { unsubscribeUsersSync(); unsubscribeUsersSync = null; }
   userAccounts = [];
 }
-const ROLE_LABELS_VI = { admin: "Quản trị (Admin)", collector: "Thu thập dữ liệu", viewer: "Chỉ xem" };
+const ROLE_LABELS_VI = { admin: "Quản trị (Admin)", collector: "Thu thập dữ liệu", viewer: "Chỉ xem", reportonly: "Chuyển đổi báo cáo (chỉ 1 trang)" };
 function roleLabel(role) { return tr("role.label." + role) || ROLE_LABELS_VI[role] || role; }
 function renderUserList() {
   const box = $("userList");
@@ -350,7 +359,7 @@ function renderUserList() {
     const isSelf = u._uid === currentUid;
     const isDisabled = u.disabled === true;
     const emailLabel = u.email || `<span class="muted">(${tr("userList.unknownEmail")})</span>`;
-    const roleOptions = ["admin", "collector", "viewer"].map(r =>
+    const roleOptions = ["admin", "collector", "viewer", "reportonly"].map(r =>
       `<option value="${r}" ${u.role === r ? "selected" : ""}>${roleLabel(r)}</option>`).join("");
     return `<div class="asset">
       <div>
@@ -2903,6 +2912,7 @@ async function loadRole(user) {
   isAdmin = false;
   isCollector = false;
   isViewer = false;
+  isReportOnly = false;
   try {
     const snap = await db.collection("users").doc(user.uid).get();
     const data = snap.exists ? snap.data() : null;
@@ -2914,6 +2924,7 @@ async function loadRole(user) {
     if (role === "admin") isAdmin = true;
     else if (role === "collector") isCollector = true;
     else if (role === "viewer") isViewer = true;
+    else if (role === "reportonly") isReportOnly = true;
   } catch (err) {
     console.warn("Không đọc được vai trò tài khoản:", err);
   }
@@ -2923,8 +2934,11 @@ async function loadRole(user) {
   // role-viewer: ẩn thêm mọi thứ .creator-only — Viewer xem được toàn bộ
   // nhưng không tạo mới được tài sản/ticket (khớp Firestore Rules).
   document.body.classList.toggle("role-viewer", isViewer);
+  // role-reportonly: ẩn toàn bộ dashboard/menu/bottomnav — tài khoản này
+  // chỉ được thấy đúng 1 trang Chuyển đổi báo cáo (xem CSS + goPage()).
+  document.body.classList.toggle("role-reportonly", isReportOnly);
   updateRoleBadge();
-  return isAdmin || isCollector || isViewer;
+  return isAdmin || isCollector || isViewer || isReportOnly;
 }
 function updateRoleBadge() {
   const badge = $("roleBadge");
@@ -2932,6 +2946,7 @@ function updateRoleBadge() {
   if (isAdmin) { badge.textContent = tr("roleBadge.admin"); badge.classList.add("admin"); }
   else if (isCollector) { badge.textContent = tr("roleBadge.collector"); badge.classList.remove("admin"); }
   else if (isViewer) { badge.textContent = tr("roleBadge.viewer"); badge.classList.remove("admin"); }
+  else if (isReportOnly) { badge.textContent = tr("roleBadge.reportonly"); badge.classList.remove("admin"); }
   else { badge.textContent = tr("roleBadge.none"); badge.classList.remove("admin"); }
 }
 
@@ -3151,12 +3166,21 @@ auth.onAuthStateChanged(async user => {
       auth.signOut();
       return;
     }
-    initSync();
-    initTicketSync();
-    initEmployeesSync();
-    if (isAdmin) initUsersSync(); // chỉ Admin đọc được toàn bộ collection users (theo Rules)
-    goPage("dashboard");
-    if (pendingScanCode) openPendingScanCodeAsset();
+    if (isReportOnly) {
+      // Tài khoản chỉ dùng để chuyển đổi Word -> JPG: tính năng này chạy
+      // hoàn toàn trên thiết bị, không cần đọc bất kỳ collection nào
+      // (assets/tickets/employees/users) — bỏ qua các sync đó để tránh
+      // gọi Firestore thừa (và tránh lỗi permission-denied vì Rules
+      // không cấp quyền đọc các collection này cho vai trò này).
+      goPage("reportConvert");
+    } else {
+      initSync();
+      initTicketSync();
+      initEmployeesSync();
+      if (isAdmin) initUsersSync(); // chỉ Admin đọc được toàn bộ collection users (theo Rules)
+      goPage("dashboard");
+      if (pendingScanCode) openPendingScanCodeAsset();
+    }
   } else {
     stopSync();
     stopTicketSync();
@@ -3167,6 +3191,7 @@ auth.onAuthStateChanged(async user => {
     isAdmin = false;
     isCollector = false;
     isViewer = false;
+    isReportOnly = false;
     currentEmail = "";
     currentUid = "";
     $("appShell").classList.add("hidden");

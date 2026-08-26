@@ -239,6 +239,7 @@ const I18N = {
     "role.collector": "Collector (thu thập dữ liệu)",
     "role.viewer": "Viewer (chỉ xem — Ban giám đốc)",
     "role.admin": "Admin (IT)",
+    "role.reportonly": "Chuyển đổi báo cáo (chỉ 1 trang, không thấy gì khác)",
     "addUser.submit": "Tạo tài khoản",
     "addUser.cancel": "Hủy",
 
@@ -290,6 +291,7 @@ const I18N = {
     "role.label.admin": "Quản trị (Admin)",
     "role.label.collector": "Thu thập dữ liệu",
     "role.label.viewer": "Chỉ xem",
+    "role.label.reportonly": "Chuyển đổi báo cáo",
 
     "msg.cantChangeOwnRole": "Không thể tự đổi vai trò của chính mình.",
     "msg.confirmChangeRole": "Đổi vai trò tài khoản này thành \"{{role}}\"?",
@@ -415,6 +417,7 @@ const I18N = {
     "roleBadge.admin": "Quản trị",
     "roleBadge.collector": "Thu thập dữ liệu",
     "roleBadge.viewer": "Chỉ xem",
+    "roleBadge.reportonly": "Chuyển đổi báo cáo",
     "roleBadge.none": "Chưa cấp quyền",
 
     "auth.invalidEmail": "Email không hợp lệ.",
@@ -718,6 +721,7 @@ const I18N = {
     "role.collector": "Collector (data collection)",
     "role.viewer": "Viewer (view only — Management)",
     "role.admin": "Admin (IT)",
+    "role.reportonly": "Report converter (single page only)",
     "addUser.submit": "Create account",
     "addUser.cancel": "Cancel",
 
@@ -768,6 +772,7 @@ const I18N = {
     "role.label.admin": "Admin",
     "role.label.collector": "Data collector",
     "role.label.viewer": "Viewer",
+    "role.label.reportonly": "Report converter",
 
     "msg.cantChangeOwnRole": "You cannot change your own role.",
     "msg.confirmChangeRole": "Change this account's role to \"{{role}}\"?",
@@ -893,6 +898,7 @@ const I18N = {
     "roleBadge.admin": "Admin",
     "roleBadge.collector": "Data collector",
     "roleBadge.viewer": "Viewer",
+    "roleBadge.reportonly": "Report converter",
     "roleBadge.none": "No access granted",
 
     "auth.invalidEmail": "Invalid email.",
@@ -1196,6 +1202,7 @@ const I18N = {
     "role.collector": "Collector（数据采集）",
     "role.viewer": "Viewer（仅查看——管理层）",
     "role.admin": "Admin（IT）",
+    "role.reportonly": "报告转换（仅此一页）",
     "addUser.submit": "创建账号",
     "addUser.cancel": "取消",
 
@@ -1246,6 +1253,7 @@ const I18N = {
     "role.label.admin": "管理员（Admin）",
     "role.label.collector": "数据采集",
     "role.label.viewer": "仅查看",
+    "role.label.reportonly": "报告转换",
 
     "msg.cantChangeOwnRole": "不能更改自己的角色。",
     "msg.confirmChangeRole": "将此账号角色更改为“{{role}}”？",
@@ -1371,6 +1379,7 @@ const I18N = {
     "roleBadge.admin": "管理员",
     "roleBadge.collector": "数据采集",
     "roleBadge.viewer": "仅查看",
+    "roleBadge.reportonly": "报告转换",
     "roleBadge.none": "未获授权",
 
     "auth.invalidEmail": "邮箱无效。",

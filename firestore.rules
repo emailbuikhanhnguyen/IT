@@ -28,6 +28,16 @@ service cloud.firestore {
     function isViewer() {
       return isActiveRole('viewer');
     }
+    // Vai trò thứ 4: "reportonly" — tài khoản chỉ dùng cho tính năng
+    // Chuyển đổi báo cáo (Word -> JPG) trên app, vốn chạy 100% trên thiết
+    // bị (không gọi Firestore). Vai trò này CỐ Ý không được thêm vào bất
+    // kỳ rule "allow read/write" nào bên dưới -> mặc định không đọc/ghi
+    // được assets/tickets/employees/users(người khác)/... gì cả, chỉ
+    // đăng nhập + tự đọc đúng document users/{uid} của chính mình (đã cho
+    // phép ở rule "users" bên dưới) để app xác định vai trò.
+    function isReportOnly() {
+      return isActiveRole('reportonly');
+    }
     // Bất kỳ tài khoản nào đã được gán 1 trong 3 vai trò trên (dùng để
     // gọn các rule chỉ cần "đã đăng nhập hợp lệ, đọc được mọi thứ").
     function isKnownRole() {
