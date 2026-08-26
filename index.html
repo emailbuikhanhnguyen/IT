@@ -290,6 +290,11 @@
     <input id="ticketSearch" data-i18n-placeholder="tickets.searchPh" placeholder="Tìm mã ticket, người yêu cầu, mô tả...">
     <select id="filterTicketStatus"><option value="" data-i18n="filter.allStatus">Tất cả trạng thái</option><option data-i18n="ticket.status.pending">Chờ</option><option data-i18n="ticket.status.inProgress">Đang xử lý</option><option data-i18n="ticket.status.done">Hoàn thành</option></select>
     <select id="filterTicketPriority"><option value="" data-i18n="filter.allPriority">Tất cả mức ưu tiên</option><option data-i18n="ticket.priority.urgent">Khẩn</option><option data-i18n="ticket.priority.high">Cao</option><option data-i18n="ticket.priority.medium">Trung bình</option><option data-i18n="ticket.priority.low">Thấp</option></select>
+    <select id="filterTicketSort">
+      <option value="" data-i18n="filter.sort.default">Sắp xếp: Mã ticket mới nhất</option>
+      <option value="oldestFirst" data-i18n="filter.sort.oldestFirst">Sắp xếp: Mở lâu nhất trước (ưu tiên xử lý)</option>
+      <option value="newestFirst" data-i18n="filter.sort.newestFirst">Sắp xếp: Mới tạo trước</option>
+    </select>
   </div>
   <div id="ticketList"></div>
 </section>

@@ -1770,6 +1770,53 @@ function ticketCreatedInfo(t) {
   return entry.by ? `${time} · ${entry.by}` : time;
 }
 
+// Trả về thời điểm tạo (epoch ms) của 1 ticket, hoặc null nếu không xác
+// định được — dùng để tính "đã mở bao nhiêu ngày" trong renderTicketList().
+// Ưu tiên field `createdAt` (Firestore Timestamp, có từ khi thêm tính năng
+// này), rồi tới mốc sớm nhất trong `history` (mọi ticket tạo trong app đều
+// có ít nhất 1 entry "create"), cuối cùng fallback parse ngày nhúng sẵn
+// trong Mã ticket dạng IT-YYYYMMDD-NNN (áp dụng cho ticket import Excel cũ
+// không có 2 nguồn trên).
+function ticketCreatedMs(t) {
+  if (!t) return null;
+  if (t.createdAt && typeof t.createdAt.toMillis === "function") return t.createdAt.toMillis();
+  if (t.createdAt instanceof Date) return t.createdAt.getTime();
+  if (Array.isArray(t.history) && t.history.length) {
+    const earliest = t.history.reduce((min, e) => (e.at && (!min || e.at < min)) ? e.at : min, null);
+    if (earliest) return earliest;
+  }
+  const m = /^IT-(\d{4})(\d{2})(\d{2})-/.exec(t.ticketId || "");
+  if (m) {
+    const ms = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime();
+    if (!isNaN(ms)) return ms;
+  }
+  return null;
+}
+// Số ngày đã trôi qua từ lúc tạo ticket đến hôm nay (làm tròn xuống theo
+// ngày lịch, không phải 24h chẵn, để "tạo sáng nay" hiện đúng 0 ngày).
+function ticketAgeDays(t) {
+  const ms = ticketCreatedMs(t);
+  if (!ms) return null;
+  const start = new Date(ms); start.setHours(0, 0, 0, 0);
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((now - start) / 86400000));
+}
+// Badge hiển thị số ngày — đổi màu theo độ trễ để nhận ra ngay ticket nào
+// đang bị "ngâm" lâu chưa xử lý. Ticket đã "Hoàn thành" hiện màu trung
+// tính (không cần cảnh báo nữa) thay vì đỏ.
+function ticketAgeBadge(t) {
+  const days = ticketAgeDays(t);
+  if (days === null) return "";
+  const label = days === 0 ? tr("ticket.ageToday") : tr("ticket.ageDays", { days });
+  if ((t.status || "Chờ") === "Hoàn thành") return `<span class="badge">🕓 ${escapeHtml(label)}</span>`;
+  let cls = "info";
+  if (days >= 14) cls = "bad";
+  else if (days >= 7) cls = "warn";
+  else if (days >= 3) cls = "info";
+  else cls = "ok";
+  return `<span class="badge ${cls}">🕓 ${escapeHtml(label)}</span>`;
+}
+
 function ensureTicketPdfReportStyles() {
   if ($("tpdfReportStyles")) return;
   const style = document.createElement("style");
@@ -2252,6 +2299,7 @@ function renderTicketList() {
   const q = ($("ticketSearch").value || "").trim().toLowerCase();
   const statusF = $("filterTicketStatus").value;
   const prioF = $("filterTicketPriority").value;
+  const sortF = $("filterTicketSort") ? $("filterTicketSort").value : "";
 
   let list = ticketRecords.slice().sort((a, b) => (b.ticketId || "").localeCompare(a.ticketId || ""));
   if (q) {
@@ -2261,6 +2309,14 @@ function renderTicketList() {
   }
   if (statusF) list = list.filter(t => (t.status || "Chờ") === statusF);
   if (prioF) list = list.filter(t => (t.priority || "Trung bình") === prioF);
+  // Sắp xếp theo số ngày đã mở — ticket không xác định được ngày tạo (rất
+  // hiếm, chỉ ticket import cũ thiếu cả history lẫn đúng định dạng Mã) bị
+  // đẩy xuống cuối thay vì làm lệch thứ tự các ticket còn lại.
+  if (sortF === "oldestFirst") {
+    list.sort((a, b) => (ticketCreatedMs(b) ? 0 : 1) - (ticketCreatedMs(a) ? 0 : 1) || (ticketCreatedMs(a) || Infinity) - (ticketCreatedMs(b) || Infinity));
+  } else if (sortF === "newestFirst") {
+    list.sort((a, b) => (ticketCreatedMs(b) || 0) - (ticketCreatedMs(a) || 0));
+  }
 
   if (!list.length) {
     $("ticketList").innerHTML = `<div class="empty">${tr("tickets.noneFound")}</div>`;
@@ -2293,6 +2349,7 @@ function renderTicketList() {
         <div class="muted">${escapeHtml(t.description || "")}</div>
         <span class="badge ${ticketBadgeClass(t.status)}">${escapeHtml(ticketStatusLabel(t.status))}</span>
         <span class="prio-badge prio-${prioritySlug(t.priority)}">${escapeHtml(ticketPriorityLabel(t.priority || "Trung bình"))}</span>
+        ${ticketAgeBadge(t)}
         ${(t.linkedTicketIds && t.linkedTicketIds.length) ? t.linkedTicketIds.map((lid, i) => {
           const code = (t.linkedTicketCodes && t.linkedTicketCodes[i]) || lid;
           return `<span class="badge recur-badge" style="cursor:pointer" title="${tr("linked.view")}" onclick="event.stopPropagation();editTicket('${lid}')">🔁 ${escapeHtml(code)}</span>`;
@@ -2313,6 +2370,7 @@ function renderTicketList() {
 $("ticketSearch").addEventListener("input", renderTicketList);
 $("filterTicketStatus").addEventListener("change", renderTicketList);
 $("filterTicketPriority").addEventListener("change", renderTicketList);
+if ($("filterTicketSort")) $("filterTicketSort").addEventListener("change", renderTicketList);
 
 /* ---------- Autocomplete: Mã nhân viên / Người yêu cầu / Phòng ban / Liên kết tài sản ---------- */
 setupAutocomplete("ticketEmployeeCode", "ticketEmployeeCodeSuggest",
