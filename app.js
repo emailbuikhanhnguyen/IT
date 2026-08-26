@@ -2724,13 +2724,8 @@ function normalizeTicketEnum(value, aliasMap, fallback) {
   return aliasMap[key] || fallback;
 }
 
-// Tô vàng toàn bộ dòng có Trạng thái = "Đang xử lý" khi xuất Excel, để dễ
-// nhận ra ngay những ticket còn đang mở giữa danh sách dài. Dùng thư viện
-// xlsx-js-style (thay cho xlsx bản community) vì bản community không ghi
-// được style (màu nền) ra file .xlsx.
-const TICKET_ROW_HIGHLIGHT_STATUS = "Đang xử lý";
-const TICKET_ROW_HIGHLIGHT_FILL = { fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } } };
-
+// Xuất Excel: KHÔNG tô vàng dòng "Đang xử lý" nữa (bỏ theo yêu cầu). Bật
+// sẵn AutoFilter cho toàn bộ bảng + chỉnh độ rộng cột hợp lý hơn để dễ đọc.
 $("exportTicketsXlsx").addEventListener("click", () => {
   if (!ticketRecords.length) { alert(tr("msg.noTicketDataExport")); return; }
   const sorted = ticketRecords.slice().sort((a, b) => (a.ticketId || "").localeCompare(b.ticketId || ""));
@@ -2740,15 +2735,9 @@ $("exportTicketsXlsx").addEventListener("click", () => {
     return row;
   });
   const ws = XLSX.utils.json_to_sheet(rows);
-  sorted.forEach((t, i) => {
-    if (t.status !== TICKET_ROW_HIGHLIGHT_STATUS) return;
-    const r = i + 1; // hàng 0 là header
-    TICKET_COLUMNS.forEach((c, colIdx) => {
-      const addr = XLSX.utils.encode_cell({ r, c: colIdx });
-      if (!ws[addr]) ws[addr] = { t: "s", v: "" };
-      ws[addr].s = TICKET_ROW_HIGHLIGHT_FILL;
-    });
-  });
+  ws["!cols"] = TICKET_COLUMNS.map(c => (c === "ticketId" ? { wch: 22 } : { wch: 18 }));
+  ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: TICKET_COLUMNS.length - 1 } }) };
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Tickets");
   const ts = new Date().toISOString().slice(0, 10);
