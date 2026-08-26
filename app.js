@@ -1103,8 +1103,8 @@ function resizeImage(file, maxDim = 900, quality = 0.7) {
     reader.readAsDataURL(file);
   });
 }
-$("takePhoto").addEventListener("click", () => $("photo").click());
-$("photo").addEventListener("change", async e => {
+$("takePhoto").addEventListener("click", () => $("photoCamera").click());
+async function handlePhotoFileChange(e) {
   const file = e.target.files[0];
   if (!file) return;
   try {
@@ -1116,7 +1116,9 @@ $("photo").addEventListener("change", async e => {
     alert(tr("msg.errReadImage", { err: err.message }));
   }
   e.target.value = "";
-});
+}
+$("photo").addEventListener("change", handlePhotoFileChange);
+$("photoCamera").addEventListener("change", handlePhotoFileChange);
 
 /* ---------- PowerShell helper + autofill ---------- */
 const PS_SCRIPT = `# get-info.ps1 - Dán kết quả vào ô "Dán thông tin máy"
@@ -2614,8 +2616,8 @@ $("ticketFormEl").addEventListener("submit", e => {
 });
 
 /* ---------- Camera / photo (ticket) ---------- */
-$("ticketTakePhoto").addEventListener("click", () => $("ticketPhoto").click());
-$("ticketPhoto").addEventListener("change", async e => {
+$("ticketTakePhoto").addEventListener("click", () => $("ticketPhotoCamera").click());
+async function handleTicketPhotoFileChange(e) {
   const file = e.target.files[0];
   if (!file) return;
   try {
@@ -2627,7 +2629,9 @@ $("ticketPhoto").addEventListener("change", async e => {
     alert(tr("msg.errReadImage", { err: err.message }));
   }
   e.target.value = "";
-});
+}
+$("ticketPhoto").addEventListener("change", handleTicketPhotoFileChange);
+$("ticketPhotoCamera").addEventListener("change", handleTicketPhotoFileChange);
 
 /* ---------- Excel export/import (Ticket) ----------
    Cột khớp với cấu trúc file Helpdesk_IT.xlsx (sheet "Tickets") để import

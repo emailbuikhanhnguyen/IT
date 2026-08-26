@@ -176,7 +176,8 @@
 
     <div class="camera-grid">
       <button type="button" id="takePhoto" data-i18n="camera.takePhoto">📷 Chụp ảnh thiết bị</button>
-      <label class="button secondary"><span data-i18n="camera.choosePhoto">🖼 Chọn ảnh</span><input id="photo" type="file" accept="image/*" capture="environment" hidden></label>
+      <input id="photoCamera" type="file" accept="image/*" capture="environment" hidden>
+      <label class="button secondary"><span data-i18n="camera.choosePhoto">🖼 Chọn ảnh</span><input id="photo" type="file" accept="image/*" hidden></label>
     </div>
     <img id="photoPreview" class="preview hidden">
 
@@ -356,7 +357,8 @@
 
     <div class="camera-grid">
       <button type="button" id="ticketTakePhoto" data-i18n="camera.takePhotoTicket">📷 Chụp ảnh hiện trạng</button>
-      <label class="button secondary"><span data-i18n="camera.choosePhoto">🖼 Chọn ảnh</span><input id="ticketPhoto" type="file" accept="image/*" capture="environment" hidden></label>
+      <input id="ticketPhotoCamera" type="file" accept="image/*" capture="environment" hidden>
+      <label class="button secondary"><span data-i18n="camera.choosePhoto">🖼 Chọn ảnh</span><input id="ticketPhoto" type="file" accept="image/*" hidden></label>
     </div>
     <img id="ticketPhotoPreview" class="preview hidden">
 
