@@ -2955,6 +2955,174 @@ function openPendingScanCodeAsset() {
   tryOpen();
 }
 
+/* ---------- Chuyển đổi báo cáo Word (.docx) -> ảnh JPG ----------
+   Hoàn toàn chạy trên thiết bị (không upload file lên server nào):
+   mammoth.js đọc nội dung .docx thành HTML, dựng lại trong 1 khung ẩn
+   có bề rộng cố định theo khổ giấy, html2canvas chụp thành 1 canvas dài,
+   rồi cắt thành từng "trang" theo ranh giới các khối nội dung (không cắt
+   ngang 1 ảnh/bảng) để xuất JPG.
+   Lưu ý: đây là ngắt trang ước lượng (không phải công cụ dàn trang chuẩn
+   của Word — số trang JPG có thể không khớp 100% số trang gốc, nhất là
+   với văn bản nhiều chữ chảy liên tục) — chỉ hỗ trợ .docx (không đọc
+   được .doc cũ vì đó là định dạng nhị phân khác, cần Save As sang .docx
+   trước). */
+const REPORT_PAGE_SIZES = {
+  a4: { w: 794, h: 1123 },
+  letter: { w: 816, h: 1056 }
+};
+let reportPages = [];       // [{ dataUrl, index }]
+let reportSourceName = "report";
+
+async function convertReportFile(file) {
+  if (!file) return;
+  const lower = file.name.toLowerCase();
+  if (lower.endsWith(".doc") && !lower.endsWith(".docx")) {
+    alert(tr("report.oldDocError"));
+    return;
+  }
+  if (typeof mammoth === "undefined") {
+    alert(tr("report.libMissing"));
+    return;
+  }
+  const btnLabel = $("reportFile").closest("label");
+  const statusEl = $("reportStatus");
+  if (btnLabel) btnLabel.classList.add("hidden");
+  statusEl.classList.remove("hidden");
+  statusEl.textContent = tr("report.converting");
+
+  let container = null;
+  try {
+    reportSourceName = file.name.replace(/\.[^.]+$/, "");
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.convertToHtml(
+      { arrayBuffer },
+      { convertImage: mammoth.images.imgElement(img =>
+          img.read("base64").then(b64 => ({ src: "data:" + img.contentType + ";base64," + b64 }))
+        )
+      }
+    );
+
+    const sizeKey = $("reportPageSize").value || "a4";
+    const size = REPORT_PAGE_SIZES[sizeKey] || REPORT_PAGE_SIZES.a4;
+    const quality = (parseInt($("reportQuality").value, 10) || 85) / 100;
+    const scale = 2; // độ nét ảnh xuất ra (@2x)
+
+    container = document.createElement("div");
+    container.className = "report-render-box";
+    container.style.position = "fixed";
+    container.style.left = "-99999px";
+    container.style.top = "0";
+    container.style.width = size.w + "px";
+    container.style.padding = "40px";
+    container.style.fontFamily = "'Times New Roman', serif";
+    container.style.fontSize = "14px";
+    container.style.lineHeight = "1.5";
+    container.innerHTML = result.value;
+    document.body.appendChild(container);
+
+    // Chờ ảnh nhúng trong file (nếu có) load xong trước khi chụp
+    const imgs = Array.from(container.querySelectorAll("img"));
+    await Promise.all(imgs.map(img => img.complete
+      ? Promise.resolve()
+      : new Promise(res => { img.onload = img.onerror = res; })));
+
+    // Tính điểm ngắt trang theo ranh giới các khối nội dung cấp 1 (thẻ
+    // <p>/<table>/... con trực tiếp của container) — KHÔNG cắt cứng theo
+    // pixel, để tránh cắt ngang 1 ảnh hoặc 1 bảng làm đôi. Nếu 1 khối tự
+    // nó đã cao hơn 1 trang (vd 1 ảnh rất lớn) thì đành để nguyên khối đó
+    // thành 1 "trang" dài hơn khổ giấy chuẩn — không còn cách nào khác nếu
+    // không được phép cắt ngang khối.
+    const pageHeightCss = size.h;
+    const children = Array.from(container.children);
+    const breakPointsCss = [0];
+    let pageStartCss = 0;
+    children.forEach(el => {
+      const top = el.offsetTop;
+      const bottom = top + el.offsetHeight;
+      if (bottom - pageStartCss > pageHeightCss && top > pageStartCss) {
+        breakPointsCss.push(top);
+        pageStartCss = top;
+      }
+    });
+    breakPointsCss.push(container.scrollHeight);
+
+    const fullCanvas = await html2canvas(container, {
+      scale, useCORS: true, backgroundColor: "#ffffff"
+    });
+
+    reportPages = [];
+    for (let i = 0; i < breakPointsCss.length - 1; i++) {
+      const yStart = Math.round(breakPointsCss[i] * scale);
+      const yEnd = Math.round(Math.min(breakPointsCss[i + 1] * scale, fullCanvas.height));
+      const h = yEnd - yStart;
+      if (h <= 0) continue;
+      const pageCanvas = document.createElement("canvas");
+      pageCanvas.width = fullCanvas.width;
+      pageCanvas.height = h;
+      const ctx = pageCanvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, pageCanvas.width, h);
+      ctx.drawImage(fullCanvas, 0, yStart, fullCanvas.width, h, 0, 0, fullCanvas.width, h);
+      reportPages.push({ dataUrl: pageCanvas.toDataURL("image/jpeg", quality), index: reportPages.length + 1 });
+    }
+    if (reportPages.length === 0) {
+      reportPages.push({ dataUrl: fullCanvas.toDataURL("image/jpeg", quality), index: 1 });
+    }
+    renderReportPages();
+    toast(tr("report.done", { n: totalPages }));
+  } catch (e) {
+    console.error(e);
+    alert(tr("report.convertError") + (e && e.message ? (": " + e.message) : ""));
+  } finally {
+    if (container && container.parentNode) container.parentNode.removeChild(container);
+    statusEl.classList.add("hidden");
+    if (btnLabel) btnLabel.classList.remove("hidden");
+    $("reportFile").value = "";
+  }
+}
+
+function renderReportPages() {
+  const grid = $("reportPagesGrid");
+  grid.innerHTML = "";
+  reportPages.forEach(p => {
+    const card = document.createElement("div");
+    card.className = "report-page-card";
+    const img = document.createElement("img");
+    img.className = "report-page-thumb";
+    img.src = p.dataUrl;
+    img.alt = tr("reportConvert.pageLabel", { n: p.index });
+    const link = document.createElement("a");
+    link.className = "button secondary";
+    link.href = p.dataUrl;
+    link.download = `${reportSourceName}-trang${String(p.index).padStart(2, "0")}.jpg`;
+    link.textContent = tr("reportConvert.downloadPage", { n: p.index });
+    card.appendChild(img);
+    card.appendChild(link);
+    grid.appendChild(card);
+  });
+  $("reportPagesSection").classList.toggle("hidden", reportPages.length === 0);
+  $("reportDownloadAllBtn").classList.toggle("hidden", reportPages.length === 0);
+}
+
+if ($("reportFile")) {
+  $("reportFile").addEventListener("change", e => convertReportFile(e.target.files[0]));
+}
+if ($("reportDownloadAllBtn")) {
+  $("reportDownloadAllBtn").addEventListener("click", () => {
+    // Trình duyệt thường chặn nhiều download cùng lúc -> giãn cách nhẹ
+    reportPages.forEach((p, idx) => {
+      setTimeout(() => {
+        const a = document.createElement("a");
+        a.href = p.dataUrl;
+        a.download = `${reportSourceName}-trang${String(p.index).padStart(2, "0")}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, idx * 350);
+    });
+  });
+}
+
 auth.onAuthStateChanged(async user => {
   if (user) {
     $("loginScreen").classList.add("hidden");

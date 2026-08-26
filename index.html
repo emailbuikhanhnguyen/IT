@@ -228,6 +228,10 @@
       <span class="module-nav-text"><b data-i18n="nav.guides">Hướng dẫn kỹ thuật</b><small data-i18n="nav.guides.desc">Tài liệu, cách xử lý sự cố thường gặp</small></span>
       <span class="module-nav-soon" data-i18n="common.soon">Sắp có</span>
     </button>
+    <button class="module-nav-item" data-page="reportConvert">
+      <span class="module-nav-icon">🖨️</span>
+      <span class="module-nav-text"><b data-i18n="nav.reportConvert">Chuyển đổi báo cáo</b><small data-i18n="nav.reportConvert.desc">Word (.docx) → ảnh JPG từng trang</small></span>
+    </button>
     <button class="module-nav-item" data-page="network">
       <span class="module-nav-icon">🌐</span>
       <span class="module-nav-text"><b data-i18n="nav.network">Network</b><small data-i18n="nav.network.desc">Sơ đồ mạng, IP, switch/port, wifi</small></span>
@@ -250,6 +254,33 @@
     </button>
   </div>
   <p class="hint" style="margin-top:12px" data-i18n="ops.footerHint">💡 Định hướng: mọi yêu cầu công việc đều tạo thành 1 Ticket — sau này Ticket sẽ liên kết trực tiếp tới Nhân viên, PO và Quy trình (SOP) liên quan để tra cứu nhanh hơn.</p>
+</section>
+
+<section id="reportConvert" class="page">
+  <div class="section-head"><h2 data-i18n="reportConvert.title">🖨️ Chuyển đổi báo cáo (Word → JPG)</h2><button data-page="ops">←</button></div>
+  <p class="hint" data-i18n="reportConvert.hint">Tải lên file Word (.docx) — hệ thống dựng lại nội dung ngay trên điện thoại/máy tính (không cần mạng, không gửi file lên server) và xuất ra ảnh JPG cho từng trang để dễ gửi Zalo/in/lưu. Chỉ đọc được file .docx (Word mới). Với file .doc cũ (như báo cáo QA scan/test report), mở lại bằng Microsoft Word rồi "Save As" sang .docx trước khi tải lên.</p>
+  <div class="card">
+    <label><span data-i18n="reportConvert.pageSize">Khổ giấy</span>
+      <select id="reportPageSize">
+        <option value="a4" data-i18n="reportConvert.a4">A4</option>
+        <option value="letter" data-i18n="reportConvert.letter">Letter</option>
+      </select>
+    </label>
+    <label><span data-i18n="reportConvert.quality">Chất lượng ảnh JPG</span>
+      <select id="reportQuality">
+        <option value="70">70%</option>
+        <option value="85" selected>85%</option>
+        <option value="95">95%</option>
+      </select>
+    </label>
+    <label class="button secondary"><span data-i18n="reportConvert.choose">📄 Chọn file Word (.docx)</span><input id="reportFile" type="file" accept=".docx" hidden></label>
+    <p id="reportStatus" class="hint hidden" data-i18n="report.converting">⏳ Đang chuyển đổi…</p>
+  </div>
+  <div id="reportPagesSection" class="card hidden">
+    <h3 data-i18n="reportConvert.resultTitle">Kết quả</h3>
+    <button id="reportDownloadAllBtn" class="hidden" data-i18n="reportConvert.downloadAll">⬇ Tải tất cả các trang</button>
+    <div id="reportPagesGrid" class="report-pages-grid"></div>
+  </div>
 </section>
 
 <section id="tickets" class="page">
@@ -516,6 +547,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>

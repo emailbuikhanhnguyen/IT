@@ -234,6 +234,28 @@ file đánh số tay), app tự thêm hậu tố (VD: "IT-20260817-001-2") cho d
 trùng để không mất dữ liệu; sau khi import nên vào sửa lại Mã cho gọn nếu
 muốn.
 
+## Chuyển đổi báo cáo (Word → JPG)
+Mục **🖨️ Chuyển đổi báo cáo** trong **🛠 Vận hành & Hỗ trợ IT** cho phép tải
+lên 1 file Word (**chỉ .docx** — Word mới) và xuất ra ảnh JPG cho từng
+trang, để dễ gửi Zalo/in/lưu thay vì gửi nguyên file Word.
+
+- Chạy **hoàn toàn trên thiết bị** (điện thoại/máy tính): không upload
+  file lên server nào, không cần tài khoản, không cần mạng sau lần đầu
+  tải thư viện (dùng `mammoth.js` để đọc nội dung .docx + `html2canvas`
+  có sẵn trong app để chụp thành ảnh).
+- Có thể chọn khổ giấy (A4/Letter) và chất lượng ảnh JPG trước khi
+  chuyển đổi.
+- **Giới hạn quan trọng — chỉ đọc được `.docx`, không đọc được `.doc` cũ**
+  (định dạng nhị phân đời cũ, ví dụ nhiều báo cáo QA/test report export
+  từ hệ thống cũ hay ở dạng này). Nếu có file `.doc`, mở bằng Microsoft
+  Word rồi **"Save As" → "Word Document (.docx)"** trước khi tải lên app.
+- Việc ngắt trang là **ước lượng theo chiều cao pixel** (dựng nội dung
+  thành 1 khối dài rồi cắt theo đúng chiều cao khổ giấy đã chọn), không
+  phải công cụ dàn trang chuẩn của Word — với file có bảng biểu/ảnh phức
+  tạp (như test report), mép cắt giữa 2 trang có thể không đẹp như file
+  gốc. Với báo cáo cần đúng y hệt bản gốc (có chữ ký, con dấu ở vị trí cố
+  định...), vẫn nên ưu tiên in/scan trực tiếp từ Word hoặc PDF.
+
 ## Quy trình thực tế
 1. Import danh sách Lab nếu đã có.
 2. Hoặc tạo từng tài sản khi kiểm kê.
