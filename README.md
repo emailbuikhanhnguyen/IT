@@ -193,6 +193,14 @@ dùng bản rules cũ chưa có collection này).
 - Liên kết tài sản (tuỳ chọn) — gõ mã/tên người dùng để tìm và chọn 1 tài
   sản đã có trong app; chọn xong tự điền hộ Thiết bị/Phòng ban/Mã nhân viên
   nếu đang trống. Gõ tay đè lên ô này sẽ hủy liên kết cũ.
+  **Chiều ngược lại:** chọn/điền xong Mã nhân viên (hoặc chọn Người yêu
+  cầu — cả hai đều suy ra Mã NV), app tự dò trong danh sách tài sản đã
+  kiểm kê xem nhân viên đó đang được gán máy nào (theo Mã nhân viên lưu
+  trên tài sản): đúng 1 máy thì tự điền luôn ô Liên kết tài sản (và
+  Thiết bị nếu đang trống); nhiều hơn 1 máy thì hiện sẵn danh sách các
+  máy đó ngay trong ô Liên kết tài sản để bấm chọn đúng cái đang cần.
+  Việc này bỏ qua nếu ô Liên kết tài sản đã có sẵn 1 liên kết từ trước
+  (để không ghi đè lựa chọn đã chọn tay).
 - Thiết bị — mô tả tự do (không bắt buộc phải là tài sản đã kiểm kê).
 - Mô tả, Nguyên nhân, Cách xử lý, Ghi chú.
 - Ảnh hiện trạng (chụp trực tiếp hoặc chọn ảnh có sẵn).

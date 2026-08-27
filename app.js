@@ -2373,6 +2373,41 @@ $("filterTicketPriority").addEventListener("change", renderTicketList);
 if ($("filterTicketSort")) $("filterTicketSort").addEventListener("change", renderTicketList);
 
 /* ---------- Autocomplete: Mã nhân viên / Người yêu cầu / Phòng ban / Liên kết tài sản ---------- */
+// Sau khi biết Mã nhân viên (chọn tay hoặc auto-fill do gõ trùng duy nhất 1
+// người), dò trong danh sách tài sản (kiểm kê) xem nhân viên đó đang được
+// gán tài sản nào (asset.employeeCode) để tự điền/gợi ý Liên kết tài sản:
+// - Đang có sẵn 1 liên kết rồi (ticketAssetId đã điền) thì không đụng vào,
+//   tránh ghi đè lựa chọn người dùng đã tự chọn trước đó.
+// - Khớp đúng 1 tài sản: tự điền luôn ô Liên kết tài sản (và Thiết bị nếu
+//   đang trống), giống hệt như khi tự bấm chọn tài sản đó.
+// - Khớp nhiều tài sản (1 người có thể được gán nhiều máy): không tự đoán —
+//   hiện sẵn danh sách các tài sản đó ngay trong ô Liên kết tài sản để bấm
+//   chọn đúng cái đang cần, không phải gõ lại từ đầu.
+function autoLinkAssetByEmployeeCode(code) {
+  const c = (code || "").trim().toLowerCase();
+  if (!c || $("ticketAssetId").value) return;
+  const matched = assets.filter(a => (a.employeeCode || "").trim().toLowerCase() === c);
+  if (!matched.length) return;
+  const applyAsset = a => {
+    $("ticketAsset").value = a.code;
+    $("ticketAssetId").value = a._id;
+    if (!$("ticketDevice").value.trim()) $("ticketDevice").value = [a.type, a.model].filter(Boolean).join(" - ");
+  };
+  if (matched.length === 1) { applyAsset(matched[0]); return; }
+  const box = $("ticketAssetSuggest");
+  box.innerHTML = matched.slice(0, 20).map((a, i) =>
+    `<div class="suggest-item" data-idx="${i}">${escapeHtml(a.code)}<span class="muted">${escapeHtml(a.type || "")}${a.model ? " · " + escapeHtml(a.model) : ""}${a.user ? " · " + escapeHtml(a.user) : ""}</span></div>`
+  ).join("");
+  box.querySelectorAll(".suggest-item[data-idx]").forEach(el => {
+    el.addEventListener("mousedown", ev => {
+      ev.preventDefault();
+      applyAsset(matched[Number(el.getAttribute("data-idx"))]);
+      box.classList.add("hidden");
+      box.innerHTML = "";
+    });
+  });
+  box.classList.remove("hidden");
+}
 setupAutocomplete("ticketEmployeeCode", "ticketEmployeeCodeSuggest",
   q => filterEmployeesBy("code", q, 200),
   e => `${escapeHtml(e.code)}<span class="muted">${escapeHtml(e.name)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
@@ -2380,6 +2415,7 @@ setupAutocomplete("ticketEmployeeCode", "ticketEmployeeCodeSuggest",
     $("ticketEmployeeCode").value = e.code;
     $("ticketRequester").value = e.name;
     $("ticketDepartment").value = e.section || "";
+    autoLinkAssetByEmployeeCode(e.code);
   },
   { autoFillMinChars: 3 }
 );
@@ -2390,9 +2426,13 @@ setupAutocomplete("ticketRequester", "ticketRequesterSuggest",
     $("ticketRequester").value = e.name;
     $("ticketEmployeeCode").value = e.code;
     $("ticketDepartment").value = e.section || "";
+    autoLinkAssetByEmployeeCode(e.code);
   },
   { autoFillMinChars: 3 }
 );
+// Trường hợp gõ tay hẳn Mã nhân viên rồi rời khỏi ô (không qua gợi ý autocomplete
+// ở trên, ví dụ dán nguyên mã từ nơi khác) — vẫn dò tài sản đang gán khi rời ô.
+$("ticketEmployeeCode").addEventListener("blur", () => setTimeout(() => autoLinkAssetByEmployeeCode($("ticketEmployeeCode").value), 130));
 setupAutocomplete("ticketDepartment", "ticketDepartmentSuggest",
   q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 100).map(v => ({ value: v })),
   it => escapeHtml(it.value),
