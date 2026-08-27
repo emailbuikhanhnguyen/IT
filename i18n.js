@@ -112,6 +112,8 @@ const I18N = {
     "status.inUse": "Đang sử dụng",
     "status.spare": "Dự phòng",
     "status.broken": "Hỏng",
+    "status.inStorage": "Lưu kho",
+    "status.reclaimed": "Thu hồi",
     "status.lost": "Mất",
     "status.disposed": "Thanh lý",
 
@@ -599,6 +601,8 @@ const I18N = {
     "status.inUse": "In use",
     "status.spare": "Spare",
     "status.broken": "Broken",
+    "status.inStorage": "In storage",
+    "status.reclaimed": "Reclaimed",
     "status.lost": "Lost",
     "status.disposed": "Disposed",
 
@@ -1085,6 +1089,8 @@ const I18N = {
     "status.inUse": "使用中",
     "status.spare": "备用",
     "status.broken": "损坏",
+    "status.inStorage": "库存",
+    "status.reclaimed": "已收回",
     "status.lost": "丢失",
     "status.disposed": "已报废",
 

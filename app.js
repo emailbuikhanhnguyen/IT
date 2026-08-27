@@ -95,7 +95,8 @@ const CHECK_LABEL_KEY = {
 function checkLabel(status) { return CHECK_LABEL_KEY[status] ? tr(CHECK_LABEL_KEY[status]) : (status || tr("check.unchecked")); }
 const STATUS_LABEL_KEY = {
   "Tốt": "status.good", "Đang sử dụng": "status.inUse", "Dự phòng": "status.spare",
-  "Hỏng": "status.broken", "Mất": "status.lost", "Thanh lý": "status.disposed"
+  "Hỏng": "status.broken", "Lưu kho": "status.inStorage", "Thu hồi": "status.reclaimed",
+  "Mất": "status.lost", "Thanh lý": "status.disposed"
 };
 function statusLabel(status) { return STATUS_LABEL_KEY[status] ? tr(STATUS_LABEL_KEY[status]) : status; }
 const TICKET_STATUS_LABEL_KEY = { "Chờ": "ticket.status.pending", "Đang xử lý": "ticket.status.inProgress", "Hoàn thành": "ticket.status.done" };
@@ -1445,7 +1446,7 @@ const PDF_PALETTE = {
   amber: "#d97706", amberBg: "#fef3c7", red: "#dc2626", redBg: "#fee2e2"
 };
 const PDF_CHART_COLORS = ["#2563eb", "#0ea5e9", "#7c3aed", "#16a34a", "#f59e0b", "#dc2626", "#0f766e", "#db2777", "#64748b", "#84cc16"];
-const PDF_STATUS_COLORS = { "Tốt": "#16a34a", "Đang sử dụng": "#2563eb", "Dự phòng": "#0ea5e9", "Hỏng": "#dc2626", "Mất": "#7c2d12", "Thanh lý": "#94a3b8" };
+const PDF_STATUS_COLORS = { "Tốt": "#16a34a", "Đang sử dụng": "#2563eb", "Dự phòng": "#0ea5e9", "Hỏng": "#dc2626", "Lưu kho": "#a16207", "Thu hồi": "#9333ea", "Mất": "#7c2d12", "Thanh lý": "#94a3b8" };
 
 function ensurePdfReportStyles() {
   if ($("pdfReportStyles")) return;
