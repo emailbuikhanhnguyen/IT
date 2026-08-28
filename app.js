@@ -1044,9 +1044,10 @@ function fillFormFromAsset(a) {
   // tìm thấy phần "BanQuyen:" thì để ô Bản quyền trống như bình thường.
   let winInfoVal = a.winInfo || "";
   let licenseVal = a.license || "";
-  if (!licenseVal) {
-    const m = /^(.*?)\s*\|\s*BanQuyen\s*:\s*(.*)$/i.exec(winInfoVal);
-    if (m) { winInfoVal = m[1].trim(); licenseVal = m[2].trim(); }
+  const mBanQuyen = /^(.*?)\s*\|\s*BanQuyen\s*:\s*(.*)$/i.exec(winInfoVal);
+  if (mBanQuyen) {
+    winInfoVal = mBanQuyen[1].trim();
+    if (!licenseVal) licenseVal = mBanQuyen[2].trim();
   }
   $("winInfo").value = winInfoVal;
   $("license").value = licenseVal;
