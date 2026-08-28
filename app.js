@@ -1247,6 +1247,16 @@ $displayVer = (Get-ItemProperty $verKey -Name DisplayVersion -ErrorAction Silent
 $ubr = (Get-ItemProperty $verKey -Name UBR -ErrorAction SilentlyContinue).UBR
 $edition = ($os.Caption -replace 'Microsoft ', '').Trim()
 $winInfo = "$edition $displayVer (Build $($os.BuildNumber).$ubr)"
+$licProduct = Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" -ErrorAction SilentlyContinue | Select-Object -First 1
+$licStatusMap = @{0='Chua kich hoat';1='Da kich hoat';2='Grace (OOB)';3='Grace (OOT)';4='Grace (Non-Genuine)';5='Notification';6='Grace (Extended)'}
+if ($licProduct) {
+  $licStatusText = if ($licStatusMap.ContainsKey([int]$licProduct.LicenseStatus)) { $licStatusMap[[int]$licProduct.LicenseStatus] } else { "Khong xac dinh ($($licProduct.LicenseStatus))" }
+  $licChannel = $licProduct.ProductKeyChannel
+  $banQuyen = if ($licChannel) { "$licStatusText - $licChannel" } else { $licStatusText }
+} else {
+  $banQuyen = "Khong tim thay thong tin ban quyen"
+}
+$winInfo = "$winInfo | BanQuyen: $banQuyen"
 $active = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
 $ipParts = @()
 $macParts = @()
@@ -1292,6 +1302,16 @@ $displayVer = (Get-ItemProperty $verKey -Name DisplayVersion -ErrorAction Silent
 $ubr = (Get-ItemProperty $verKey -Name UBR -ErrorAction SilentlyContinue).UBR
 $edition = ($os.Caption -replace 'Microsoft ', '').Trim()
 $winInfo = "$edition $displayVer (Build $($os.BuildNumber).$ubr)"
+$licProduct = Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" -ErrorAction SilentlyContinue | Select-Object -First 1
+$licStatusMap = @{0='Chua kich hoat';1='Da kich hoat';2='Grace (OOB)';3='Grace (OOT)';4='Grace (Non-Genuine)';5='Notification';6='Grace (Extended)'}
+if ($licProduct) {
+  $licStatusText = if ($licStatusMap.ContainsKey([int]$licProduct.LicenseStatus)) { $licStatusMap[[int]$licProduct.LicenseStatus] } else { "Khong xac dinh ($($licProduct.LicenseStatus))" }
+  $licChannel = $licProduct.ProductKeyChannel
+  $banQuyen = if ($licChannel) { "$licStatusText - $licChannel" } else { $licStatusText }
+} else {
+  $banQuyen = "Khong tim thay thong tin ban quyen"
+}
+$winInfo = "$winInfo | BanQuyen: $banQuyen"
 $active = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
 $ipParts = @()
 $macParts = @()

@@ -15,6 +15,23 @@ python -m http.server 8080 --bind 0.0.0.0
 
 Camera thường yêu cầu secure context. Nếu Android không mở camera qua HTTP LAN, dùng HTTPS/local secure hosting.
 
+## Thông tin bản quyền Windows
+Cả 2 lệnh PowerShell lấy thông tin máy (nút "📋 Copy lệnh PowerShell" và nút
+tạo QR cho máy offline) giờ tự kiểm tra thêm **tình trạng bản quyền Windows**
+bằng `Get-CimInstance SoftwareLicensingProduct` (không cần quyền Admin, không
+cần mạng) và nối thêm vào cuối trường **Thông tin Windows** theo dạng:
+`<Edition> <Version> (Build ...) | BanQuyen: <Trang thai> - <Kenh kich hoat>`,
+ví dụ `Windows 11 Pro 23H2 (Build 22631.4037) | BanQuyen: Da kich hoat - OEM:NONSLP`.
+
+- **Trạng thái** có thể là: Da kich hoat, Chua kich hoat, hoặc các trạng thái
+  Grace (đang trong thời gian gia hạn/xác minh lại).
+- **Kênh kích hoạt** (`ProductKeyChannel`) cho biết máy dùng bản quyền dạng gì:
+  Retail, OEM:NONSLP (bản quyền theo máy/hãng), Volume:MAK/GVLK (bản quyền
+  công ty), v.v. Nếu máy không có key nào được ghi nhận (VD: build Windows
+  không chính chủ), script sẽ ghi "Khong tim thay thong tin ban quyen".
+- Không cần sửa gì thêm ở form/Excel — thông tin này chỉ là nối thêm text vào
+  ô "Thông tin Windows" có sẵn, tự động đi qua Autofill/QR/Excel như cũ.
+
 ## QR
 QR chứa mã dạng:
 `ITASSET:LAP-AT-0001`
