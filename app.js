@@ -1260,7 +1260,7 @@ if ($licProduct) {
     $maskedKey = "XXXXX-XXXXX-XXXXX-XXXXX-$maskHead$last4"
   }
   $banQuyen = if ($licChannel) { "$licStatusText - $licChannel" } else { $licStatusText }
-  if ($maskedKey) { $banQuyen = "$banQuyen | Key: $maskedKey" }
+  if ($maskedKey -and [int]$licProduct.LicenseStatus -ne 1) { $banQuyen = "$banQuyen | Key: $maskedKey" }
 } else {
   $banQuyen = "Khong tim thay thong tin ban quyen"
 }
@@ -1323,7 +1323,7 @@ if ($licProduct) {
     $maskedKey = "XXXXX-XXXXX-XXXXX-XXXXX-$maskHead$last4"
   }
   $banQuyen = if ($licChannel) { "$licStatusText - $licChannel" } else { $licStatusText }
-  if ($maskedKey) { $banQuyen = "$banQuyen | Key: $maskedKey" }
+  if ($maskedKey -and [int]$licProduct.LicenseStatus -ne 1) { $banQuyen = "$banQuyen | Key: $maskedKey" }
 } else {
   $banQuyen = "Khong tim thay thong tin ban quyen"
 }
