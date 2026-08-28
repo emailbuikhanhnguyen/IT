@@ -126,6 +126,7 @@ function HISTORY_TRACK_FIELDS_FN() { return [
   ["mac", tr("field.mac")],
   ["spec", tr("field.spec")],
   ["winInfo", tr("field.winInfo")],
+  ["license", tr("field.license")],
   ["status", tr("field.status")],
   ["checkStatus", tr("field.checkStatus")],
   ["note", tr("field.note")],
@@ -1038,6 +1039,7 @@ function fillFormFromAsset(a) {
   $("mac").value = a.mac || "";
   $("spec").value = a.spec || "";
   $("winInfo").value = a.winInfo || "";
+  $("license").value = a.license || "";
   $("status").value = a.status || "Tốt";
   $("checkStatus").value = a.checkStatus || CHECK_UNCHECKED;
   $("note").value = a.note || "";
@@ -1108,6 +1110,7 @@ $("assetFormEl").addEventListener("submit", e => {
     mac: $("mac").value.trim(),
     spec: $("spec").value.trim(),
     winInfo: $("winInfo").value.trim(),
+    license: $("license").value.trim(),
     status: $("status").value,
     checkStatus: $("checkStatus").value,
     note: $("note").value.trim(),
@@ -1338,7 +1341,6 @@ if ($licProduct) {
 } else {
   $banQuyen = "Khong tim thay thong tin ban quyen"
 }
-$winInfo = "$winInfo | BanQuyen: $banQuyen"
 $active = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
 $ipParts = @()
 $macParts = @()
@@ -1353,6 +1355,7 @@ Write-Output "MODEL: $($cs.Model)"
 Write-Output "SERIAL: $($bios.SerialNumber)"
 Write-Output "CAUHINH: $($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
 Write-Output "WININFO: $winInfo"
+Write-Output "BANQUYEN: $banQuyen"
 Write-Output "IP: $((($ipParts | Select-Object -Unique)) -join '; ')"
 Write-Output "MAC: $(($macParts) -join '; ')"
 Write-Output "===== HET - COPY DEN DAY ====="`;
@@ -1401,7 +1404,6 @@ if ($licProduct) {
 } else {
   $banQuyen = "Khong tim thay thong tin ban quyen"
 }
-$winInfo = "$winInfo | BanQuyen: $banQuyen"
 $active = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
 $ipParts = @()
 $macParts = @()
@@ -1426,6 +1428,7 @@ $info = [ordered]@{
   SERIAL  = $bios.SerialNumber
   CAUHINH = "$($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
   WININFO = $winInfo
+  BANQUYEN = $banQuyen
   IP      = (($ipParts | Select-Object -Unique) -join '; ')
   MAC     = ($macParts -join '; ')
 }
@@ -1484,7 +1487,7 @@ $("btnAutofill").addEventListener("click", () => {
   const text = $("pasteInfoBox").value;
   if (!text.trim()) { alert(tr("msg.needPasteContent")); return; }
 
-  const map = { TENMAY: "deviceName", MODEL: "model", SERIAL: "serial", CAUHINH: "spec", WININFO: "winInfo", IP: "ip", MAC: "mac" };
+  const map = { TENMAY: "deviceName", MODEL: "model", SERIAL: "serial", CAUHINH: "spec", WININFO: "winInfo", BANQUYEN: "license", IP: "ip", MAC: "mac" };
   let filled = 0;
   text.split("\n").forEach(line => {
     const m = line.match(/^\s*([A-Za-z]+)\s*:\s*(.+)\s*$/);
@@ -1550,6 +1553,7 @@ function onDevInfoScan(b64) {
   $("serial").value = data.SERIAL || "";
   $("spec").value = data.CAUHINH || "";
   $("winInfo").value = data.WININFO || "";
+  $("license").value = data.BANQUYEN || "";
   $("ip").value = data.IP || "";
   $("mac").value = data.MAC || "";
   goPage("assetForm");
@@ -1624,6 +1628,7 @@ const COLUMNS = [
   "mac",          // MAC
   "spec",         // Cấu hình
   "winInfo",      // Thông tin Windows
+  "license",      // Bản quyền
   "status",       // Tình trạng
   "checkStatus",  // Trạng thái kiểm kê
   "note",         // Ghi chú
@@ -1631,7 +1636,7 @@ const COLUMNS = [
 const COLUMN_LABELS_VN = {
   employeeCode: "Mã nhân viên", user: "Người sử dụng", section: "Bộ phận", group: "Tổ/Chuyền",
   code: "Mã tài sản", type: "Loại thiết bị", deviceName: "Tên tài sản", model: "Model", serial: "Serial",
-  ip: "IP", mac: "MAC", spec: "Cấu hình", winInfo: "Thông tin Windows",
+  ip: "IP", mac: "MAC", spec: "Cấu hình", winInfo: "Thông tin Windows", license: "Bản quyền",
   status: "Tình trạng", checkStatus: "Trạng thái kiểm kê", note: "Ghi chú"
 };
 const HEADER_MAP = {};
