@@ -1252,7 +1252,15 @@ $licStatusMap = @{0='Chua kich hoat';1='Da kich hoat';2='Grace (OOB)';3='Grace (
 if ($licProduct) {
   $licStatusText = if ($licStatusMap.ContainsKey([int]$licProduct.LicenseStatus)) { $licStatusMap[[int]$licProduct.LicenseStatus] } else { "Khong xac dinh ($($licProduct.LicenseStatus))" }
   $licChannel = $licProduct.ProductKeyChannel
+  $maskedKey = ""
+  if ($licProduct.PartialProductKey) {
+    $partial = $licProduct.PartialProductKey
+    $last4 = if ($partial.Length -ge 4) { $partial.Substring($partial.Length - 4) } else { $partial }
+    $maskHead = "X" * [Math]::Max(0, $partial.Length - 4)
+    $maskedKey = "XXXXX-XXXXX-XXXXX-XXXXX-$maskHead$last4"
+  }
   $banQuyen = if ($licChannel) { "$licStatusText - $licChannel" } else { $licStatusText }
+  if ($maskedKey) { $banQuyen = "$banQuyen | Key: $maskedKey" }
 } else {
   $banQuyen = "Khong tim thay thong tin ban quyen"
 }
@@ -1307,7 +1315,15 @@ $licStatusMap = @{0='Chua kich hoat';1='Da kich hoat';2='Grace (OOB)';3='Grace (
 if ($licProduct) {
   $licStatusText = if ($licStatusMap.ContainsKey([int]$licProduct.LicenseStatus)) { $licStatusMap[[int]$licProduct.LicenseStatus] } else { "Khong xac dinh ($($licProduct.LicenseStatus))" }
   $licChannel = $licProduct.ProductKeyChannel
+  $maskedKey = ""
+  if ($licProduct.PartialProductKey) {
+    $partial = $licProduct.PartialProductKey
+    $last4 = if ($partial.Length -ge 4) { $partial.Substring($partial.Length - 4) } else { $partial }
+    $maskHead = "X" * [Math]::Max(0, $partial.Length - 4)
+    $maskedKey = "XXXXX-XXXXX-XXXXX-XXXXX-$maskHead$last4"
+  }
   $banQuyen = if ($licChannel) { "$licStatusText - $licChannel" } else { $licStatusText }
+  if ($maskedKey) { $banQuyen = "$banQuyen | Key: $maskedKey" }
 } else {
   $banQuyen = "Khong tim thay thong tin ban quyen"
 }

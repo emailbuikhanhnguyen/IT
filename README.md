@@ -31,6 +31,11 @@ ví dụ `Windows 11 Pro 23H2 (Build 22631.4037) | BanQuyen: Da kich hoat - OEM:
   không chính chủ), script sẽ ghi "Khong tim thay thong tin ban quyen".
 - Không cần sửa gì thêm ở form/Excel — thông tin này chỉ là nối thêm text vào
   ô "Thông tin Windows" có sẵn, tự động đi qua Autofill/QR/Excel như cũ.
+- Script còn nối thêm **Key (đã che, chỉ hiện 4 ký tự cuối)** nếu máy có ghi
+  nhận product key, dạng `XXXXX-XXXXX-XXXXX-XXXXX-XXXX1234` (Windows chỉ lưu
+  và cho đọc được 5 ký tự cuối của key qua WMI vì lý do bảo mật — không có
+  cách nào lấy full 25 ký tự key qua PowerShell thông thường). Nếu máy không
+  ghi nhận key nào, phần Key sẽ không xuất hiện.
 
 ## QR
 QR chứa mã dạng:
