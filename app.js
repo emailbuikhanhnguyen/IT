@@ -471,7 +471,71 @@ $("submitAddUserBtn").addEventListener("click", async () => {
 function renderAll() {
   renderDashboard();
   renderAssetList();
+  renderThisDeviceBanner();
   renderTicketList();
+}
+
+/* ---------- "Thiết bị này" (this device) ----------
+   Mục đích: khi mở app trên 1 PC/laptop bất kỳ, cho phép đánh dấu 1 tài sản
+   là "chính máy đang dùng để mở trình duyệt này". Đánh dấu 1 lần thì trình
+   duyệt đó (localStorage, gắn riêng theo từng máy) sẽ luôn tự nhận ra và
+   hiển thị nổi bật tài sản đó ở đầu danh sách + banner riêng, để vào là thấy
+   ngay, bấm 1 phát để bổ sung/sửa key bản quyền, người dùng, tình trạng...
+   Không dùng API trình duyệt để dò MAC/serial thật vì lý do bảo mật, trình
+   duyệt không cho phép — nên dùng cách đánh dấu thủ công 1 lần, ghi nhớ mãi.
+*/
+const THIS_DEVICE_KEY = "ita_this_device_id";
+function getThisDeviceId() {
+  try { return localStorage.getItem(THIS_DEVICE_KEY) || ""; } catch (e) { return ""; }
+}
+function setThisDeviceId(id) {
+  try { localStorage.setItem(THIS_DEVICE_KEY, id); } catch (e) {}
+}
+function clearThisDeviceId() {
+  try { localStorage.removeItem(THIS_DEVICE_KEY); } catch (e) {}
+}
+function renderThisDeviceBanner() {
+  const box = $("thisDeviceBanner");
+  if (!box) return;
+  const id = getThisDeviceId();
+  const a = id ? assets.find(x => x._id === id) : null;
+  if (!a) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  box.classList.remove("hidden");
+  const sub = [a.type, a.model, a.user].filter(Boolean).join(" · ");
+  box.innerHTML = `
+    <div class="this-device-banner">
+      <div class="tdb-info">
+        <b>🖥️ ${tr("thisDevice.bannerLabel")} — ${escapeHtml(a.code)}</b>
+        <span>${escapeHtml(sub)}</span>
+      </div>
+      <button type="button" onclick="editAsset('${a._id}')">${tr("thisDevice.bannerBtn")}</button>
+    </div>`;
+}
+// Cập nhật nút Đánh dấu/Bỏ đánh dấu trong form sửa tài sản, chỉ hiện khi
+// đang sửa 1 tài sản đã tồn tại (không hiện khi đang tạo mới).
+function updateThisDeviceMarkBox() {
+  const wrap = $("thisDeviceMarkBox");
+  const btn = $("btnMarkThisDevice");
+  if (!wrap || !btn) return;
+  const assetId = $("assetId").value;
+  if (!assetId) { wrap.classList.add("hidden"); return; }
+  wrap.classList.remove("hidden");
+  const marked = getThisDeviceId() === assetId;
+  btn.textContent = marked ? tr("thisDevice.unmarkBtn") : tr("thisDevice.markBtn");
+  btn.className = marked ? "" : "secondary";
+  $("thisDeviceMarkHint").classList.toggle("hidden", !marked);
+}
+const _btnMarkThisDevice = $("btnMarkThisDevice");
+if (_btnMarkThisDevice) {
+  _btnMarkThisDevice.addEventListener("click", () => {
+    const assetId = $("assetId").value;
+    if (!assetId) return;
+    if (getThisDeviceId() === assetId) clearThisDeviceId();
+    else setThisDeviceId(assetId);
+    updateThisDeviceMarkBox();
+    renderThisDeviceBanner();
+    renderAssetList();
+  });
 }
 
 /* ---------- Dashboard ---------- */
@@ -551,7 +615,13 @@ function renderAssetList() {
   const toMs = toV ? new Date(toV + "T23:59:59.999").getTime() : null;
   $("clearDateFilterBtn").classList.toggle("hidden", !fromV && !toV);
 
+  const thisDeviceId = getThisDeviceId();
   let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
+  if (thisDeviceId) {
+    // Tài sản đang được đánh dấu là "thiết bị này" trên trình duyệt hiện tại
+    // luôn nổi lên đầu danh sách để dễ nhận biết ngay khi vào trang.
+    list.sort((a, b) => (b._id === thisDeviceId ? 1 : 0) - (a._id === thisDeviceId ? 1 : 0));
+  }
   if (q) {
     list = list.filter(a =>
       [a.code, a.serial, a.model, a.deviceName, a.user, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
@@ -580,8 +650,9 @@ function renderAssetList() {
     const deleteBtn = isAdmin
       ? `<button class="secondary" onclick="deleteAsset('${a._id}')">🗑 ${tr("action.delete")}</button>`
       : "";
+    const isThisDevice = a._id === thisDeviceId;
     return `
-    <div class="asset">
+    <div class="asset${isThisDevice ? " this-device" : ""}">
       <div>
         <h3>${escapeHtml(a.code)}</h3>
         <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}</div>
@@ -590,6 +661,7 @@ function renderAssetList() {
         ${assetCreatedMs(a) ? `<div class="muted">🗓 ${tr("field.createdAt")}: ${escapeHtml(formatAssetDate(assetCreatedMs(a)))}</div>` : ""}
         <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(checkLabel(a.checkStatus))}</span>
         ${!isAdmin ? `<span class="badge view-only-tag">👁 ${tr("action.viewOnly")}</span>` : ""}
+        ${isThisDevice ? `<span class="this-device-tag">${tr("thisDevice.badge")}</span>` : ""}
       </div>
       <div class="asset-actions">
         ${editBtn}
@@ -932,6 +1004,7 @@ function clearForm() {
   $("qrcode").innerHTML = "";
   $("qrText").textContent = "";
   $("pasteInfoBox").value = "";
+  updateThisDeviceMarkBox(); // tạo mới -> chưa có assetId -> box tự ẩn
   $("userSuggest").classList.add("hidden");
   $("userSuggest").innerHTML = "";
   $("employeeCodeSuggest").classList.add("hidden");
@@ -977,6 +1050,7 @@ function fillFormFromAsset(a) {
   }
   $("assetLocked").checked = !!a.locked;
   $("formTitle").textContent = tr("assetForm.editTitle", { code: a.code || "" });
+  updateThisDeviceMarkBox();
   renderQR(a.code);
   renderHistoryBox(a);
   if ($("transferBox")) showTransferBoxFor(a); // tài sản đã có sẵn — cho phép điều chuyển (khung tự ẩn nếu không phải Admin, xem CSS .admin-only)

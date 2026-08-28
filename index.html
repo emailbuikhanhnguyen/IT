@@ -114,6 +114,7 @@
       <button type="button" id="clearDateFilterBtn" class="secondary hidden" data-i18n="filter.clearDates">✕ Bỏ lọc ngày</button>
     </div>
   </div>
+  <div id="thisDeviceBanner" class="hidden"></div>
   <div id="assetList"></div>
 </section>
 
@@ -147,6 +148,10 @@
     <label><span data-i18n="field.mac">MAC</span><input id="mac"></label>
     <label><span data-i18n="field.spec">Cấu hình</span><input id="spec" data-i18n-placeholder="field.spec.ph" placeholder="i5 / RAM 16GB / SSD 512GB"></label>
     <label><span data-i18n="field.winInfo">Thông tin Windows</span><input id="winInfo" data-i18n-placeholder="field.winInfo.ph" placeholder="VD: Windows 11 Pro 23H2 (Build 22631.6199) — tự điền qua PowerShell"></label>
+    <div id="thisDeviceMarkBox" class="this-device-markbox hidden">
+      <button type="button" id="btnMarkThisDevice" class="secondary"></button>
+      <span class="hint" id="thisDeviceMarkHint" data-i18n="thisDevice.markedHint"></span>
+    </div>
     <label><span data-i18n="field.status">Tình trạng</span><select id="status">
       <option value="Tốt" data-i18n="status.good">Tốt</option>
       <option value="Đang sử dụng" data-i18n="status.inUse">Đang sử dụng</option>

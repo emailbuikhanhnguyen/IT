@@ -99,3 +99,14 @@
   .print-label-right{flex-shrink:0}
   .print-label-right img,.print-label-right canvas{width:26mm!important;height:26mm!important;display:block}
 }
+
+/* ---- "Thiết bị này" (this device) ---- */
+.this-device-banner{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px #0000001a;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.this-device-banner .tdb-info b{display:block;font-size:15px;margin-bottom:2px}
+.this-device-banner .tdb-info span{display:block;font-size:12px;opacity:.85}
+.this-device-banner button{background:#fff;color:#1d4ed8;flex-shrink:0}
+.asset.this-device{border:2px solid #2563eb;box-shadow:0 2px 10px #2563eb33}
+.this-device-tag{display:inline-block;margin-top:5px;margin-left:5px;padding:4px 7px;border-radius:999px;font-size:10px;font-weight:650;background:#dbeafe;color:#1d4ed8}
+.this-device-markbox{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:10px;margin:-4px 0 11px}
+.this-device-markbox button{width:100%;margin-bottom:6px}
+.this-device-markbox .hint{margin:0}
