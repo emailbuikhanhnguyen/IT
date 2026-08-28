@@ -1038,8 +1038,18 @@ function fillFormFromAsset(a) {
   $("ip").value = a.ip || "";
   $("mac").value = a.mac || "";
   $("spec").value = a.spec || "";
-  $("winInfo").value = a.winInfo || "";
-  $("license").value = a.license || "";
+  // Dữ liệu cũ từng nhét thông tin bản quyền chung vào cuối "Thông tin
+  // Windows" dạng "... | BanQuyen: <...>". Nếu tài sản chưa có field
+  // license riêng, tự tách phần đó ra ô Bản quyền khi mở form; nếu không
+  // tìm thấy phần "BanQuyen:" thì để ô Bản quyền trống như bình thường.
+  let winInfoVal = a.winInfo || "";
+  let licenseVal = a.license || "";
+  if (!licenseVal) {
+    const m = /^(.*?)\s*\|\s*BanQuyen\s*:\s*(.*)$/i.exec(winInfoVal);
+    if (m) { winInfoVal = m[1].trim(); licenseVal = m[2].trim(); }
+  }
+  $("winInfo").value = winInfoVal;
+  $("license").value = licenseVal;
   $("status").value = a.status || "Tốt";
   $("checkStatus").value = a.checkStatus || CHECK_UNCHECKED;
   $("note").value = a.note || "";
