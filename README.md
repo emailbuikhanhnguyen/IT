@@ -15,28 +15,6 @@ python -m http.server 8080 --bind 0.0.0.0
 
 Camera thường yêu cầu secure context. Nếu Android không mở camera qua HTTP LAN, dùng HTTPS/local secure hosting.
 
-## Thông tin bản quyền Windows
-Cả 2 lệnh PowerShell lấy thông tin máy (nút "📋 Copy lệnh PowerShell" và nút
-tạo QR cho máy offline) giờ tự kiểm tra thêm **tình trạng bản quyền Windows**
-bằng `Get-CimInstance SoftwareLicensingProduct` (không cần quyền Admin, không
-cần mạng) và nối thêm vào cuối trường **Thông tin Windows** theo dạng:
-`<Edition> <Version> (Build ...) | BanQuyen: <Trang thai> - <Kenh kich hoat>`,
-ví dụ `Windows 11 Pro 23H2 (Build 22631.4037) | BanQuyen: Da kich hoat - OEM:NONSLP`.
-
-- **Trạng thái** có thể là: Da kich hoat, Chua kich hoat, hoặc các trạng thái
-  Grace (đang trong thời gian gia hạn/xác minh lại).
-- **Kênh kích hoạt** (`ProductKeyChannel`) cho biết máy dùng bản quyền dạng gì:
-  Retail, OEM:NONSLP (bản quyền theo máy/hãng), Volume:MAK/GVLK (bản quyền
-  công ty), v.v. Nếu máy không có key nào được ghi nhận (VD: build Windows
-  không chính chủ), script sẽ ghi "Khong tim thay thong tin ban quyen".
-- Không cần sửa gì thêm ở form/Excel — thông tin này chỉ là nối thêm text vào
-  ô "Thông tin Windows" có sẵn, tự động đi qua Autofill/QR/Excel như cũ.
-- Script còn nối thêm **Key (đã che, chỉ hiện 4 ký tự cuối)** nếu máy có ghi
-  nhận product key, dạng `XXXXX-XXXXX-XXXXX-XXXXX-XXXX1234` (Windows chỉ lưu
-  và cho đọc được 5 ký tự cuối của key qua WMI vì lý do bảo mật — không có
-  cách nào lấy full 25 ký tự key qua PowerShell thông thường). Nếu máy không
-  ghi nhận key nào, phần Key sẽ không xuất hiện.
-
 ## QR
 QR chứa mã dạng:
 `ITASSET:LAP-AT-0001`
@@ -67,8 +45,18 @@ Các cột có thể dùng:
 Có hỗ trợ tên cột tiếng Việt tương ứng như trong app.
 
 ## Nhân viên (autocomplete cho "Người sử dụng")
-File `employees.js` chứa danh sách nhân viên (snapshot từ file HR export,
-291 dòng gốc → 284 dòng có Mã NV + Tên) để gõ tên là gợi ý, chọn xong tự
+File `employees.js` **không còn chứa danh sách nhân viên thật** — chỉ là
+mảng rỗng `window.EMPLOYEES = []`, dùng làm dự phòng cho 2 trường hợp hiếm:
+chưa đăng nhập xong, hoặc offline mà thiết bị đó chưa từng đồng bộ Firestore
+lần nào. **Lý do:** đây là file JS tĩnh được trình duyệt tải công khai cùng
+`index.html`/`app.js` — không bị chặn bởi màn hình đăng nhập hay Firestore
+Rules (nó nằm ngoài Firestore hoàn toàn), nên **tuyệt đối không chép danh
+sách nhân viên thật (tên/mã NV/bộ phận) vào file này**, kể cả tạm thời —
+bất kỳ ai biết URL app đều tải được, không cần tài khoản.
+
+Nguồn dữ liệu nhân viên thật duy nhất là collection Firestore `employees`,
+chỉ đọc được khi đã đăng nhập với vai trò Admin/Collector/Viewer (xem
+`firestore.rules`, `match /employees/{id}`). Gõ tên là gợi ý, chọn xong tự
 điền **Mã nhân viên / Bộ phận (Section) / Tổ-Chuyền (Group)**. Ba ô này vẫn
 sửa tay được hoặc để trống — không bắt buộc. Bộ phận (Section) còn được
 dùng để tự gợi ý **Mã tài sản** — xem mục bên dưới.
@@ -81,10 +69,7 @@ dùng để tự gợi ý **Mã tài sản** — xem mục bên dưới.
 trong file, không phụ thuộc thứ tự cột) và cột "Terminate date" để suy ra
 `active` (`false` nếu có ngày nghỉ việc), rồi lưu thẳng lên Firestore —
 danh sách gợi ý cập nhật ngay trên **mọi thiết bị/tài khoản đang dùng app**,
-không cần build lại `employees.js` hay deploy lại. `employees.js` giờ chỉ
-còn là danh sách dự phòng (dùng khi mất mạng hoặc trước khi từng import lần
-nào qua Firestore); vẫn có thể tự sửa tay file này như cũ nếu muốn, nhưng
-sẽ bị danh sách trên Firestore ghi đè ngay khi có ai đó import lại qua app.
+không cần build lại `employees.js` hay deploy lại.
 Chỉ tài khoản **Admin** mới thấy mục Dữ liệu và được import; Collector chỉ
 đọc để dùng autocomplete. Nhân viên trùng tên vẫn phân biệt được vì danh
 sách gợi ý luôn hiện kèm Mã NV.
