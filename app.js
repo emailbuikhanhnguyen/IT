@@ -472,7 +472,71 @@ $("submitAddUserBtn").addEventListener("click", async () => {
 function renderAll() {
   renderDashboard();
   renderAssetList();
+  renderThisDeviceBanner();
   renderTicketList();
+}
+
+/* ---------- "Thiết bị này" (this device) ----------
+   Mục đích: khi mở app trên 1 PC/laptop bất kỳ, cho phép đánh dấu 1 tài sản
+   là "chính máy đang dùng để mở trình duyệt này". Đánh dấu 1 lần thì trình
+   duyệt đó (localStorage, gắn riêng theo từng máy) sẽ luôn tự nhận ra và
+   hiển thị nổi bật tài sản đó ở đầu danh sách + banner riêng, để vào là thấy
+   ngay, bấm 1 phát để bổ sung/sửa key bản quyền, người dùng, tình trạng...
+   Không dùng API trình duyệt để dò MAC/serial thật vì lý do bảo mật, trình
+   duyệt không cho phép — nên dùng cách đánh dấu thủ công 1 lần, ghi nhớ mãi.
+*/
+const THIS_DEVICE_KEY = "ita_this_device_id";
+function getThisDeviceId() {
+  try { return localStorage.getItem(THIS_DEVICE_KEY) || ""; } catch (e) { return ""; }
+}
+function setThisDeviceId(id) {
+  try { localStorage.setItem(THIS_DEVICE_KEY, id); } catch (e) {}
+}
+function clearThisDeviceId() {
+  try { localStorage.removeItem(THIS_DEVICE_KEY); } catch (e) {}
+}
+function renderThisDeviceBanner() {
+  const box = $("thisDeviceBanner");
+  if (!box) return;
+  const id = getThisDeviceId();
+  const a = id ? assets.find(x => x._id === id) : null;
+  if (!a) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  box.classList.remove("hidden");
+  const sub = [a.type, a.model, a.user].filter(Boolean).join(" · ");
+  box.innerHTML = `
+    <div class="this-device-banner">
+      <div class="tdb-info">
+        <b>🖥️ ${tr("thisDevice.bannerLabel")} — ${escapeHtml(a.code)}</b>
+        <span>${escapeHtml(sub)}</span>
+      </div>
+      <button type="button" onclick="editAsset('${a._id}')">${tr("thisDevice.bannerBtn")}</button>
+    </div>`;
+}
+// Cập nhật nút Đánh dấu/Bỏ đánh dấu trong form sửa tài sản, chỉ hiện khi
+// đang sửa 1 tài sản đã tồn tại (không hiện khi đang tạo mới).
+function updateThisDeviceMarkBox() {
+  const wrap = $("thisDeviceMarkBox");
+  const btn = $("btnMarkThisDevice");
+  if (!wrap || !btn) return;
+  const assetId = $("assetId").value;
+  if (!assetId) { wrap.classList.add("hidden"); return; }
+  wrap.classList.remove("hidden");
+  const marked = getThisDeviceId() === assetId;
+  btn.textContent = marked ? tr("thisDevice.unmarkBtn") : tr("thisDevice.markBtn");
+  btn.className = marked ? "" : "secondary";
+  $("thisDeviceMarkHint").classList.toggle("hidden", !marked);
+}
+const _btnMarkThisDevice = $("btnMarkThisDevice");
+if (_btnMarkThisDevice) {
+  _btnMarkThisDevice.addEventListener("click", () => {
+    const assetId = $("assetId").value;
+    if (!assetId) return;
+    if (getThisDeviceId() === assetId) clearThisDeviceId();
+    else setThisDeviceId(assetId);
+    updateThisDeviceMarkBox();
+    renderThisDeviceBanner();
+    renderAssetList();
+  });
 }
 
 /* ---------- Dashboard ---------- */
@@ -552,7 +616,13 @@ function renderAssetList() {
   const toMs = toV ? new Date(toV + "T23:59:59.999").getTime() : null;
   $("clearDateFilterBtn").classList.toggle("hidden", !fromV && !toV);
 
+  const thisDeviceId = getThisDeviceId();
   let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
+  if (thisDeviceId) {
+    // Tài sản đang được đánh dấu là "thiết bị này" trên trình duyệt hiện tại
+    // luôn nổi lên đầu danh sách để dễ nhận biết ngay khi vào trang.
+    list.sort((a, b) => (b._id === thisDeviceId ? 1 : 0) - (a._id === thisDeviceId ? 1 : 0));
+  }
   if (q) {
     list = list.filter(a =>
       [a.code, a.serial, a.model, a.deviceName, a.user, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
@@ -581,8 +651,9 @@ function renderAssetList() {
     const deleteBtn = isAdmin
       ? `<button class="secondary" onclick="deleteAsset('${a._id}')">🗑 ${tr("action.delete")}</button>`
       : "";
+    const isThisDevice = a._id === thisDeviceId;
     return `
-    <div class="asset">
+    <div class="asset${isThisDevice ? " this-device" : ""}">
       <div>
         <h3>${escapeHtml(a.code)}</h3>
         <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}</div>
@@ -591,6 +662,7 @@ function renderAssetList() {
         ${assetCreatedMs(a) ? `<div class="muted">🗓 ${tr("field.createdAt")}: ${escapeHtml(formatAssetDate(assetCreatedMs(a)))}</div>` : ""}
         <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(checkLabel(a.checkStatus))}</span>
         ${!isAdmin ? `<span class="badge view-only-tag">👁 ${tr("action.viewOnly")}</span>` : ""}
+        ${isThisDevice ? `<span class="this-device-tag">${tr("thisDevice.badge")}</span>` : ""}
       </div>
       <div class="asset-actions">
         ${editBtn}
@@ -933,6 +1005,7 @@ function clearForm() {
   $("qrcode").innerHTML = "";
   $("qrText").textContent = "";
   $("pasteInfoBox").value = "";
+  updateThisDeviceMarkBox(); // tạo mới -> chưa có assetId -> box tự ẩn
   $("userSuggest").classList.add("hidden");
   $("userSuggest").innerHTML = "";
   $("employeeCodeSuggest").classList.add("hidden");
@@ -965,8 +1038,19 @@ function fillFormFromAsset(a) {
   $("ip").value = a.ip || "";
   $("mac").value = a.mac || "";
   $("spec").value = a.spec || "";
-  $("winInfo").value = a.winInfo || "";
-  $("license").value = a.license || "";
+  // Dữ liệu cũ từng nhét thông tin bản quyền chung vào cuối "Thông tin
+  // Windows" dạng "... | BanQuyen: <...>". Nếu tài sản chưa có field
+  // license riêng, tự tách phần đó ra ô Bản quyền khi mở form; nếu không
+  // tìm thấy phần "BanQuyen:" thì để ô Bản quyền trống như bình thường.
+  let winInfoVal = a.winInfo || "";
+  let licenseVal = a.license || "";
+  const mBanQuyen = /^(.*?)\s*\|\s*BanQuyen\s*:\s*(.*)$/i.exec(winInfoVal);
+  if (mBanQuyen) {
+    winInfoVal = mBanQuyen[1].trim();
+    if (!licenseVal) licenseVal = mBanQuyen[2].trim();
+  }
+  $("winInfo").value = winInfoVal;
+  $("license").value = licenseVal;
   $("status").value = a.status || "Tốt";
   $("checkStatus").value = a.checkStatus || CHECK_UNCHECKED;
   $("note").value = a.note || "";
@@ -979,6 +1063,7 @@ function fillFormFromAsset(a) {
   }
   $("assetLocked").checked = !!a.locked;
   $("formTitle").textContent = tr("assetForm.editTitle", { code: a.code || "" });
+  updateThisDeviceMarkBox();
   renderQR(a.code);
   renderHistoryBox(a);
   if ($("transferBox")) showTransferBoxFor(a); // tài sản đã có sẵn — cho phép điều chuyển (khung tự ẩn nếu không phải Admin, xem CSS .admin-only)
@@ -1239,25 +1324,28 @@ $("photoCamera").addEventListener("change", handlePhotoFileChange);
 
 /* ---------- PowerShell helper + autofill ---------- */
 // Kiểm tra bản quyền Windows: dùng WMI class SoftwareLicensingProduct (có sẵn
-// trong Windows, không cần cài thêm công cụ, không cần chạy với quyền Admin
-// để ĐỌC — chỉ ghi/kích hoạt mới cần Admin). Lọc theo ApplicationID cố định
-// của Windows (khác với Office) để không lẫn với các license khác có thể có
-// trên máy. LicenseStatus: 0=Chưa kích hoạt, 1=Đã kích hoạt (Licensed),
-// 2-4/6=Đang trong thời gian ân hạn (grace, coi như tạm ổn), 5=Notification
-// (thường là hết hạn/không hợp lệ). ProductKeyChannel cho biết loại bản
-// quyền: Retail / OEM:DM (dán sẵn từ hãng máy) / OEM:NONSLP / Volume:MAK /
-// Volume:GVLK... PartialProductKey chỉ là 5 ký tự cuối (Windows không lộ
-// full key qua WMI, tự thân đã ẩn phần đầu vì lý do bảo mật).
-const PS_LICENSE_SNIPPET = `$licStatusMap = @{0='Chua kich hoat';1='Da kich hoat';2='An han (OOB)';3='An han (OOT)';4='An han (Non-genuine)';5='Notification (co the loi/het han)';6='An han (Extended)'}
-$licObj = Get-CimInstance -Query "SELECT Name, LicenseStatus, ProductKeyChannel, PartialProductKey FROM SoftwareLicensingProduct WHERE ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($licObj) {
-  $licStatusTxt = $licStatusMap[[int]$licObj.LicenseStatus]
-  if (-not $licStatusTxt) { $licStatusTxt = "Ma trang thai $($licObj.LicenseStatus)" }
-  $license = $licStatusTxt
-  if ($licObj.ProductKeyChannel) { $license += " - $($licObj.ProductKeyChannel)" }
-  if ($licObj.PartialProductKey) { $license += " - Key: *****-*****-*****-*****-$($licObj.PartialProductKey)" }
+// trong Windows, không cần cài thêm công cụ, không cần quyền Admin để ĐỌC).
+// Dùng chung 1 biến cho cả PS_SCRIPT và PS_SCRIPT_QR để tránh copy-paste 2 nơi
+// (sửa 1 chỗ, áp dụng cả 2 script offline lẫn online).
+// Lưu ý: Key (đã che, chỉ hiện 4 ký tự cuối) được hiện ở MỌI trạng thái bản
+// quyền khi máy có ghi nhận key — kể cả máy đã "Da kich hoat" — để IT vẫn tra
+// cứu/đối chiếu được key theo từng máy khi cần (audit, đổi máy...).
+const PS_LICENSE_SNIPPET = `$licProduct = Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" -ErrorAction SilentlyContinue | Select-Object -First 1
+$licStatusMap = @{0='Chua kich hoat';1='Da kich hoat';2='Grace (OOB)';3='Grace (OOT)';4='Grace (Non-Genuine)';5='Notification';6='Grace (Extended)'}
+if ($licProduct) {
+  $licStatusText = if ($licStatusMap.ContainsKey([int]$licProduct.LicenseStatus)) { $licStatusMap[[int]$licProduct.LicenseStatus] } else { "Khong xac dinh ($($licProduct.LicenseStatus))" }
+  $licChannel = $licProduct.ProductKeyChannel
+  $maskedKey = ""
+  if ($licProduct.PartialProductKey) {
+    $partial = $licProduct.PartialProductKey
+    $last4 = if ($partial.Length -ge 4) { $partial.Substring($partial.Length - 4) } else { $partial }
+    $maskHead = "X" * [Math]::Max(0, $partial.Length - 4)
+    $maskedKey = "XXXXX-XXXXX-XXXXX-XXXXX-$maskHead$last4"
+  }
+  $banQuyen = if ($licChannel) { "$licStatusText - $licChannel" } else { $licStatusText }
+  if ($maskedKey) { $banQuyen = "$banQuyen | Key: $maskedKey" }
 } else {
-  $license = "Khong xac dinh (khong doc duoc SoftwareLicensingProduct)"
+  $banQuyen = "Khong tim thay thong tin ban quyen"
 }`;
 const PS_SCRIPT = `# get-info.ps1 - Dán kết quả vào ô "Dán thông tin máy"
 $cs = Get-CimInstance Win32_ComputerSystem
@@ -1286,7 +1374,7 @@ Write-Output "MODEL: $($cs.Model)"
 Write-Output "SERIAL: $($bios.SerialNumber)"
 Write-Output "CAUHINH: $($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
 Write-Output "WININFO: $winInfo"
-Write-Output "BANQUYEN: $license"
+Write-Output "BANQUYEN: $banQuyen"
 Write-Output "IP: $((($ipParts | Select-Object -Unique)) -join '; ')"
 Write-Output "MAC: $(($macParts) -join '; ')"
 Write-Output "===== HET - COPY DEN DAY ====="`;
@@ -1343,6 +1431,7 @@ $info = [ordered]@{
   SERIAL  = $bios.SerialNumber
   CAUHINH = "$($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
   WININFO = $winInfo
+  BANQUYEN = $banQuyen
   IP      = (($ipParts | Select-Object -Unique) -join '; ')
   MAC     = ($macParts -join '; ')
 }
@@ -1401,7 +1490,7 @@ $("btnAutofill").addEventListener("click", () => {
   const text = $("pasteInfoBox").value;
   if (!text.trim()) { alert(tr("msg.needPasteContent")); return; }
 
-  const map = { TENMAY: "deviceName", MODEL: "model", SERIAL: "serial", CAUHINH: "spec", WININFO: "winInfo", IP: "ip", MAC: "mac" };
+  const map = { TENMAY: "deviceName", MODEL: "model", SERIAL: "serial", CAUHINH: "spec", WININFO: "winInfo", BANQUYEN: "license", IP: "ip", MAC: "mac" };
   let filled = 0;
   text.split("\n").forEach(line => {
     const m = line.match(/^\s*([A-Za-z]+)\s*:\s*(.+)\s*$/);
@@ -1467,6 +1556,7 @@ function onDevInfoScan(b64) {
   $("serial").value = data.SERIAL || "";
   $("spec").value = data.CAUHINH || "";
   $("winInfo").value = data.WININFO || "";
+  $("license").value = data.BANQUYEN || "";
   $("ip").value = data.IP || "";
   $("mac").value = data.MAC || "";
   goPage("assetForm");
@@ -1541,6 +1631,7 @@ const COLUMNS = [
   "mac",          // MAC
   "spec",         // Cấu hình
   "winInfo",      // Thông tin Windows
+  "license",      // Bản quyền
   "status",       // Tình trạng
   "checkStatus",  // Trạng thái kiểm kê
   "note",         // Ghi chú
@@ -1548,7 +1639,7 @@ const COLUMNS = [
 const COLUMN_LABELS_VN = {
   employeeCode: "Mã nhân viên", user: "Người sử dụng", section: "Bộ phận", group: "Tổ/Chuyền",
   code: "Mã tài sản", type: "Loại thiết bị", deviceName: "Tên tài sản", model: "Model", serial: "Serial",
-  ip: "IP", mac: "MAC", spec: "Cấu hình", winInfo: "Thông tin Windows",
+  ip: "IP", mac: "MAC", spec: "Cấu hình", winInfo: "Thông tin Windows", license: "Bản quyền",
   status: "Tình trạng", checkStatus: "Trạng thái kiểm kê", note: "Ghi chú"
 };
 const HEADER_MAP = {};
