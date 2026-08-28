@@ -131,7 +131,7 @@ function HISTORY_TRACK_FIELDS_FN() { return [
   ["note", tr("field.note")],
 ]; }
 Object.defineProperty(window, "HISTORY_TRACK_FIELDS", { get: HISTORY_TRACK_FIELDS_FN });
-function HISTORY_ACTION_LABEL_FN() { return { create: tr("history.action.create"), update: tr("history.action.update"), rename: tr("history.action.rename"), import: tr("history.action.import") }; }
+function HISTORY_ACTION_LABEL_FN() { return { create: tr("history.action.create"), update: tr("history.action.update"), rename: tr("history.action.rename"), import: tr("history.action.import"), transfer: tr("history.action.transfer") }; }
 Object.defineProperty(window, "HISTORY_ACTION_LABEL", { get: HISTORY_ACTION_LABEL_FN });
 
 // So sánh 1 tài sản cũ (đang có trên hệ thống) với dữ liệu mới sắp lưu,
@@ -712,6 +712,116 @@ setupAutocomplete("section", "sectionSuggest",
   it => { $("section").value = it.value; maybeSuggestCode(); }
 );
 
+// ---- Autocomplete riêng cho khung "Điều chuyển tài sản" (transferBox) ----
+// Cùng cơ chế 2 chiều Mã NV <-> Người sử dụng <-> Bộ phận như form tài sản
+// chính ở trên, nhưng dùng field riêng (transferEmployeeCode/transferUser/
+// transferSection/transferGroup) để không đụng tới dữ liệu đang hiển thị
+// trên form chính — chỉ ghi khi bấm "Xác nhận điều chuyển".
+setupAutocomplete("transferEmployeeCode", "transferEmployeeCodeSuggest",
+  q => filterEmployeesBy("code", q, 200),
+  e => `${escapeHtml(e.code)}<span class="muted">${escapeHtml(e.name)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
+  e => {
+    $("transferEmployeeCode").value = e.code;
+    $("transferUser").value = e.name;
+    $("transferSection").value = e.section || "";
+    $("transferGroup").value = e.group || "";
+  },
+  { autoFillMinChars: 3 }
+);
+setupAutocomplete("transferUser", "transferUserSuggest",
+  q => filterEmployeesBy("name", q, 200),
+  e => `${escapeHtml(e.name)}<span class="muted">${escapeHtml(e.code)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.group ? " · " + escapeHtml(e.group) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
+  e => {
+    $("transferUser").value = e.name;
+    $("transferEmployeeCode").value = e.code;
+    $("transferSection").value = e.section || "";
+    $("transferGroup").value = e.group || "";
+  },
+  { autoFillMinChars: 3 }
+);
+setupAutocomplete("transferSection", "transferSectionSuggest",
+  q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 100).map(v => ({ value: v })),
+  it => escapeHtml(it.value),
+  it => { $("transferSection").value = it.value; }
+);
+
+/* ---------- Điều chuyển tài sản (transfer) ----------
+   Thao tác độc lập với form sửa tài sản chính: ghi thẳng lên Firestore chỉ
+   4 field employeeCode/user/section/group (không đụng các field khác đang
+   hiển thị dở trên form), và luôn tạo 1 mốc history action:"transfer" riêng
+   (khác "update") để dễ lọc/nhận ra lịch sử điều chuyển qua các đời chủ sở
+   hữu. Chỉ Admin thấy khung này (class admin-only) và chỉ dùng được với
+   tài sản đã có sẵn (đã lưu, có assetId) — khớp với quyền sửa tài sản hiện
+   tại (xem fillFormFromAsset/assetFormEl submit ở trên).
+*/
+function holderLabel(a) {
+  const parts = [a && a.user, a && a.employeeCode ? "(" + a.employeeCode + ")" : "", a && a.section].filter(Boolean);
+  return parts.length ? parts.join(" ") : tr("transfer.currentNone");
+}
+function clearTransferBox() {
+  $("transferEmployeeCode").value = "";
+  $("transferUser").value = "";
+  $("transferSection").value = "";
+  $("transferGroup").value = "";
+  $("transferReason").value = "";
+}
+function showTransferBoxFor(a) {
+  $("transferCurrentHolder").textContent = holderLabel(a);
+  clearTransferBox();
+  $("transferBox").classList.remove("hidden");
+}
+$("confirmTransferBtn").addEventListener("click", () => {
+  const oldId = $("assetId").value;
+  const oldAsset = oldId ? assets.find(x => x._id === oldId) : null;
+  if (!oldId || !oldAsset) { alert(tr("transfer.needSaveFirst")); return; }
+  if (!isAdmin) return; // UI đã ẩn khung này cho non-admin; Firestore Rules chặn thật ở server
+
+  const newData = {
+    employeeCode: $("transferEmployeeCode").value.trim(),
+    user: $("transferUser").value.trim(),
+    section: $("transferSection").value.trim(),
+    group: $("transferGroup").value.trim(),
+  };
+  if (!newData.user && !newData.section) { alert(tr("transfer.needNewUser")); return; }
+
+  const fieldChanges = diffAssetFields(oldAsset, newData, ["employeeCode", "user", "section", "group"]);
+  if (!fieldChanges.length) { alert(tr("transfer.sameHolder")); return; }
+
+  const reason = $("transferReason").value.trim();
+  if (reason) fieldChanges.push({ field: "transferReason", label: tr("field.transferReason"), from: "", to: reason });
+
+  const fromLabel = holderLabel(oldAsset);
+  const toLabel = holderLabel(Object.assign({}, oldAsset, newData));
+  if (!confirm(tr("transfer.confirmMsg", { code: oldAsset.code || oldId, from: fromLabel, to: toLabel }))) return;
+
+  const data = Object.assign({}, newData, { updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  const entry = historyEntry("transfer", fieldChanges);
+  data.history = firebase.firestore.FieldValue.arrayUnion(entry);
+
+  const btn = $("confirmTransferBtn");
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+
+  // Không await (giống assetFormEl submit ở trên) — offline persistence cập
+  // nhật local cache ngay, UI không bị treo nếu mất mạng/Firestore chậm.
+  db.collection(COLLECTION).doc(oldId).set(data, { merge: true }).catch(err => {
+    alert(tr("transfer.errSave", { err: err.message }));
+  });
+
+  // Cập nhật ngay form đang mở (không đợi onSnapshot) để thấy kết quả liền,
+  // kể cả khi offline.
+  const updatedAsset = Object.assign({}, oldAsset, newData, { history: (oldAsset.history || []).concat([entry]) });
+  const idx = assets.findIndex(x => x._id === oldId);
+  if (idx !== -1) assets[idx] = updatedAsset;
+  fillFormFromAsset(updatedAsset);
+  showTransferBoxFor(updatedAsset);
+  saveLocalCache();
+  renderAssetList();
+
+  setTimeout(() => { btn.disabled = false; btn.textContent = originalLabel; }, 300);
+  toast(tr("transfer.success", { code: updatedAsset.code || oldId, to: toLabel }));
+});
+
 /* ---------- Asset form ---------- */
 function populateTypeSelect() {
   $("type").innerHTML = ASSET_TYPES.map(t => `<option>${t}</option>`).join("");
@@ -834,6 +944,8 @@ function clearForm() {
   codeAutoFilled = true;
   maybeSuggestCode(); // gợi ý sẵn mã cho tài sản mới (vd PC-0001)
   if ($("historyBox")) { $("historyBox").classList.add("hidden"); $("historyList").innerHTML = ""; }
+  // Chưa lưu thì chưa có gì để điều chuyển — ẩn khung Điều chuyển tài sản.
+  if ($("transferBox")) { $("transferBox").classList.add("hidden"); clearTransferBox(); }
 }
 $("resetForm").addEventListener("click", clearForm);
 
@@ -867,6 +979,7 @@ function fillFormFromAsset(a) {
   $("formTitle").textContent = tr("assetForm.editTitle", { code: a.code || "" });
   renderQR(a.code);
   renderHistoryBox(a);
+  if ($("transferBox")) showTransferBoxFor(a); // tài sản đã có sẵn — cho phép điều chuyển (khung tự ẩn nếu không phải Admin, xem CSS .admin-only)
 
   // Only admin can rename the doc ID (renaming = delete old + create new,
   // and only admins are allowed to delete) or edit an EXISTING record at

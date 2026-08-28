@@ -187,6 +187,29 @@
     </div>
     <img id="photoPreview" class="preview hidden">
 
+    <div id="transferBox" class="card admin-only hidden">
+      <h3 data-i18n="transfer.title">🔄 Điều chuyển tài sản</h3>
+      <p class="hint" data-i18n="transfer.hint">Gán tài sản này cho một người sử dụng khác. Việc điều chuyển được lưu lại thành 1 mốc riêng trong Lịch sử thay đổi bên dưới (khác với sửa thông tin thường).</p>
+      <p class="hint"><b data-i18n="transfer.current">Đang gán cho</b>: <span id="transferCurrentHolder" class="muted"></span></p>
+      <label class="autocomplete-field"><span data-i18n="field.employeeCode">Mã nhân viên</span>
+        <input id="transferEmployeeCode" autocomplete="off" data-i18n-placeholder="field.employeeCode.ph" placeholder="Gõ hoặc chọn mã NV, có thể để trống">
+        <div id="transferEmployeeCodeSuggest" class="suggest-list hidden"></div>
+      </label>
+      <label class="autocomplete-field"><span data-i18n="transfer.newUser">Người sử dụng mới</span>
+        <input id="transferUser" autocomplete="off" data-i18n-placeholder="transfer.newUser.ph" placeholder="Gõ tên để tìm trong danh sách nhân viên...">
+        <div id="transferUserSuggest" class="suggest-list hidden"></div>
+      </label>
+      <label class="autocomplete-field"><span data-i18n="field.section">Bộ phận (Section)</span>
+        <input id="transferSection" autocomplete="off" data-i18n-placeholder="field.section.ph" placeholder="Tự điền khi chọn tên/mã NV ở trên, hoặc tự chọn/gõ, có thể để trống">
+        <div id="transferSectionSuggest" class="suggest-list hidden"></div>
+      </label>
+      <label><span data-i18n="field.group">Tổ/Chuyền (Group)</span><input id="transferGroup" data-i18n-placeholder="field.group.ph" placeholder="Tự động điền khi chọn tên ở trên, có thể để trống"></label>
+      <label><span data-i18n="transfer.reason">Lý do điều chuyển (không bắt buộc)</span>
+        <textarea id="transferReason" rows="2" data-i18n-placeholder="transfer.reason.ph" placeholder="VD: nhân viên A nghỉ việc, bàn giao cho nhân viên B..."></textarea>
+      </label>
+      <button type="button" id="confirmTransferBtn" data-i18n="transfer.confirm">🔄 Xác nhận điều chuyển</button>
+    </div>
+
     <div id="historyBox" class="card history-box hidden">
       <h3 data-i18n="history.title">🕘 Lịch sử thay đổi</h3>
       <p class="hint" data-i18n="history.hint">Tự động ghi lại mỗi lần tạo/sửa tài sản này — không cần thao tác gì thêm.</p>
