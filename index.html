@@ -114,7 +114,6 @@
       <button type="button" id="clearDateFilterBtn" class="secondary hidden" data-i18n="filter.clearDates">✕ Bỏ lọc ngày</button>
     </div>
   </div>
-  <div id="thisDeviceBanner" class="hidden"></div>
   <div id="assetList"></div>
 </section>
 
@@ -148,11 +147,6 @@
     <label><span data-i18n="field.mac">MAC</span><input id="mac"></label>
     <label><span data-i18n="field.spec">Cấu hình</span><input id="spec" data-i18n-placeholder="field.spec.ph" placeholder="i5 / RAM 16GB / SSD 512GB"></label>
     <label><span data-i18n="field.winInfo">Thông tin Windows</span><input id="winInfo" data-i18n-placeholder="field.winInfo.ph" placeholder="VD: Windows 11 Pro 23H2 (Build 22631.6199) — tự điền qua PowerShell"></label>
-    <label><span data-i18n="field.license">Bản quyền</span><input id="license" data-i18n-placeholder="field.license.ph" placeholder="VD: Da kich hoat - OEM | Key: XXXXX-XXXXX-XXXXX-XXXXX-XXXX — tự điền qua PowerShell"></label>
-    <div id="thisDeviceMarkBox" class="this-device-markbox hidden">
-      <button type="button" id="btnMarkThisDevice" class="secondary"></button>
-      <span class="hint" id="thisDeviceMarkHint" data-i18n="thisDevice.markedHint"></span>
-    </div>
     <label><span data-i18n="field.status">Tình trạng</span><select id="status">
       <option value="Tốt" data-i18n="status.good">Tốt</option>
       <option value="Đang sử dụng" data-i18n="status.inUse">Đang sử dụng</option>
@@ -192,29 +186,6 @@
       <label class="button secondary"><span data-i18n="camera.choosePhoto">🖼 Chọn ảnh</span><input id="photo" type="file" accept="image/*" hidden></label>
     </div>
     <img id="photoPreview" class="preview hidden">
-
-    <div id="transferBox" class="card admin-only hidden">
-      <h3 data-i18n="transfer.title">🔄 Điều chuyển tài sản</h3>
-      <p class="hint" data-i18n="transfer.hint">Gán tài sản này cho một người sử dụng khác. Việc điều chuyển được lưu lại thành 1 mốc riêng trong Lịch sử thay đổi bên dưới (khác với sửa thông tin thường).</p>
-      <p class="hint"><b data-i18n="transfer.current">Đang gán cho</b>: <span id="transferCurrentHolder" class="muted"></span></p>
-      <label class="autocomplete-field"><span data-i18n="field.employeeCode">Mã nhân viên</span>
-        <input id="transferEmployeeCode" autocomplete="off" data-i18n-placeholder="field.employeeCode.ph" placeholder="Gõ hoặc chọn mã NV, có thể để trống">
-        <div id="transferEmployeeCodeSuggest" class="suggest-list hidden"></div>
-      </label>
-      <label class="autocomplete-field"><span data-i18n="transfer.newUser">Người sử dụng mới</span>
-        <input id="transferUser" autocomplete="off" data-i18n-placeholder="transfer.newUser.ph" placeholder="Gõ tên để tìm trong danh sách nhân viên...">
-        <div id="transferUserSuggest" class="suggest-list hidden"></div>
-      </label>
-      <label class="autocomplete-field"><span data-i18n="field.section">Bộ phận (Section)</span>
-        <input id="transferSection" autocomplete="off" data-i18n-placeholder="field.section.ph" placeholder="Tự điền khi chọn tên/mã NV ở trên, hoặc tự chọn/gõ, có thể để trống">
-        <div id="transferSectionSuggest" class="suggest-list hidden"></div>
-      </label>
-      <label><span data-i18n="field.group">Tổ/Chuyền (Group)</span><input id="transferGroup" data-i18n-placeholder="field.group.ph" placeholder="Tự động điền khi chọn tên ở trên, có thể để trống"></label>
-      <label><span data-i18n="transfer.reason">Lý do điều chuyển (không bắt buộc)</span>
-        <textarea id="transferReason" rows="2" data-i18n-placeholder="transfer.reason.ph" placeholder="VD: nhân viên A nghỉ việc, bàn giao cho nhân viên B..."></textarea>
-      </label>
-      <button type="button" id="confirmTransferBtn" data-i18n="transfer.confirm">🔄 Xác nhận điều chuyển</button>
-    </div>
 
     <div id="historyBox" class="card history-box hidden">
       <h3 data-i18n="history.title">🕘 Lịch sử thay đổi</h3>
@@ -258,6 +229,10 @@
     <button class="module-nav-item" data-page="tickets">
       <span class="module-nav-icon">🎫</span>
       <span class="module-nav-text"><b data-i18n="nav.tickets">Ticket hỗ trợ</b><small data-i18n="nav.tickets.desc">Theo dõi &amp; xử lý yêu cầu, sự cố IT</small></span>
+    </button>
+    <button class="module-nav-item" data-page="projects">
+      <span class="module-nav-icon">📁</span>
+      <span class="module-nav-text"><b data-i18n="nav.projects">Dự án CNTT</b><small data-i18n="nav.projects.desc">Theo dõi tiến độ, tài liệu, file đính kèm</small></span>
     </button>
     <button class="module-nav-item" data-page="guides">
       <span class="module-nav-icon">📘</span>
@@ -415,6 +390,101 @@
     </div>
 
     <div class="form-actions"><button type="submit" id="submitTicketBtn" data-i18n="formActions.saveTicket">Lưu ticket</button><button type="button" class="secondary" id="resetTicketForm" data-i18n="formActions.reset">Xóa form</button></div>
+  </form>
+</section>
+
+<section id="projects" class="page">
+  <div class="section-head"><h2 data-i18n="projects.title">📁 Dự án CNTT</h2><button id="projectsAddBtn" class="creator-only" data-page="projectForm" data-i18n="projects.add">＋ Thêm</button></div>
+  <div class="stats">
+    <div class="stat"><b id="projectTotalCount">0</b><span data-i18n="stats.projectTotal">Tổng dự án</span></div>
+    <div class="stat"><b id="projectActiveCount">0</b><span data-i18n="stats.projectActive">Đang thực hiện</span></div>
+    <div class="stat"><b id="projectDoneCount">0</b><span data-i18n="stats.projectDone">Hoàn thành</span></div>
+    <div class="stat"><b id="projectOverdueCount">0</b><span data-i18n="stats.projectOverdue">Trễ hạn</span></div>
+  </div>
+  <div class="filters">
+    <input id="projectSearch" data-i18n-placeholder="projects.searchPh" placeholder="Tìm mã dự án, tên dự án, phụ trách...">
+    <select id="filterProjectStatus"><option value="" data-i18n="filter.allStatus">Tất cả trạng thái</option>
+      <option data-i18n="project.status.planning">Lên kế hoạch</option>
+      <option data-i18n="project.status.inProgress">Đang thực hiện</option>
+      <option data-i18n="project.status.onHold">Tạm dừng</option>
+      <option data-i18n="project.status.done">Hoàn thành</option>
+      <option data-i18n="project.status.cancelled">Hủy</option>
+    </select>
+    <select id="filterProjectPriority"><option value="" data-i18n="filter.allPriority">Tất cả mức ưu tiên</option><option data-i18n="ticket.priority.urgent">Khẩn</option><option data-i18n="ticket.priority.high">Cao</option><option data-i18n="ticket.priority.medium">Trung bình</option><option data-i18n="ticket.priority.low">Thấp</option></select>
+  </div>
+  <div id="projectList"></div>
+</section>
+
+<section id="projectForm" class="page">
+  <div class="section-head"><h2 id="projectFormTitle" data-i18n="projectForm.createTitle">Tạo dự án</h2><button data-page="projects">←</button></div>
+  <form id="projectFormEl" class="card">
+    <div id="projectLockedNotice" class="locked-notice hidden" data-i18n="projectForm.lockedNotice">🔒 Bạn chỉ có quyền xem dự án này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.</div>
+    <input type="hidden" id="projectDocId">
+    <label><span data-i18n="field.projectCode">Mã dự án*</span>
+      <input id="projectCode" required data-i18n-placeholder="field.projectCode.ph" placeholder="Tự gợi ý dạng DA-YYYYMMDD-NNN, có thể sửa tay">
+      <span class="hint" data-i18n="field.projectCode.hint">Tự động gợi ý theo ngày tạo, ví dụ DA-20260822-001 — vẫn gõ tay/sửa lại được.</span>
+    </label>
+    <label><span data-i18n="field.projectName">Tên dự án*</span><input id="projectName" required data-i18n-placeholder="field.projectName.ph" placeholder="VD: Nâng cấp hệ thống mạng xưởng 2"></label>
+    <label><span data-i18n="field.projectStatus">Trạng thái</span><select id="projectStatus">
+      <option data-i18n="project.status.planning">Lên kế hoạch</option>
+      <option data-i18n="project.status.inProgress">Đang thực hiện</option>
+      <option data-i18n="project.status.onHold">Tạm dừng</option>
+      <option data-i18n="project.status.done">Hoàn thành</option>
+      <option data-i18n="project.status.cancelled">Hủy</option>
+    </select>
+      <span class="hint" data-i18n="field.projectStatus.hint">Lên kế hoạch · Đang thực hiện · Tạm dừng · Hoàn thành · Hủy</span>
+    </label>
+    <label><span data-i18n="field.priority">Mức ưu tiên</span><select id="projectPriority">
+      <option data-i18n="ticket.priority.low">Thấp</option>
+      <option data-i18n="ticket.priority.medium">Trung bình</option>
+      <option data-i18n="ticket.priority.high">Cao</option>
+      <option data-i18n="ticket.priority.urgent">Khẩn</option>
+    </select></label>
+    <label class="autocomplete-field"><span data-i18n="field.projectOwner">Phụ trách</span>
+      <input id="projectOwner" autocomplete="off" data-i18n-placeholder="field.projectOwner.ph" placeholder="Gõ tên để tìm trong danh sách nhân viên, hoặc gõ tay">
+      <div id="projectOwnerSuggest" class="suggest-list hidden"></div>
+    </label>
+    <label class="autocomplete-field"><span data-i18n="field.department">Phòng ban</span>
+      <input id="projectDepartment" autocomplete="off" data-i18n-placeholder="field.department.ph" placeholder="Tự điền khi chọn Phụ trách, hoặc tự chọn/gõ">
+      <div id="projectDepartmentSuggest" class="suggest-list hidden"></div>
+    </label>
+    <div class="filter-dates">
+      <label class="filter-date"><span data-i18n="field.projectStart">Ngày bắt đầu</span><input id="projectStart" type="date"></label>
+      <label class="filter-date"><span data-i18n="field.projectEnd">Ngày kết thúc dự kiến</span><input id="projectEnd" type="date"></label>
+    </div>
+    <label><span data-i18n="field.projectProgress">Tiến độ (%)</span><input id="projectProgress" type="number" min="0" max="100" step="5" value="0"></label>
+    <label><span data-i18n="field.description">Mô tả</span><textarea id="projectDescription" rows="3"></textarea></label>
+    <label><span data-i18n="field.ticketNote">Ghi chú</span><textarea id="projectNote" rows="2"></textarea></label>
+
+    <div class="psbox">
+      <h3 data-i18n="attachments.title">📎 File đính kèm</h3>
+      <p class="hint" data-i18n="attachments.hint">Đính kèm file Excel, PDF, Word, ảnh... liên quan đến dự án (hợp đồng, bảng dự toán, biên bản nghiệm thu...). File được lưu trên Firebase Storage.</p>
+      <label class="button secondary"><span data-i18n="attachments.choose">📎 Chọn file để tải lên</span><input id="projectAttachInput" type="file" multiple hidden></label>
+      <div id="projectAttachUploading" class="hint hidden" data-i18n="attachments.uploading">Đang tải lên...</div>
+      <div id="projectAttachList"></div>
+    </div>
+
+    <div class="psbox">
+      <h3 data-i18n="progress.title">🕒 Lịch sử xử lý (theo thời gian)</h3>
+      <p class="hint" data-i18n="progress.hintProject">Ghi lại từng mốc tiến độ dự án theo thời gian (vd: đã ký hợp đồng, đang lắp đặt, đã bàn giao...). Mỗi mốc lưu kèm thời gian và người ghi.</p>
+      <div id="projectProgressList" class="history-box"></div>
+      <textarea id="projectProgressNote" rows="2" data-i18n-placeholder="progress.ph" placeholder="Nhập mốc xử lý mới rồi bấm Thêm..."></textarea>
+      <button type="button" id="addProjectProgressBtn" data-i18n="progress.add">➕ Thêm mốc xử lý</button>
+    </div>
+
+    <div id="projectHistoryBox" class="card history-box hidden">
+      <h3 data-i18n="history.title">🕘 Lịch sử thay đổi</h3>
+      <p class="hint" data-i18n="ticketHistory.hint">Tự động ghi lại mỗi lần tạo/sửa dự án này — không cần thao tác gì thêm.</p>
+      <div id="projectHistoryList"></div>
+    </div>
+
+    <div class="psbox admin-only">
+      <h3 data-i18n="confirmStatus.title">🔒 Trạng thái xác nhận (chỉ Admin)</h3>
+      <p class="hint" data-i18n="confirmStatus.hintProject">Tài khoản "Thu thập dữ liệu" chỉ tạo dự án mới được, không sửa lại được — dự án họ tạo tự động đánh dấu "Đã khóa" ở đây để bạn biết cần rà soát. Admin luôn sửa được bất kể ô này bật hay tắt.</p>
+      <label class="checkbox-label"><input id="projectLocked" type="checkbox"> <span data-i18n="confirmStatus.lockedProject">Đã khóa (được tạo bởi tài khoản thu thập dữ liệu)</span></label>
+    </div>
+
+    <div class="form-actions"><button type="submit" id="submitProjectBtn" data-i18n="formActions.saveProject">Lưu dự án</button><button type="button" class="secondary" id="resetProjectForm" data-i18n="formActions.reset">Xóa form</button></div>
   </form>
 </section>
 

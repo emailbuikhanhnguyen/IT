@@ -1,0 +1,38 @@
+rules_version = '2';
+// LƯU Ý: File này KHÔNG tự động deploy cùng GitHub Pages hay firestore.rules.
+// Vào Firebase Console → Storage → Rules → dán nội dung này → Publish.
+//
+// Quyền áp dụng cho file đính kèm Dự án CNTT (projects/{projectCode}/...):
+// cùng mô hình vai trò với Firestore — Admin/Collector/Viewer (đã đăng nhập
+// và có role hợp lệ, chưa bị disabled) đều XEM/TẢI được; chỉ Admin/Collector
+// được TẢI LÊN; chỉ Admin được XÓA. Việc kiểm tra role phải đọc từ Firestore
+// (users/{uid}) vì Storage Rules không tự biết role của tài khoản.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function roleDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+    function isActiveRole(r) {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && roleDoc().role == r
+        && roleDoc().get('disabled', false) != true;
+    }
+    function isAdmin() { return isActiveRole('admin'); }
+    function isCollector() { return isActiveRole('collector'); }
+    function isViewer() { return isActiveRole('viewer'); }
+
+    match /projects/{projectCode}/{fileName} {
+      allow read: if isAdmin() || isCollector() || isViewer();
+      // Cho Collector xóa được (không chỉ Admin) — vì trong app, nút xóa
+      // file đính kèm hiện ra ngay khi đang soạn dự án (kể cả dự án MỚI,
+      // Collector tạo được), để lỡ chọn nhầm file vẫn gỡ ra được trước khi
+      // lưu. Khớp với việc Collector vốn đã tự tải file lên được (allow
+      // create) nên không phát sinh rủi ro quyền mới.
+      allow create, delete: if isAdmin() || isCollector();
+    }
+  }
+}

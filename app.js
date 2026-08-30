@@ -17,6 +17,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 const COLLECTION = "assets";
 const TICKET_COLLECTION = "tickets";
+const PROJECT_COLLECTION = "projects";
 const EMPLOYEES_COLLECTION = "employees";
 const USERS_COLLECTION = "users";
 
@@ -38,6 +39,7 @@ try {
 /* ---------- State ---------- */
 let assets = [];              // local cache, synced from Firestore
 let ticketRecords = [];       // local cache, synced from Firestore (tickets)
+let projectRecords = [];      // local cache, synced from Firestore (projects)
 let html5QrCode = null;
 let scanning = false;
 let currentPhotoData = "";    // base64 dataURL of the photo currently in the form
@@ -126,13 +128,12 @@ function HISTORY_TRACK_FIELDS_FN() { return [
   ["mac", tr("field.mac")],
   ["spec", tr("field.spec")],
   ["winInfo", tr("field.winInfo")],
-  ["license", tr("field.license")],
   ["status", tr("field.status")],
   ["checkStatus", tr("field.checkStatus")],
   ["note", tr("field.note")],
 ]; }
 Object.defineProperty(window, "HISTORY_TRACK_FIELDS", { get: HISTORY_TRACK_FIELDS_FN });
-function HISTORY_ACTION_LABEL_FN() { return { create: tr("history.action.create"), update: tr("history.action.update"), rename: tr("history.action.rename"), import: tr("history.action.import"), transfer: tr("history.action.transfer") }; }
+function HISTORY_ACTION_LABEL_FN() { return { create: tr("history.action.create"), update: tr("history.action.update"), rename: tr("history.action.rename"), import: tr("history.action.import") }; }
 Object.defineProperty(window, "HISTORY_ACTION_LABEL", { get: HISTORY_ACTION_LABEL_FN });
 
 // So sánh 1 tài sản cũ (đang có trên hệ thống) với dữ liệu mới sắp lưu,
@@ -241,6 +242,7 @@ function goPage(name) {
   if (name !== "scan" && scanning) stopScanner();
   if (name === "assets") renderAssetList();
   if (name === "tickets") renderTicketList();
+  if (name === "projects") renderProjectList();
   if (name === "dashboard") renderDashboard();
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
@@ -299,6 +301,21 @@ function initTicketSync() {
 function stopTicketSync() {
   if (unsubscribeTicketSync) { unsubscribeTicketSync(); unsubscribeTicketSync = null; }
 }
+
+let unsubscribeProjectSync = null;
+function initProjectSync() {
+  if (unsubscribeProjectSync) return; // already listening
+  unsubscribeProjectSync = db.collection(PROJECT_COLLECTION).onSnapshot(snapshot => {
+    projectRecords = snapshot.docs.map(d => Object.assign({ _id: d.id }, d.data()));
+    saveProjectsLocalCache();
+    renderAll();
+  }, err => {
+    console.error("Project sync error:", err);
+  });
+}
+function stopProjectSync() {
+  if (unsubscribeProjectSync) { unsubscribeProjectSync(); unsubscribeProjectSync = null; }
+}
 function saveTicketsLocalCache() {
   try { localStorage.setItem("ita_tickets_cache", JSON.stringify(ticketRecords)); } catch (e) {}
 }
@@ -306,6 +323,15 @@ function loadTicketsLocalCache() {
   try {
     const raw = localStorage.getItem("ita_tickets_cache");
     if (raw) { ticketRecords = JSON.parse(raw); renderAll(); }
+  } catch (e) {}
+}
+function saveProjectsLocalCache() {
+  try { localStorage.setItem("ita_projects_cache", JSON.stringify(projectRecords)); } catch (e) {}
+}
+function loadProjectsLocalCache() {
+  try {
+    const raw = localStorage.getItem("ita_projects_cache");
+    if (raw) { projectRecords = JSON.parse(raw); renderAll(); }
   } catch (e) {}
 }
 
@@ -472,71 +498,8 @@ $("submitAddUserBtn").addEventListener("click", async () => {
 function renderAll() {
   renderDashboard();
   renderAssetList();
-  renderThisDeviceBanner();
   renderTicketList();
-}
-
-/* ---------- "Thiết bị này" (this device) ----------
-   Mục đích: khi mở app trên 1 PC/laptop bất kỳ, cho phép đánh dấu 1 tài sản
-   là "chính máy đang dùng để mở trình duyệt này". Đánh dấu 1 lần thì trình
-   duyệt đó (localStorage, gắn riêng theo từng máy) sẽ luôn tự nhận ra và
-   hiển thị nổi bật tài sản đó ở đầu danh sách + banner riêng, để vào là thấy
-   ngay, bấm 1 phát để bổ sung/sửa key bản quyền, người dùng, tình trạng...
-   Không dùng API trình duyệt để dò MAC/serial thật vì lý do bảo mật, trình
-   duyệt không cho phép — nên dùng cách đánh dấu thủ công 1 lần, ghi nhớ mãi.
-*/
-const THIS_DEVICE_KEY = "ita_this_device_id";
-function getThisDeviceId() {
-  try { return localStorage.getItem(THIS_DEVICE_KEY) || ""; } catch (e) { return ""; }
-}
-function setThisDeviceId(id) {
-  try { localStorage.setItem(THIS_DEVICE_KEY, id); } catch (e) {}
-}
-function clearThisDeviceId() {
-  try { localStorage.removeItem(THIS_DEVICE_KEY); } catch (e) {}
-}
-function renderThisDeviceBanner() {
-  const box = $("thisDeviceBanner");
-  if (!box) return;
-  const id = getThisDeviceId();
-  const a = id ? assets.find(x => x._id === id) : null;
-  if (!a) { box.classList.add("hidden"); box.innerHTML = ""; return; }
-  box.classList.remove("hidden");
-  const sub = [a.type, a.model, a.user].filter(Boolean).join(" · ");
-  box.innerHTML = `
-    <div class="this-device-banner">
-      <div class="tdb-info">
-        <b>🖥️ ${tr("thisDevice.bannerLabel")} — ${escapeHtml(a.code)}</b>
-        <span>${escapeHtml(sub)}</span>
-      </div>
-      <button type="button" onclick="editAsset('${a._id}')">${tr("thisDevice.bannerBtn")}</button>
-    </div>`;
-}
-// Cập nhật nút Đánh dấu/Bỏ đánh dấu trong form sửa tài sản, chỉ hiện khi
-// đang sửa 1 tài sản đã tồn tại (không hiện khi đang tạo mới).
-function updateThisDeviceMarkBox() {
-  const wrap = $("thisDeviceMarkBox");
-  const btn = $("btnMarkThisDevice");
-  if (!wrap || !btn) return;
-  const assetId = $("assetId").value;
-  if (!assetId) { wrap.classList.add("hidden"); return; }
-  wrap.classList.remove("hidden");
-  const marked = getThisDeviceId() === assetId;
-  btn.textContent = marked ? tr("thisDevice.unmarkBtn") : tr("thisDevice.markBtn");
-  btn.className = marked ? "" : "secondary";
-  $("thisDeviceMarkHint").classList.toggle("hidden", !marked);
-}
-const _btnMarkThisDevice = $("btnMarkThisDevice");
-if (_btnMarkThisDevice) {
-  _btnMarkThisDevice.addEventListener("click", () => {
-    const assetId = $("assetId").value;
-    if (!assetId) return;
-    if (getThisDeviceId() === assetId) clearThisDeviceId();
-    else setThisDeviceId(assetId);
-    updateThisDeviceMarkBox();
-    renderThisDeviceBanner();
-    renderAssetList();
-  });
+  renderProjectList();
 }
 
 /* ---------- Dashboard ---------- */
@@ -616,13 +579,7 @@ function renderAssetList() {
   const toMs = toV ? new Date(toV + "T23:59:59.999").getTime() : null;
   $("clearDateFilterBtn").classList.toggle("hidden", !fromV && !toV);
 
-  const thisDeviceId = getThisDeviceId();
   let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
-  if (thisDeviceId) {
-    // Tài sản đang được đánh dấu là "thiết bị này" trên trình duyệt hiện tại
-    // luôn nổi lên đầu danh sách để dễ nhận biết ngay khi vào trang.
-    list.sort((a, b) => (b._id === thisDeviceId ? 1 : 0) - (a._id === thisDeviceId ? 1 : 0));
-  }
   if (q) {
     list = list.filter(a =>
       [a.code, a.serial, a.model, a.deviceName, a.user, a.employeeCode].some(v => (v || "").toLowerCase().includes(q))
@@ -651,9 +608,8 @@ function renderAssetList() {
     const deleteBtn = isAdmin
       ? `<button class="secondary" onclick="deleteAsset('${a._id}')">🗑 ${tr("action.delete")}</button>`
       : "";
-    const isThisDevice = a._id === thisDeviceId;
     return `
-    <div class="asset${isThisDevice ? " this-device" : ""}">
+    <div class="asset">
       <div>
         <h3>${escapeHtml(a.code)}</h3>
         <div class="muted">${escapeHtml(a.type || "")} ${a.model ? "· " + escapeHtml(a.model) : ""}</div>
@@ -662,7 +618,6 @@ function renderAssetList() {
         ${assetCreatedMs(a) ? `<div class="muted">🗓 ${tr("field.createdAt")}: ${escapeHtml(formatAssetDate(assetCreatedMs(a)))}</div>` : ""}
         <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(checkLabel(a.checkStatus))}</span>
         ${!isAdmin ? `<span class="badge view-only-tag">👁 ${tr("action.viewOnly")}</span>` : ""}
-        ${isThisDevice ? `<span class="this-device-tag">${tr("thisDevice.badge")}</span>` : ""}
       </div>
       <div class="asset-actions">
         ${editBtn}
@@ -785,116 +740,6 @@ setupAutocomplete("section", "sectionSuggest",
   it => { $("section").value = it.value; maybeSuggestCode(); }
 );
 
-// ---- Autocomplete riêng cho khung "Điều chuyển tài sản" (transferBox) ----
-// Cùng cơ chế 2 chiều Mã NV <-> Người sử dụng <-> Bộ phận như form tài sản
-// chính ở trên, nhưng dùng field riêng (transferEmployeeCode/transferUser/
-// transferSection/transferGroup) để không đụng tới dữ liệu đang hiển thị
-// trên form chính — chỉ ghi khi bấm "Xác nhận điều chuyển".
-setupAutocomplete("transferEmployeeCode", "transferEmployeeCodeSuggest",
-  q => filterEmployeesBy("code", q, 200),
-  e => `${escapeHtml(e.code)}<span class="muted">${escapeHtml(e.name)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
-  e => {
-    $("transferEmployeeCode").value = e.code;
-    $("transferUser").value = e.name;
-    $("transferSection").value = e.section || "";
-    $("transferGroup").value = e.group || "";
-  },
-  { autoFillMinChars: 3 }
-);
-setupAutocomplete("transferUser", "transferUserSuggest",
-  q => filterEmployeesBy("name", q, 200),
-  e => `${escapeHtml(e.name)}<span class="muted">${escapeHtml(e.code)}${e.section ? " · " + escapeHtml(e.section) : ""}${e.group ? " · " + escapeHtml(e.group) : ""}${e.active ? "" : " · đã nghỉ việc"}</span>`,
-  e => {
-    $("transferUser").value = e.name;
-    $("transferEmployeeCode").value = e.code;
-    $("transferSection").value = e.section || "";
-    $("transferGroup").value = e.group || "";
-  },
-  { autoFillMinChars: 3 }
-);
-setupAutocomplete("transferSection", "transferSectionSuggest",
-  q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 100).map(v => ({ value: v })),
-  it => escapeHtml(it.value),
-  it => { $("transferSection").value = it.value; }
-);
-
-/* ---------- Điều chuyển tài sản (transfer) ----------
-   Thao tác độc lập với form sửa tài sản chính: ghi thẳng lên Firestore chỉ
-   4 field employeeCode/user/section/group (không đụng các field khác đang
-   hiển thị dở trên form), và luôn tạo 1 mốc history action:"transfer" riêng
-   (khác "update") để dễ lọc/nhận ra lịch sử điều chuyển qua các đời chủ sở
-   hữu. Chỉ Admin thấy khung này (class admin-only) và chỉ dùng được với
-   tài sản đã có sẵn (đã lưu, có assetId) — khớp với quyền sửa tài sản hiện
-   tại (xem fillFormFromAsset/assetFormEl submit ở trên).
-*/
-function holderLabel(a) {
-  const parts = [a && a.user, a && a.employeeCode ? "(" + a.employeeCode + ")" : "", a && a.section].filter(Boolean);
-  return parts.length ? parts.join(" ") : tr("transfer.currentNone");
-}
-function clearTransferBox() {
-  $("transferEmployeeCode").value = "";
-  $("transferUser").value = "";
-  $("transferSection").value = "";
-  $("transferGroup").value = "";
-  $("transferReason").value = "";
-}
-function showTransferBoxFor(a) {
-  $("transferCurrentHolder").textContent = holderLabel(a);
-  clearTransferBox();
-  $("transferBox").classList.remove("hidden");
-}
-$("confirmTransferBtn").addEventListener("click", () => {
-  const oldId = $("assetId").value;
-  const oldAsset = oldId ? assets.find(x => x._id === oldId) : null;
-  if (!oldId || !oldAsset) { alert(tr("transfer.needSaveFirst")); return; }
-  if (!isAdmin) return; // UI đã ẩn khung này cho non-admin; Firestore Rules chặn thật ở server
-
-  const newData = {
-    employeeCode: $("transferEmployeeCode").value.trim(),
-    user: $("transferUser").value.trim(),
-    section: $("transferSection").value.trim(),
-    group: $("transferGroup").value.trim(),
-  };
-  if (!newData.user && !newData.section) { alert(tr("transfer.needNewUser")); return; }
-
-  const fieldChanges = diffAssetFields(oldAsset, newData, ["employeeCode", "user", "section", "group"]);
-  if (!fieldChanges.length) { alert(tr("transfer.sameHolder")); return; }
-
-  const reason = $("transferReason").value.trim();
-  if (reason) fieldChanges.push({ field: "transferReason", label: tr("field.transferReason"), from: "", to: reason });
-
-  const fromLabel = holderLabel(oldAsset);
-  const toLabel = holderLabel(Object.assign({}, oldAsset, newData));
-  if (!confirm(tr("transfer.confirmMsg", { code: oldAsset.code || oldId, from: fromLabel, to: toLabel }))) return;
-
-  const data = Object.assign({}, newData, { updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-  const entry = historyEntry("transfer", fieldChanges);
-  data.history = firebase.firestore.FieldValue.arrayUnion(entry);
-
-  const btn = $("confirmTransferBtn");
-  const originalLabel = btn.textContent;
-  btn.disabled = true;
-
-  // Không await (giống assetFormEl submit ở trên) — offline persistence cập
-  // nhật local cache ngay, UI không bị treo nếu mất mạng/Firestore chậm.
-  db.collection(COLLECTION).doc(oldId).set(data, { merge: true }).catch(err => {
-    alert(tr("transfer.errSave", { err: err.message }));
-  });
-
-  // Cập nhật ngay form đang mở (không đợi onSnapshot) để thấy kết quả liền,
-  // kể cả khi offline.
-  const updatedAsset = Object.assign({}, oldAsset, newData, { history: (oldAsset.history || []).concat([entry]) });
-  const idx = assets.findIndex(x => x._id === oldId);
-  if (idx !== -1) assets[idx] = updatedAsset;
-  fillFormFromAsset(updatedAsset);
-  showTransferBoxFor(updatedAsset);
-  saveLocalCache();
-  renderAssetList();
-
-  setTimeout(() => { btn.disabled = false; btn.textContent = originalLabel; }, 300);
-  toast(tr("transfer.success", { code: updatedAsset.code || oldId, to: toLabel }));
-});
-
 /* ---------- Asset form ---------- */
 function populateTypeSelect() {
   $("type").innerHTML = ASSET_TYPES.map(t => `<option>${t}</option>`).join("");
@@ -1005,7 +850,6 @@ function clearForm() {
   $("qrcode").innerHTML = "";
   $("qrText").textContent = "";
   $("pasteInfoBox").value = "";
-  updateThisDeviceMarkBox(); // tạo mới -> chưa có assetId -> box tự ẩn
   $("userSuggest").classList.add("hidden");
   $("userSuggest").innerHTML = "";
   $("employeeCodeSuggest").classList.add("hidden");
@@ -1018,8 +862,6 @@ function clearForm() {
   codeAutoFilled = true;
   maybeSuggestCode(); // gợi ý sẵn mã cho tài sản mới (vd PC-0001)
   if ($("historyBox")) { $("historyBox").classList.add("hidden"); $("historyList").innerHTML = ""; }
-  // Chưa lưu thì chưa có gì để điều chuyển — ẩn khung Điều chuyển tài sản.
-  if ($("transferBox")) { $("transferBox").classList.add("hidden"); clearTransferBox(); }
 }
 $("resetForm").addEventListener("click", clearForm);
 
@@ -1038,19 +880,7 @@ function fillFormFromAsset(a) {
   $("ip").value = a.ip || "";
   $("mac").value = a.mac || "";
   $("spec").value = a.spec || "";
-  // Dữ liệu cũ từng nhét thông tin bản quyền chung vào cuối "Thông tin
-  // Windows" dạng "... | BanQuyen: <...>". Nếu tài sản chưa có field
-  // license riêng, tự tách phần đó ra ô Bản quyền khi mở form; nếu không
-  // tìm thấy phần "BanQuyen:" thì để ô Bản quyền trống như bình thường.
-  let winInfoVal = a.winInfo || "";
-  let licenseVal = a.license || "";
-  const mBanQuyen = /^(.*?)\s*\|\s*BanQuyen\s*:\s*(.*)$/i.exec(winInfoVal);
-  if (mBanQuyen) {
-    winInfoVal = mBanQuyen[1].trim();
-    if (!licenseVal) licenseVal = mBanQuyen[2].trim();
-  }
-  $("winInfo").value = winInfoVal;
-  $("license").value = licenseVal;
+  $("winInfo").value = a.winInfo || "";
   $("status").value = a.status || "Tốt";
   $("checkStatus").value = a.checkStatus || CHECK_UNCHECKED;
   $("note").value = a.note || "";
@@ -1063,10 +893,8 @@ function fillFormFromAsset(a) {
   }
   $("assetLocked").checked = !!a.locked;
   $("formTitle").textContent = tr("assetForm.editTitle", { code: a.code || "" });
-  updateThisDeviceMarkBox();
   renderQR(a.code);
   renderHistoryBox(a);
-  if ($("transferBox")) showTransferBoxFor(a); // tài sản đã có sẵn — cho phép điều chuyển (khung tự ẩn nếu không phải Admin, xem CSS .admin-only)
 
   // Only admin can rename the doc ID (renaming = delete old + create new,
   // and only admins are allowed to delete) or edit an EXISTING record at
@@ -1121,7 +949,6 @@ $("assetFormEl").addEventListener("submit", e => {
     mac: $("mac").value.trim(),
     spec: $("spec").value.trim(),
     winInfo: $("winInfo").value.trim(),
-    license: $("license").value.trim(),
     status: $("status").value,
     checkStatus: $("checkStatus").value,
     note: $("note").value.trim(),
@@ -1323,30 +1150,6 @@ $("photo").addEventListener("change", handlePhotoFileChange);
 $("photoCamera").addEventListener("change", handlePhotoFileChange);
 
 /* ---------- PowerShell helper + autofill ---------- */
-// Kiểm tra bản quyền Windows: dùng WMI class SoftwareLicensingProduct (có sẵn
-// trong Windows, không cần cài thêm công cụ, không cần quyền Admin để ĐỌC).
-// Dùng chung 1 biến cho cả PS_SCRIPT và PS_SCRIPT_QR để tránh copy-paste 2 nơi
-// (sửa 1 chỗ, áp dụng cả 2 script offline lẫn online).
-// Lưu ý: Key (đã che, chỉ hiện 4 ký tự cuối) được hiện ở MỌI trạng thái bản
-// quyền khi máy có ghi nhận key — kể cả máy đã "Da kich hoat" — để IT vẫn tra
-// cứu/đối chiếu được key theo từng máy khi cần (audit, đổi máy...).
-const PS_LICENSE_SNIPPET = `$licProduct = Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" -ErrorAction SilentlyContinue | Select-Object -First 1
-$licStatusMap = @{0='Chua kich hoat';1='Da kich hoat';2='Grace (OOB)';3='Grace (OOT)';4='Grace (Non-Genuine)';5='Notification';6='Grace (Extended)'}
-if ($licProduct) {
-  $licStatusText = if ($licStatusMap.ContainsKey([int]$licProduct.LicenseStatus)) { $licStatusMap[[int]$licProduct.LicenseStatus] } else { "Khong xac dinh ($($licProduct.LicenseStatus))" }
-  $licChannel = $licProduct.ProductKeyChannel
-  $maskedKey = ""
-  if ($licProduct.PartialProductKey) {
-    $partial = $licProduct.PartialProductKey
-    $last4 = if ($partial.Length -ge 4) { $partial.Substring($partial.Length - 4) } else { $partial }
-    $maskHead = "X" * [Math]::Max(0, $partial.Length - 4)
-    $maskedKey = "XXXXX-XXXXX-XXXXX-XXXXX-$maskHead$last4"
-  }
-  $banQuyen = if ($licChannel) { "$licStatusText - $licChannel" } else { $licStatusText }
-  if ($maskedKey) { $banQuyen = "$banQuyen | Key: $maskedKey" }
-} else {
-  $banQuyen = "Khong tim thay thong tin ban quyen"
-}`;
 const PS_SCRIPT = `# get-info.ps1 - Dán kết quả vào ô "Dán thông tin máy"
 $cs = Get-CimInstance Win32_ComputerSystem
 $bios = Get-CimInstance Win32_BIOS
@@ -1359,7 +1162,6 @@ $displayVer = (Get-ItemProperty $verKey -Name DisplayVersion -ErrorAction Silent
 $ubr = (Get-ItemProperty $verKey -Name UBR -ErrorAction SilentlyContinue).UBR
 $edition = ($os.Caption -replace 'Microsoft ', '').Trim()
 $winInfo = "$edition $displayVer (Build $($os.BuildNumber).$ubr)"
-${PS_LICENSE_SNIPPET}
 $active = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
 $ipParts = @()
 $macParts = @()
@@ -1374,7 +1176,6 @@ Write-Output "MODEL: $($cs.Model)"
 Write-Output "SERIAL: $($bios.SerialNumber)"
 Write-Output "CAUHINH: $($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
 Write-Output "WININFO: $winInfo"
-Write-Output "BANQUYEN: $banQuyen"
 Write-Output "IP: $((($ipParts | Select-Object -Unique)) -join '; ')"
 Write-Output "MAC: $(($macParts) -join '; ')"
 Write-Output "===== HET - COPY DEN DAY ====="`;
@@ -1406,7 +1207,6 @@ $displayVer = (Get-ItemProperty $verKey -Name DisplayVersion -ErrorAction Silent
 $ubr = (Get-ItemProperty $verKey -Name UBR -ErrorAction SilentlyContinue).UBR
 $edition = ($os.Caption -replace 'Microsoft ', '').Trim()
 $winInfo = "$edition $displayVer (Build $($os.BuildNumber).$ubr)"
-${PS_LICENSE_SNIPPET}
 $active = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
 $ipParts = @()
 $macParts = @()
@@ -1431,7 +1231,6 @@ $info = [ordered]@{
   SERIAL  = $bios.SerialNumber
   CAUHINH = "$($cpu.Name) / RAM \${ramGB}GB / $($disk.Model)"
   WININFO = $winInfo
-  BANQUYEN = $banQuyen
   IP      = (($ipParts | Select-Object -Unique) -join '; ')
   MAC     = ($macParts -join '; ')
 }
@@ -1490,7 +1289,7 @@ $("btnAutofill").addEventListener("click", () => {
   const text = $("pasteInfoBox").value;
   if (!text.trim()) { alert(tr("msg.needPasteContent")); return; }
 
-  const map = { TENMAY: "deviceName", MODEL: "model", SERIAL: "serial", CAUHINH: "spec", WININFO: "winInfo", BANQUYEN: "license", IP: "ip", MAC: "mac" };
+  const map = { TENMAY: "deviceName", MODEL: "model", SERIAL: "serial", CAUHINH: "spec", WININFO: "winInfo", IP: "ip", MAC: "mac" };
   let filled = 0;
   text.split("\n").forEach(line => {
     const m = line.match(/^\s*([A-Za-z]+)\s*:\s*(.+)\s*$/);
@@ -1556,7 +1355,6 @@ function onDevInfoScan(b64) {
   $("serial").value = data.SERIAL || "";
   $("spec").value = data.CAUHINH || "";
   $("winInfo").value = data.WININFO || "";
-  $("license").value = data.BANQUYEN || "";
   $("ip").value = data.IP || "";
   $("mac").value = data.MAC || "";
   goPage("assetForm");
@@ -1631,7 +1429,6 @@ const COLUMNS = [
   "mac",          // MAC
   "spec",         // Cấu hình
   "winInfo",      // Thông tin Windows
-  "license",      // Bản quyền
   "status",       // Tình trạng
   "checkStatus",  // Trạng thái kiểm kê
   "note",         // Ghi chú
@@ -1639,7 +1436,7 @@ const COLUMNS = [
 const COLUMN_LABELS_VN = {
   employeeCode: "Mã nhân viên", user: "Người sử dụng", section: "Bộ phận", group: "Tổ/Chuyền",
   code: "Mã tài sản", type: "Loại thiết bị", deviceName: "Tên tài sản", model: "Model", serial: "Serial",
-  ip: "IP", mac: "MAC", spec: "Cấu hình", winInfo: "Thông tin Windows", license: "Bản quyền",
+  ip: "IP", mac: "MAC", spec: "Cấu hình", winInfo: "Thông tin Windows",
   status: "Tình trạng", checkStatus: "Trạng thái kiểm kê", note: "Ghi chú"
 };
 const HEADER_MAP = {};
@@ -3139,6 +2936,426 @@ $("importTicketsXlsx").addEventListener("change", async e => {
   e.target.value = "";
 });
 
+/* ==========================================================================
+   DỰ ÁN CNTT (projects) — theo dõi tiến độ dự án IT, tương tự Ticket nhưng
+   có thêm file đính kèm (Excel/PDF/Word/ảnh...) lưu trên Firebase Storage.
+   Mô hình quyền giống hệt Ticket: Collector (và Admin) tạo mới được, chỉ
+   Admin sửa/xóa được dự án đã có. Viewer chỉ xem.
+   ========================================================================== */
+const storage = firebase.storage();
+const PROJECT_STATUSES = ["Lên kế hoạch", "Đang thực hiện", "Tạm dừng", "Hoàn thành", "Hủy"];
+const PROJECT_STATUS_LABEL_KEY = {
+  "Lên kế hoạch": "project.status.planning", "Đang thực hiện": "project.status.inProgress",
+  "Tạm dừng": "project.status.onHold", "Hoàn thành": "project.status.done", "Hủy": "project.status.cancelled"
+};
+function projectStatusLabel(status) { return PROJECT_STATUS_LABEL_KEY[status] ? tr(PROJECT_STATUS_LABEL_KEY[status]) : (status || tr("project.status.planning")); }
+function populateProjectSelects() {
+  $("projectPriority").innerHTML = TICKET_PRIORITIES.map(p => `<option>${p}</option>`).join("");
+  $("projectStatus").innerHTML = PROJECT_STATUSES.map(s => `<option>${s}</option>`).join("");
+}
+populateProjectSelects();
+
+function PROJECT_HISTORY_FIELDS_FN() { return [
+  ["name", tr("field.projectName").replace("*", "")],
+  ["status", tr("field.projectStatus")],
+  ["priority", tr("field.priority")],
+  ["owner", tr("field.projectOwner")],
+  ["department", tr("field.department")],
+  ["startDate", tr("field.projectStart")],
+  ["endDate", tr("field.projectEnd")],
+  ["progress", tr("field.projectProgress")],
+  ["description", tr("field.description")],
+  ["note", tr("field.ticketNote")],
+]; }
+Object.defineProperty(window, "PROJECT_HISTORY_FIELDS", { get: PROJECT_HISTORY_FIELDS_FN });
+function diffProjectFields(oldP, newData) {
+  const changes = [];
+  PROJECT_HISTORY_FIELDS.forEach(([key, label]) => {
+    const ov = ((oldP && oldP[key]) || "").toString().trim();
+    const nv = ((newData && newData[key]) || "").toString().trim();
+    if (ov !== nv) changes.push({ field: key, label, from: ov, to: nv });
+  });
+  return changes;
+}
+function renderProjectHistoryBox(p) {
+  const box = $("projectHistoryBox");
+  const list = $("projectHistoryList");
+  if (!box || !list) return;
+  const entries = Array.isArray(p && p.history) ? p.history.slice().sort((x, y) => (y.at || 0) - (x.at || 0)) : [];
+  if (!entries.length) { box.classList.add("hidden"); list.innerHTML = ""; return; }
+  box.classList.remove("hidden");
+  list.innerHTML = entries.map(e => {
+    const changesHtml = (e.changes || []).map(c => {
+      const from = c.from ? escapeHtml(c.from) : "<i>(" + tr("common.empty") + ")</i>";
+      const to = c.to ? escapeHtml(c.to) : "<i>(" + tr("common.empty") + ")</i>";
+      return `<div class="history-change"><b>${escapeHtml(c.label)}:</b> ${from} → ${to}</div>`;
+    }).join("");
+    return `<div class="history-entry">
+      <div class="history-head">
+        <span class="history-action">${escapeHtml(HISTORY_ACTION_LABEL[e.action] || e.action || "")}</span>
+        <span class="muted">${formatHistoryTime(e.at)} · ${escapeHtml(e.by || "")}</span>
+      </div>
+      ${changesHtml || '<div class="history-change muted">' + tr("history.noChanges") + '</div>'}
+    </div>`;
+  }).join("");
+}
+
+/* ---------- Mốc tiến độ dự án (progress log) — giống hệt cơ chế của Ticket ---------- */
+let currentProjectProgressLog = [];
+function renderProjectProgressList() {
+  const box = $("projectProgressList");
+  if (!box) return;
+  if (!currentProjectProgressLog.length) {
+    box.innerHTML = `<div class="muted" style="padding:4px 0 10px">${tr("progress.none")}</div>`;
+    return;
+  }
+  const order = currentProjectProgressLog.map((e, i) => ({ e, i })).sort((a, b) => (b.e.at || 0) - (a.e.at || 0));
+  box.innerHTML = order.map(({ e, i }) => `<div class="history-entry">
+      <div class="history-head">
+        <span class="muted">${formatHistoryTime(e.at)} · ${escapeHtml(e.by || "")}</span>
+        <button type="button" class="secondary" style="padding:3px 8px;font-size:11px" onclick="removeProjectProgress(${i})">🗑</button>
+      </div>
+      <div class="history-change">${escapeHtml(e.note || "")}</div>
+    </div>`).join("");
+}
+window.removeProjectProgress = function (idx) {
+  currentProjectProgressLog.splice(idx, 1);
+  renderProjectProgressList();
+};
+$("addProjectProgressBtn").addEventListener("click", () => {
+  const note = $("projectProgressNote").value.trim();
+  if (!note) { alert(tr("msg.needProgressNote")); return; }
+  currentProjectProgressLog.push({ at: Date.now(), by: currentEmail || "?", note });
+  $("projectProgressNote").value = "";
+  renderProjectProgressList();
+});
+
+/* ---------- File đính kèm (Firebase Storage) ----------
+   Tải lên NGAY khi chọn file (không đợi bấm "Lưu dự án") để người dùng thấy
+   tiến độ tải/lỗi tức thì. Đường dẫn lưu theo mã dự án hiện tại trong form
+   (projects/<mã dự án>/<timestamp>_<tên file>) — nếu đổi Mã dự án SAU khi
+   đã tải file, file cũ vẫn còn dùng được bình thường (URL không đổi), chỉ
+   là nằm ở thư mục Storage mang tên mã cũ. */
+let currentProjectAttachments = []; // [{name,url,path,size,contentType,uploadedAt,uploadedBy}]
+function formatFileSize(bytes) {
+  if (!bytes) return "";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+function renderProjectAttachList() {
+  const box = $("projectAttachList");
+  if (!box) return;
+  if (!currentProjectAttachments.length) { box.innerHTML = ""; return; }
+  box.innerHTML = currentProjectAttachments.map((a, i) => `
+    <div class="attach-item">
+      <div><a href="${a.url}" target="_blank" rel="noopener">📎 ${escapeHtml(a.name)}</a>
+        <div class="attach-meta">${formatFileSize(a.size)}${a.uploadedAt ? " · " + formatHistoryTime(a.uploadedAt) : ""}</div>
+      </div>
+      <button type="button" class="secondary creator-only" onclick="removeProjectAttachment(${i})">🗑</button>
+    </div>`).join("");
+}
+window.removeProjectAttachment = function (idx) {
+  const a = currentProjectAttachments[idx];
+  if (!a) return;
+  if (!confirm(tr("attachments.confirmDelete", { name: a.name }))) return;
+  currentProjectAttachments.splice(idx, 1);
+  renderProjectAttachList();
+  if (a.path) storage.ref(a.path).delete().catch(() => {}); // best-effort, không chặn UI
+};
+$("projectAttachInput").addEventListener("change", async e => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = "";
+  if (!files.length) return;
+  const codeForPath = sanitizeId($("projectCode").value) || ("DRAFT_" + Date.now());
+  const uploadingEl = $("projectAttachUploading");
+  uploadingEl.classList.remove("hidden");
+  for (const file of files) {
+    if (file.size > 20 * 1024 * 1024) { alert(tr("attachments.tooLarge", { name: file.name })); continue; }
+    try {
+      const path = `projects/${codeForPath}/${Date.now()}_${file.name}`;
+      const snap = await storage.ref(path).put(file);
+      const url = await snap.ref.getDownloadURL();
+      currentProjectAttachments.push({
+        name: file.name, url, path, size: file.size, contentType: file.type || "",
+        uploadedAt: Date.now(), uploadedBy: currentEmail || "?"
+      });
+      renderProjectAttachList();
+    } catch (err) {
+      alert(tr("attachments.errUpload", { name: file.name, err: err.message }));
+    }
+  }
+  uploadingEl.classList.add("hidden");
+});
+
+/* ---------- Dashboard/list helpers (Dự án) ---------- */
+function projectBadgeClass(status) {
+  if (status === "Hoàn thành") return "ok";
+  if (status === "Hủy") return "bad";
+  if (status === "Đang thực hiện") return "info";
+  if (status === "Tạm dừng") return "warn";
+  return "warn"; // Lên kế hoạch
+}
+function isProjectOverdue(p) {
+  if (!p.endDate || p.status === "Hoàn thành" || p.status === "Hủy") return false;
+  return p.endDate < new Date().toISOString().slice(0, 10);
+}
+function renderProjectStats() {
+  const total = projectRecords.length;
+  let active = 0, done = 0, overdue = 0;
+  projectRecords.forEach(p => {
+    if (p.status === "Đang thực hiện") active++;
+    if (p.status === "Hoàn thành") done++;
+    if (isProjectOverdue(p)) overdue++;
+  });
+  if ($("projectTotalCount")) $("projectTotalCount").textContent = total;
+  if ($("projectActiveCount")) $("projectActiveCount").textContent = active;
+  if ($("projectDoneCount")) $("projectDoneCount").textContent = done;
+  if ($("projectOverdueCount")) $("projectOverdueCount").textContent = overdue;
+}
+function renderProjectList() {
+  if (!$("projectList")) return;
+  renderProjectStats();
+  const q = ($("projectSearch").value || "").trim().toLowerCase();
+  const statusF = $("filterProjectStatus").value;
+  const prioF = $("filterProjectPriority").value;
+
+  let list = projectRecords.slice().sort((a, b) => (b.projectCode || "").localeCompare(a.projectCode || ""));
+  if (q) {
+    list = list.filter(p =>
+      [p.projectCode, p.name, p.owner, p.department, p.description].some(v => (v || "").toLowerCase().includes(q))
+    );
+  }
+  if (statusF) list = list.filter(p => (p.status || "Lên kế hoạch") === statusF);
+  if (prioF) list = list.filter(p => (p.priority || "Trung bình") === prioF);
+
+  if (!list.length) {
+    $("projectList").innerHTML = `<div class="empty">${tr("projects.noneFound")}</div>`;
+    return;
+  }
+  $("projectList").innerHTML = list.map(p => {
+    const editBtn = isAdmin
+      ? `<button onclick="editProject('${p._id}')">✎ ${tr("action.edit")}</button>`
+      : `<button onclick="editProject('${p._id}')">👁 ${tr("action.view")}</button>`;
+    const deleteBtn = isAdmin
+      ? `<button class="secondary" onclick="deleteProject('${p._id}')">🗑 ${tr("action.delete")}</button>`
+      : "";
+    const overdue = isProjectOverdue(p);
+    const pct = Math.max(0, Math.min(100, Number(p.progress) || 0));
+    return `
+    <div class="asset">
+      <div>
+        <h3>${escapeHtml(p.projectCode)} — ${escapeHtml(p.name || "")}</h3>
+        <div class="muted">${p.owner ? "👤 " + escapeHtml(p.owner) : ""}${p.department ? " · 🏢 " + escapeHtml(p.department) : ""}</div>
+        ${(p.startDate || p.endDate) ? `<div class="muted">🗓 ${escapeHtml(p.startDate || "?")} → ${escapeHtml(p.endDate || "?")}</div>` : ""}
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <div class="muted">${escapeHtml(p.description || "")}</div>
+        <span class="badge ${projectBadgeClass(p.status)}">${escapeHtml(projectStatusLabel(p.status))}</span>
+        <span class="prio-badge prio-${prioritySlug(p.priority)}">${escapeHtml(ticketPriorityLabel(p.priority || "Trung bình"))}</span>
+        ${overdue ? `<span class="badge bad">⚠ ${tr("projects.overdue")}</span>` : ""}
+        ${(p.attachments && p.attachments.length) ? `<span class="badge info">📎 ${tr("attachments.count", { count: p.attachments.length })}</span>` : ""}
+        ${(p.progressLog && p.progressLog.length) ? `<span class="badge info">🕒 ${tr("progress.count", { count: p.progressLog.length })}</span>` : ""}
+        ${!isAdmin ? `<span class="badge view-only-tag">👁 ${tr("action.viewOnly")}</span>` : ""}
+      </div>
+      <div class="asset-actions">
+        ${editBtn}
+        ${deleteBtn}
+      </div>
+    </div>
+  `;
+  }).join("");
+}
+$("projectSearch").addEventListener("input", renderProjectList);
+$("filterProjectStatus").addEventListener("change", renderProjectList);
+$("filterProjectPriority").addEventListener("change", renderProjectList);
+
+/* ---------- Autocomplete: Phụ trách / Phòng ban (Dự án) ---------- */
+setupAutocomplete("projectOwner", "projectOwnerSuggest",
+  q => filterEmployeesBy("name", q, 200),
+  e => `${escapeHtml(e.name)}<span class="muted">${escapeHtml(e.code)}${e.section ? " · " + escapeHtml(e.section) : ""}</span>`,
+  e => {
+    $("projectOwner").value = e.name;
+    if (!$("projectDepartment").value.trim()) $("projectDepartment").value = e.section || "";
+  },
+  { autoFillMinChars: 3 }
+);
+setupAutocomplete("projectDepartment", "projectDepartmentSuggest",
+  q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 100).map(v => ({ value: v })),
+  it => escapeHtml(it.value),
+  it => { $("projectDepartment").value = it.value; }
+);
+
+/* ---------- Mã dự án: tự gợi ý dạng DA-YYYYMMDD-NNN ---------- */
+let projectIdAutoFilled = true;
+function suggestedProjectSeq(dateStr) {
+  const prefix = `DA-${dateStr}-`;
+  const n = projectRecords.filter(p => (p.projectCode || "").startsWith(prefix)).length + 1;
+  return String(n).padStart(3, "0");
+}
+function maybeSuggestProjectId() {
+  if (!projectIdAutoFilled) return;
+  if ($("projectDocId").value) return;
+  const dateStr = todayCompact();
+  $("projectCode").value = `DA-${dateStr}-${suggestedProjectSeq(dateStr)}`;
+}
+$("projectCode").addEventListener("input", () => { projectIdAutoFilled = false; });
+
+/* ---------- Form khóa/mở khóa (giống ticket/asset) ---------- */
+function setProjectFormLocked(locked) {
+  $("projectFormEl").querySelectorAll("input, select, textarea, button").forEach(el => {
+    el.disabled = locked;
+  });
+  $("projectLockedNotice").classList.toggle("hidden", !locked);
+}
+
+function clearProjectForm() {
+  $("projectFormEl").reset();
+  $("projectDocId").value = "";
+  $("projectFormTitle").textContent = tr("projectForm.createTitle");
+  $("projectOwnerSuggest").classList.add("hidden");
+  $("projectOwnerSuggest").innerHTML = "";
+  $("projectDepartmentSuggest").classList.add("hidden");
+  $("projectDepartmentSuggest").innerHTML = "";
+  currentProjectProgressLog = [];
+  $("projectProgressNote").value = "";
+  renderProjectProgressList();
+  currentProjectAttachments = [];
+  renderProjectAttachList();
+  $("projectLocked").checked = false;
+  $("projectCode").readOnly = false;
+  $("projectProgress").value = 0;
+  setProjectFormLocked(false);
+  projectIdAutoFilled = true;
+  maybeSuggestProjectId();
+  if ($("projectHistoryBox")) { $("projectHistoryBox").classList.add("hidden"); $("projectHistoryList").innerHTML = ""; }
+}
+$("resetProjectForm").addEventListener("click", clearProjectForm);
+["projectsAddBtn"].forEach(id => {
+  const btn = $(id);
+  if (btn) btn.addEventListener("click", clearProjectForm);
+});
+
+function fillFormFromProject(p) {
+  projectIdAutoFilled = false;
+  $("projectDocId").value = p._id || "";
+  $("projectCode").value = p.projectCode || "";
+  $("projectName").value = p.name || "";
+  $("projectStatus").value = p.status || "Lên kế hoạch";
+  $("projectPriority").value = p.priority || "Trung bình";
+  $("projectOwner").value = p.owner || "";
+  $("projectDepartment").value = p.department || "";
+  $("projectStart").value = p.startDate || "";
+  $("projectEnd").value = p.endDate || "";
+  $("projectProgress").value = (p.progress != null) ? p.progress : 0;
+  $("projectDescription").value = p.description || "";
+  $("projectNote").value = p.note || "";
+  currentProjectAttachments = Array.isArray(p.attachments) ? p.attachments.slice() : [];
+  renderProjectAttachList();
+  $("projectLocked").checked = !!p.locked;
+  currentProjectProgressLog = Array.isArray(p.progressLog) ? p.progressLog.slice() : [];
+  renderProjectProgressList();
+  $("projectFormTitle").textContent = tr("projectForm.editTitle", { id: p.projectCode || "" });
+  renderProjectHistoryBox(p);
+
+  $("projectCode").readOnly = !isAdmin;
+  setProjectFormLocked(!isAdmin);
+}
+window.editProject = function (id) {
+  const p = projectRecords.find(x => x._id === id);
+  if (!p) return;
+  fillFormFromProject(p);
+  goPage("projectForm");
+};
+window.deleteProject = function (id) {
+  if (!isAdmin) return;
+  const p = projectRecords.find(x => x._id === id);
+  if (!p) return;
+  if (!confirm(tr("msg.confirmDeleteProject", { id: p.projectCode }))) return;
+  db.collection(PROJECT_COLLECTION).doc(id).delete()
+    .then(() => {
+      // Best-effort: dọn luôn file đính kèm trên Storage — không chặn UI nếu lỗi.
+      (p.attachments || []).forEach(a => { if (a.path) storage.ref(a.path).delete().catch(() => {}); });
+    })
+    .catch(err => alert(tr("msg.errDelete", { err: err.message })));
+};
+
+$("projectFormEl").addEventListener("submit", e => {
+  e.preventDefault();
+  const projectCode = $("projectCode").value.trim();
+  if (!projectCode) { alert(tr("msg.needProjectCode")); return; }
+  if (!$("projectName").value.trim()) { alert(tr("msg.needProjectName")); return; }
+  const newId = sanitizeId(projectCode);
+  if (!newId) { alert(tr("msg.invalidProjectCode")); return; }
+  const oldId = $("projectDocId").value;
+  const oldProject = oldId ? projectRecords.find(p => p._id === oldId) : null;
+
+  if (!isAdmin && oldId) {
+    alert(tr("msg.noPermEditProject"));
+    return;
+  }
+
+  const data = {
+    projectCode,
+    name: $("projectName").value.trim(),
+    status: $("projectStatus").value,
+    priority: $("projectPriority").value,
+    owner: $("projectOwner").value.trim(),
+    department: $("projectDepartment").value.trim(),
+    startDate: $("projectStart").value,
+    endDate: $("projectEnd").value,
+    progress: Math.max(0, Math.min(100, parseInt($("projectProgress").value, 10) || 0)),
+    description: $("projectDescription").value.trim(),
+    note: $("projectNote").value.trim(),
+    attachments: currentProjectAttachments,
+    progressLog: currentProjectProgressLog,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  data.locked = isAdmin ? $("projectLocked").checked : true;
+
+  {
+    const fieldChanges = diffProjectFields(oldProject, data);
+    let action, carriedHistory = [];
+    if (!oldId) {
+      action = "create";
+    } else if (oldId !== newId) {
+      action = "rename";
+      fieldChanges.unshift({ field: "projectCode", label: tr("field.projectCode").replace("*", ""), from: oldProject ? oldProject.projectCode : oldId, to: projectCode });
+      carriedHistory = (oldProject && Array.isArray(oldProject.history)) ? oldProject.history : [];
+    } else {
+      action = "update";
+    }
+    if (action !== "update" || fieldChanges.length) {
+      const entry = historyEntry(action, fieldChanges);
+      data.history = firebase.firestore.FieldValue.arrayUnion(...carriedHistory, entry);
+    }
+  }
+
+  const submitBtn = $("projectFormEl").querySelector('button[type="submit"]');
+  const originalLabel = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = tr("common.saving");
+
+  const writeOp = db.collection(PROJECT_COLLECTION).doc(newId).set(data, { merge: true })
+    .then(() => (oldId && oldId !== newId) ? db.collection(PROJECT_COLLECTION).doc(oldId).delete() : null)
+    .catch(err => {
+      alert(tr("msg.errSyncServer", { err: err.message }) + "\n\n" + tr("msg.errSyncServerHint"));
+    });
+
+  setTimeout(() => {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalLabel;
+    $("projectDocId").value = newId;
+    $("projectFormTitle").textContent = tr("projectForm.editTitle", { id: projectCode });
+    goPage("projects");
+  }, 150);
+
+  const stuckTimer = setTimeout(() => {
+    console.warn("Firestore write for project", newId, "has not resolved after 20s — check network/rules.");
+  }, 20000);
+  writeOp.finally(() => clearTimeout(stuckTimer));
+});
+
 /* ---------- Xóa toàn bộ ticket ---------- */
 $("clearAllTickets").addEventListener("click", async () => {
   if (!confirm(tr("msg.confirmClearAllTickets"))) return;
@@ -3560,6 +3777,7 @@ auth.onAuthStateChanged(async user => {
     } else {
       initSync();
       initTicketSync();
+      initProjectSync();
       initEmployeesSync();
       if (isAdmin) initUsersSync(); // chỉ Admin đọc được toàn bộ collection users (theo Rules)
       goPage("dashboard");
@@ -3568,10 +3786,12 @@ auth.onAuthStateChanged(async user => {
   } else {
     stopSync();
     stopTicketSync();
+    stopProjectSync();
     stopEmployeesSync();
     stopUsersSync();
     assets = [];
     ticketRecords = [];
+    projectRecords = [];
     isAdmin = false;
     isCollector = false;
     isViewer = false;
@@ -3589,3 +3809,4 @@ auth.onAuthStateChanged(async user => {
 populateTypeSelect();
 loadLocalCache();
 loadTicketsLocalCache();
+loadProjectsLocalCache();

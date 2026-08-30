@@ -15,34 +15,6 @@ python -m http.server 8080 --bind 0.0.0.0
 
 Camera thường yêu cầu secure context. Nếu Android không mở camera qua HTTP LAN, dùng HTTPS/local secure hosting.
 
-## Thông tin bản quyền Windows
-Cả 2 lệnh PowerShell lấy thông tin máy (nút "📋 Copy lệnh PowerShell" và nút
-tạo QR cho máy offline) giờ tự kiểm tra thêm **tình trạng bản quyền Windows**
-bằng `Get-CimInstance SoftwareLicensingProduct` (không cần quyền Admin, không
-cần mạng) và điền vào **field "Bản quyền" riêng** trên form (không nối chung
-vào ô "Thông tin Windows"), theo dạng:
-`<Trang thai> - <Kenh kich hoat> | Key: <Key da che>`,
-ví dụ `Da kich hoat - OEM:NONSLP | Key: XXXXX-XXXXX-XXXXX-XXXXX-X4037`.
-
-- **Trạng thái** có thể là: Da kich hoat, Chua kich hoat, hoặc các trạng thái
-  Grace (đang trong thời gian gia hạn/xác minh lại).
-- **Kênh kích hoạt** (`ProductKeyChannel`) cho biết máy dùng bản quyền dạng gì:
-  Retail, OEM:NONSLP (bản quyền theo máy/hãng), Volume:MAK/GVLK (bản quyền
-  công ty), v.v. Nếu máy không có key nào được ghi nhận (VD: build Windows
-  không chính chủ), script sẽ ghi "Khong tim thay thong tin ban quyen".
-- Không cần sửa gì thêm ở Excel — field "Bản quyền" đi qua Autofill/QR/Excel
-  như các field khác.
-- Script còn kèm **Key (đã che, chỉ hiện 4 ký tự cuối)** ở MỌI trạng thái bản
-  quyền khi máy có ghi nhận key — kể cả máy đã "Da kich hoat" — để vẫn tra
-  cứu/đối chiếu được key theo từng máy khi cần (audit, đổi máy...), dạng
-  `XXXXX-XXXXX-XXXXX-XXXXX-X4037` (Windows chỉ lưu và cho đọc được 5 ký tự
-  cuối của key qua WMI vì lý do bảo mật — không có cách nào lấy full 25 ký tự
-  key qua PowerShell thông thường). Nếu máy không ghi nhận key nào, phần Key
-  sẽ không xuất hiện.
-- Đoạn kiểm tra bản quyền dùng chung 1 biến (`PS_LICENSE_SNIPPET` trong
-  `app.js`) cho cả 2 lệnh PowerShell (online lẫn QR offline) — sửa 1 chỗ áp
-  dụng cho cả 2, không cần sửa 2 nơi.
-
 ## QR
 QR chứa mã dạng:
 `ITASSET:LAP-AT-0001`

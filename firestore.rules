@@ -75,6 +75,20 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /projects/{projectId} {
+      // Dự án CNTT — cùng mô hình quyền như tickets: Admin/Collector/Viewer
+      // đều đọc được toàn bộ; chỉ Collector (và Admin) tạo được dự án mới;
+      // chỉ Admin sửa/xóa được dự án đã có. File đính kèm (attachments) chỉ
+      // lưu URL/path trên field của chính document này — không có
+      // subcollection riêng nên không cần rule bổ sung nào khác. File thật
+      // sự nằm trên Firebase Storage (cấu hình quyền RIÊNG trong Storage
+      // Rules ở Firebase Console, không thuộc file firestore.rules này).
+      allow read: if isAdmin() || isCollector() || isViewer();
+      allow create: if isAdmin() || isCollector();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     match /employees/{employeeId} {
       // Danh sách nhân viên đồng bộ từ file HR (Dữ liệu → "Nhân viên (HR)").
       // Admin/Collector/Viewer đều cần ĐỌC để dùng autocomplete "Người sử
