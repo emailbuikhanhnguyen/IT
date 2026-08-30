@@ -215,14 +215,23 @@
 
 <section id="ops" class="page">
   <div class="section-head"><h2 data-i18n="ops.title">🛠 Vận hành &amp; Hỗ trợ IT</h2><button data-page="dashboard">←</button></div>
+  <p class="hint" style="margin:0 0 4px" data-i18n="stats.ticketGroupLabel">🎫 Ticket hỗ trợ</p>
   <div class="stats">
     <div class="stat"><b id="ticketTotalCount">0</b><span data-i18n="stats.ticketTotal">Tổng ticket</span></div>
     <div class="stat"><b id="ticketPendingCount">0</b><span data-i18n="stats.ticketPending">Chờ xử lý</span></div>
     <div class="stat"><b id="ticketInProgressCount">0</b><span data-i18n="stats.ticketInProgress">Đang xử lý</span></div>
     <div class="stat"><b id="ticketDoneCount">0</b><span data-i18n="stats.ticketDone">Hoàn thành</span></div>
   </div>
+  <p class="hint" style="margin:14px 0 4px" data-i18n="stats.projectGroupLabel">📁 Dự án CNTT</p>
+  <div class="stats">
+    <div class="stat"><b id="opsProjectTotalCount">0</b><span data-i18n="stats.projectTotal">Tổng dự án</span></div>
+    <div class="stat"><b id="opsProjectActiveCount">0</b><span data-i18n="stats.projectActive">Đang thực hiện</span></div>
+    <div class="stat"><b id="opsProjectDoneCount">0</b><span data-i18n="stats.projectDone">Hoàn thành</span></div>
+    <div class="stat"><b id="opsProjectOverdueCount">0</b><span data-i18n="stats.projectOverdue">Trễ hạn</span></div>
+  </div>
   <div class="quick">
     <button id="quickAddTicketBtn" class="creator-only" data-page="ticketForm" data-i18n="quick.createTicket">＋ Tạo ticket</button>
+    <button id="quickAddProjectBtn" class="creator-only" data-page="projectForm" data-i18n="quick.createProject">＋ Tạo dự án</button>
   </div>
   <p class="hint" style="margin-top:14px" data-i18n="ops.hint">Các mục hỗ trợ vận hành IT gộp chung một chỗ cho dễ tìm.</p>
   <div class="module-nav">

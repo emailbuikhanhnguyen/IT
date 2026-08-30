@@ -3081,10 +3081,9 @@ function renderProjectStats() {
     if (p.status === "Hoàn thành") done++;
     if (isProjectOverdue(p)) overdue++;
   });
-  if ($("projectTotalCount")) $("projectTotalCount").textContent = total;
-  if ($("projectActiveCount")) $("projectActiveCount").textContent = active;
-  if ($("projectDoneCount")) $("projectDoneCount").textContent = done;
-  if ($("projectOverdueCount")) $("projectOverdueCount").textContent = overdue;
+  [["projectTotalCount", total], ["projectActiveCount", active], ["projectDoneCount", done], ["projectOverdueCount", overdue],
+   ["opsProjectTotalCount", total], ["opsProjectActiveCount", active], ["opsProjectDoneCount", done], ["opsProjectOverdueCount", overdue]]
+    .forEach(([id, val]) => { if ($(id)) $(id).textContent = val; });
 }
 function renderProjectList() {
   if (!$("projectList")) return;
@@ -3203,7 +3202,7 @@ function clearProjectForm() {
   if ($("projectHistoryBox")) { $("projectHistoryBox").classList.add("hidden"); $("projectHistoryList").innerHTML = ""; }
 }
 $("resetProjectForm").addEventListener("click", clearProjectForm);
-["projectsAddBtn"].forEach(id => {
+["projectsAddBtn", "quickAddProjectBtn"].forEach(id => {
   const btn = $(id);
   if (btn) btn.addEventListener("click", clearProjectForm);
 });
