@@ -2942,7 +2942,6 @@ $("importTicketsXlsx").addEventListener("change", async e => {
    Mô hình quyền giống hệt Ticket: Collector (và Admin) tạo mới được, chỉ
    Admin sửa/xóa được dự án đã có. Viewer chỉ xem.
    ========================================================================== */
-const storage = firebase.storage();
 const PROJECT_STATUSES = ["Lên kế hoạch", "Đang thực hiện", "Tạm dừng", "Hoàn thành", "Hủy"];
 const PROJECT_STATUS_LABEL_KEY = {
   "Lên kế hoạch": "project.status.planning", "Đang thực hiện": "project.status.inProgress",
@@ -3030,62 +3029,36 @@ $("addProjectProgressBtn").addEventListener("click", () => {
   renderProjectProgressList();
 });
 
-/* ---------- File đính kèm (Firebase Storage) ----------
-   Tải lên NGAY khi chọn file (không đợi bấm "Lưu dự án") để người dùng thấy
-   tiến độ tải/lỗi tức thì. Đường dẫn lưu theo mã dự án hiện tại trong form
-   (projects/<mã dự án>/<timestamp>_<tên file>) — nếu đổi Mã dự án SAU khi
-   đã tải file, file cũ vẫn còn dùng được bình thường (URL không đổi), chỉ
-   là nằm ở thư mục Storage mang tên mã cũ. */
-let currentProjectAttachments = []; // [{name,url,path,size,contentType,uploadedAt,uploadedBy}]
-function formatFileSize(bytes) {
-  if (!bytes) return "";
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-}
+/* ---------- Liên kết tài liệu (thay cho file upload — KHÔNG dùng Firebase
+   Storage vì cần gói Blaze trả phí). Chỉ lưu {name, url} do người dùng tự
+   dán link (Google Drive/OneDrive/Zalo/SharePoint nội bộ...), không upload
+   file thật lên đâu cả. ---------- */
+let currentProjectAttachments = []; // [{name, url, addedAt, addedBy}]
 function renderProjectAttachList() {
   const box = $("projectAttachList");
   if (!box) return;
   if (!currentProjectAttachments.length) { box.innerHTML = ""; return; }
   box.innerHTML = currentProjectAttachments.map((a, i) => `
     <div class="attach-item">
-      <div><a href="${a.url}" target="_blank" rel="noopener">📎 ${escapeHtml(a.name)}</a>
-        <div class="attach-meta">${formatFileSize(a.size)}${a.uploadedAt ? " · " + formatHistoryTime(a.uploadedAt) : ""}</div>
+      <div><a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">🔗 ${escapeHtml(a.name)}</a>
+        <div class="attach-meta">${a.addedAt ? formatHistoryTime(a.addedAt) : ""}</div>
       </div>
       <button type="button" class="secondary creator-only" onclick="removeProjectAttachment(${i})">🗑</button>
     </div>`).join("");
 }
 window.removeProjectAttachment = function (idx) {
-  const a = currentProjectAttachments[idx];
-  if (!a) return;
-  if (!confirm(tr("attachments.confirmDelete", { name: a.name }))) return;
   currentProjectAttachments.splice(idx, 1);
   renderProjectAttachList();
-  if (a.path) storage.ref(a.path).delete().catch(() => {}); // best-effort, không chặn UI
 };
-$("projectAttachInput").addEventListener("change", async e => {
-  const files = Array.from(e.target.files || []);
-  e.target.value = "";
-  if (!files.length) return;
-  const codeForPath = sanitizeId($("projectCode").value) || ("DRAFT_" + Date.now());
-  const uploadingEl = $("projectAttachUploading");
-  uploadingEl.classList.remove("hidden");
-  for (const file of files) {
-    if (file.size > 20 * 1024 * 1024) { alert(tr("attachments.tooLarge", { name: file.name })); continue; }
-    try {
-      const path = `projects/${codeForPath}/${Date.now()}_${file.name}`;
-      const snap = await storage.ref(path).put(file);
-      const url = await snap.ref.getDownloadURL();
-      currentProjectAttachments.push({
-        name: file.name, url, path, size: file.size, contentType: file.type || "",
-        uploadedAt: Date.now(), uploadedBy: currentEmail || "?"
-      });
-      renderProjectAttachList();
-    } catch (err) {
-      alert(tr("attachments.errUpload", { name: file.name, err: err.message }));
-    }
-  }
-  uploadingEl.classList.add("hidden");
+$("addProjectAttachBtn").addEventListener("click", () => {
+  const name = $("projectAttachName").value.trim();
+  const url = $("projectAttachUrl").value.trim();
+  if (!name || !url) { alert(tr("attachments.needNameUrl")); return; }
+  if (!/^https?:\/\//i.test(url)) { alert(tr("attachments.invalidUrl")); return; }
+  currentProjectAttachments.push({ name, url, addedAt: Date.now(), addedBy: currentEmail || "?" });
+  $("projectAttachName").value = "";
+  $("projectAttachUrl").value = "";
+  renderProjectAttachList();
 });
 
 /* ---------- Dashboard/list helpers (Dự án) ---------- */
@@ -3272,10 +3245,6 @@ window.deleteProject = function (id) {
   if (!p) return;
   if (!confirm(tr("msg.confirmDeleteProject", { id: p.projectCode }))) return;
   db.collection(PROJECT_COLLECTION).doc(id).delete()
-    .then(() => {
-      // Best-effort: dọn luôn file đính kèm trên Storage — không chặn UI nếu lỗi.
-      (p.attachments || []).forEach(a => { if (a.path) storage.ref(a.path).delete().catch(() => {}); });
-    })
     .catch(err => alert(tr("msg.errDelete", { err: err.message })));
 };
 

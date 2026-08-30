@@ -457,10 +457,11 @@
     <label><span data-i18n="field.ticketNote">Ghi chú</span><textarea id="projectNote" rows="2"></textarea></label>
 
     <div class="psbox">
-      <h3 data-i18n="attachments.title">📎 File đính kèm</h3>
-      <p class="hint" data-i18n="attachments.hint">Đính kèm file Excel, PDF, Word, ảnh... liên quan đến dự án (hợp đồng, bảng dự toán, biên bản nghiệm thu...). File được lưu trên Firebase Storage.</p>
-      <label class="button secondary"><span data-i18n="attachments.choose">📎 Chọn file để tải lên</span><input id="projectAttachInput" type="file" multiple hidden></label>
-      <div id="projectAttachUploading" class="hint hidden" data-i18n="attachments.uploading">Đang tải lên...</div>
+      <h3 data-i18n="attachments.title">🔗 Liên kết tài liệu</h3>
+      <p class="hint" data-i18n="attachments.hint">Dán link tài liệu liên quan đến dự án (hợp đồng, bảng dự toán, biên bản nghiệm thu...) — link Google Drive, OneDrive, Zalo, SharePoint nội bộ... Chỉ lưu đường dẫn, không lưu file thật lên hệ thống.</p>
+      <label><span data-i18n="attachments.linkNameLabel">Tên tài liệu</span><input id="projectAttachName" data-i18n-placeholder="attachments.linkName.ph" placeholder="VD: Hợp đồng ký kết, Bảng dự toán..."></label>
+      <label><span data-i18n="attachments.linkUrlLabel">Link tài liệu</span><input id="projectAttachUrl" data-i18n-placeholder="attachments.linkUrl.ph" placeholder="Dán link Google Drive/OneDrive/Zalo..."></label>
+      <button type="button" id="addProjectAttachBtn" data-i18n="attachments.addLink">➕ Thêm liên kết</button>
       <div id="projectAttachList"></div>
     </div>
 
@@ -664,7 +665,6 @@
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-storage-compat.js"></script>
 <script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
