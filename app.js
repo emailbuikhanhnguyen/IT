@@ -2,6 +2,13 @@
    Firestore (realtime + offline persistence) + QR + Camera + Excel + Backup
 */
 
+/* ---------- Phiên bản app ----------
+   Cập nhật thủ công mỗi lần deploy để bạn biết bản mới đã lên chưa (hiển thị
+   ở màn hình đăng nhập và cuối trang Dữ liệu). Định dạng: YYYY.MM.DD.N —
+   N là số thứ tự bản deploy trong ngày (bắt đầu từ 1). */
+const APP_VERSION = "2026.08.31.1";
+document.querySelectorAll("#appVersionText, #appVersionText2").forEach(el => { el.textContent = APP_VERSION; });
+
 /* ---------- Firebase init ---------- */
 const firebaseConfig = {
   apiKey: "AIzaSyC5W2yjCUZzTZOcFMAbD2uj9bo9rmGydEI",

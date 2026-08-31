@@ -105,3 +105,6 @@
 .attach-item button{padding:4px 8px;font-size:11px;flex-shrink:0}
 .attach-progress{height:6px;background:#e2e8f0;border-radius:6px;overflow:hidden;margin:6px 0}
 .attach-progress i{display:block;height:100%;background:#2563eb;width:0%}
+.app-version{text-align:center;color:#94a3b8;font-size:11px;margin-top:14px;letter-spacing:.02em}
+.app-version-settings{margin:18px 0 4px}
+.app-version-subtitle{text-align:center;font-size:12px;letter-spacing:.02em}

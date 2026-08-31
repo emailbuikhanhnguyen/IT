@@ -18,7 +18,7 @@
   <form id="loginForm" class="login-card">
     <img src="logo.png" alt="S.E.C." class="login-logo">
     <h1>IT Asset Inventory</h1>
-    <p class="muted" data-i18n="login.subtitle">Đăng nhập bằng tài khoản được cấp</p>
+    <p class="muted app-version-subtitle">v<span id="appVersionText">?</span></p>
     <label>Email<input id="loginEmail" type="email" required autocomplete="username" data-i18n-placeholder="login.emailPh" placeholder="ten@congty.com"></label>
     <label><span data-i18n="login.password">Mật khẩu</span><input id="loginPassword" type="password" required autocomplete="current-password"></label>
     <div id="loginError" class="login-error hidden"></div>
@@ -626,6 +626,7 @@
       <button id="clearAllTickets" class="dangerBtn" data-i18n="btn.clearAllTickets">Xóa toàn bộ ticket</button>
     </div>
   </div>
+  <p class="app-version app-version-settings">S.E.C. IT Asset Inventory · v<span id="appVersionText2">?</span></p>
 </section>
 </main>
 
