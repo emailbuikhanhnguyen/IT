@@ -53,7 +53,7 @@ let currentPhotoData = "";    // base64 dataURL of the photo currently in the fo
 let deferredInstallPrompt = null;
 
 /* ---------- Link tem QR trỏ về app + mở thẳng tài sản sau khi đăng nhập ---------- */
-const SEC_APP_URL = "https://emailbuikhanhnguyen.github.io/SEC/";
+const SEC_APP_URL = "https://emailbuikhanhnguyen.github.io/IT/";
 function assetLinkFor(code) {
   return SEC_APP_URL + "?code=" + encodeURIComponent(code || "");
 }
