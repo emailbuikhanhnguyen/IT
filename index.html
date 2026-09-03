@@ -78,6 +78,25 @@
     <button data-page="scan" data-i18n="quick.scan">📷 Quét QR</button>
     <button id="quickAddBtn" class="creator-only" data-page="assetForm" data-i18n="quick.createAsset">＋ Tạo tài sản</button>
     <button data-page="assets" data-i18n="quick.assetList">📋 Danh sách tài sản</button>
+    <button data-page="bulkPrintLabels" data-i18n="quick.bulkPrint">🖨 In tem hàng loạt</button>
+  </div>
+</section>
+
+<section id="bulkPrintLabels" class="page">
+  <div class="section-head"><h2 data-i18n="bulkPrint.title">🖨 In tem hàng loạt</h2><button data-page="inventory">←</button></div>
+  <div class="card">
+    <label><span data-i18n="bulkPrint.filterSection">Bộ phận</span>
+      <select id="bulkPrintSection"><option value="" data-i18n="bulkPrint.allSections">Tất cả bộ phận</option></select>
+    </label>
+    <div class="quick">
+      <button type="button" id="bulkPrintSelectAll" class="secondary" data-i18n="bulkPrint.selectAll">☑ Chọn tất cả</button>
+      <button type="button" id="bulkPrintSelectNone" class="secondary" data-i18n="bulkPrint.selectNone">☐ Bỏ chọn tất cả</button>
+    </div>
+    <p class="hint" id="bulkPrintCount"></p>
+  </div>
+  <div id="bulkPrintList"></div>
+  <div class="form-actions">
+    <button type="button" id="bulkPrintGoBtn" data-i18n="bulkPrint.printBtn">🖨 In tem đã chọn</button>
   </div>
 </section>
 
@@ -671,16 +690,19 @@
 </div>
 </div>
 
-<div id="printLabelArea" class="print-label">
-  <div class="print-label-left">
-    <h3 id="plCode"></h3>
-    <div class="pl-muted" id="plUser"></div>
-    <div class="pl-muted" id="plSection"></div>
-    <div class="pl-muted" id="plModel"></div>
-    <div class="pl-muted" id="plSerial"></div>
+<div id="printLabelArea" class="print-label-container"></div>
+<template id="printLabelItemTpl">
+  <div class="print-label-item">
+    <div class="print-label-left">
+      <h3 class="plCode"></h3>
+      <div class="pl-muted plUser"></div>
+      <div class="pl-muted plSection"></div>
+      <div class="pl-muted plModel"></div>
+      <div class="pl-muted plSerial"></div>
+    </div>
+    <div class="print-label-right plQr"></div>
   </div>
-  <div class="print-label-right" id="plQr"></div>
-</div>
+</template>
 
 <script src="employees.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>

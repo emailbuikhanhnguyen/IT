@@ -6,7 +6,7 @@
    Cập nhật thủ công mỗi lần deploy để bạn biết bản mới đã lên chưa (hiển thị
    ở màn hình đăng nhập và cuối trang Dữ liệu). Định dạng: YYYY.MM.DD.N —
    N là số thứ tự bản deploy trong ngày (bắt đầu từ 1). */
-const APP_VERSION = "2026.08.31.2";
+const APP_VERSION = "2026.09.03.1";
 document.querySelectorAll("#appVersionText, #appVersionText2").forEach(el => { el.textContent = APP_VERSION; });
 
 /* ---------- Firebase init ---------- */
@@ -251,6 +251,7 @@ function goPage(name) {
   if (name === "tickets") renderTicketList();
   if (name === "projects") renderProjectList();
   if (name === "dashboard") renderDashboard();
+  if (name === "bulkPrintLabels") renderBulkPrintList();
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
   btn.addEventListener("click", () => goPage(btn.getAttribute("data-page")));
@@ -1080,27 +1081,38 @@ function printWithFilename(suggestedName) {
   window.addEventListener("afterprint", restoreTitle);
   window.print();
 }
-function renderPrintLabel(data) {
-  $("plCode").textContent = data.code || "";
+// Dựng 1 khối tem (dùng chung cho in đơn lẻ + in hàng loạt) từ <template
+// id="printLabelItemTpl"> — mỗi lần gọi clone ra 1 node độc lập nên in bao
+// nhiêu tem cũng không đụng nhau (khác instance QRCode/canvas riêng).
+function buildLabelItemEl(data) {
+  const node = $("printLabelItemTpl").content.firstElementChild.cloneNode(true);
+  node.querySelector(".plCode").textContent = data.code || "";
   // Người sử dụng + Mã nhân viên gộp 1 dòng (giống cách hiển thị ở danh sách
   // Tài sản/Ticket/Dự án: "👤 Tên (Mã NV)") để tiết kiệm diện tích tem.
-  const userEl = $("plUser");
+  const userEl = node.querySelector(".plUser");
   const userText = data.user
     ? ("👤 " + data.user + (data.employeeCode ? " (" + data.employeeCode + ")" : ""))
     : (data.employeeCode ? ("👤 " + data.employeeCode) : "");
   userEl.textContent = userText;
   userEl.style.display = userText ? "" : "none";
-  const sectionEl = $("plSection");
+  const sectionEl = node.querySelector(".plSection");
   sectionEl.textContent = data.section ? ("🏢 " + data.section) : "";
   sectionEl.style.display = data.section ? "" : "none";
-  const modelEl = $("plModel");
+  const modelEl = node.querySelector(".plModel");
   modelEl.textContent = data.model || "";
   modelEl.style.display = data.model ? "" : "none";
-  const serialEl = $("plSerial");
+  const serialEl = node.querySelector(".plSerial");
   serialEl.textContent = data.serial ? ("SN: " + data.serial) : "";
   serialEl.style.display = data.serial ? "" : "none";
-  $("plQr").innerHTML = "";
-  new QRCode($("plQr"), { text: assetLinkFor(data.code || ""), width: 300, height: 300 });
+  new QRCode(node.querySelector(".plQr"), { text: assetLinkFor(data.code || ""), width: 300, height: 300 });
+  return node;
+}
+// In 1 tem đơn lẻ — giữ nguyên hành vi cũ (nút "🏷 In tem" trên danh sách
+// tài sản / trong form tài sản), chỉ đổi cách dựng DOM bên trong.
+function renderPrintLabel(data) {
+  const area = $("printLabelArea");
+  area.innerHTML = "";
+  area.appendChild(buildLabelItemEl(data));
 }
 window.printLabel = function (id) {
   const a = assets.find(x => x._id === id);
@@ -1123,6 +1135,92 @@ $("printLabelBtn").addEventListener("click", () => {
     section: $("section").value.trim()
   });
   setTimeout(() => printWithFilename(employeeCode || code), 150);
+});
+
+/* ---------- In tem hàng loạt (theo Bộ phận hoặc Tất cả) ----------
+   Dùng lại đúng khối tem 70x50mm sẵn có (buildLabelItemEl) — chỉ khác là
+   nhét N khối vào #printLabelArea thay vì 1, mỗi khối tự ngắt trang khi in
+   (xem CSS .print-label-item{page-break-after}) nên máy in tem cuộn liên
+   tục (GP-1424D...) tự nhảy sang tem kế tiếp cho từng trang mà không cần
+   thao tác gì thêm giữa các tem. */
+let bulkPrintSelected = new Set(); // _id các tài sản đang được tick chọn để in
+
+function populateBulkPrintSectionFilter() {
+  const sel = $("bulkPrintSection");
+  if (!sel) return;
+  const prev = sel.value;
+  const sections = Array.from(new Set(assets.map(a => (a.section || "").trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, "vi"));
+  sel.innerHTML = `<option value="">${tr("bulkPrint.allSections")}</option>` +
+    sections.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+  if (prev && sections.includes(prev)) sel.value = prev;
+}
+
+function bulkPrintFilteredAssets() {
+  const sectionF = $("bulkPrintSection").value;
+  let list = assets.slice().sort((a, b) => (a.code || "").localeCompare(b.code || ""));
+  if (sectionF) list = list.filter(a => (a.section || "").trim() === sectionF);
+  return list;
+}
+
+function updateBulkPrintCount() {
+  const total = $("bulkPrintList").querySelectorAll(".bulkPrintCheck").length;
+  const checked = $("bulkPrintList").querySelectorAll(".bulkPrintCheck:checked").length;
+  $("bulkPrintCount").textContent = tr("bulkPrint.countLabel", { checked, total });
+}
+
+function renderBulkPrintList() {
+  populateBulkPrintSectionFilter();
+  const list = bulkPrintFilteredAssets();
+  // Mỗi khi đổi bộ lọc mà chưa có tài sản nào (trong danh sách đang hiện)
+  // từng được chọn trước đó -> auto-tick hết, tiện cho ca dùng phổ biến
+  // nhất "in hết cả bộ phận/tất cả". Nếu người dùng đã tự bỏ chọn vài cái,
+  // giữ nguyên lựa chọn khi họ quay lại đúng bộ lọc đó.
+  const visibleIds = new Set(list.map(a => a._id));
+  if (![...bulkPrintSelected].some(id => visibleIds.has(id))) {
+    list.forEach(a => bulkPrintSelected.add(a._id));
+  }
+  $("bulkPrintList").innerHTML = list.map(a => `
+    <label class="asset bulk-print-row">
+      <input type="checkbox" class="bulkPrintCheck" data-id="${a._id}" ${bulkPrintSelected.has(a._id) ? "checked" : ""}>
+      <div>
+        <h3>${escapeHtml(a.code)}</h3>
+        <div class="muted">${escapeHtml(a.type || "")}${a.model ? " · " + escapeHtml(a.model) : ""}</div>
+        <div class="muted">${a.user ? "👤 " + escapeHtml(a.user) : ""}${a.employeeCode ? " (" + escapeHtml(a.employeeCode) + ")" : ""}</div>
+        ${a.section ? `<div class="muted">🏢 ${escapeHtml(a.section)}</div>` : ""}
+      </div>
+    </label>
+  `).join("") || `<div class="empty">${tr("assets.noneFound")}</div>`;
+  updateBulkPrintCount();
+}
+
+$("bulkPrintSection").addEventListener("change", renderBulkPrintList);
+$("bulkPrintList").addEventListener("change", e => {
+  if (!e.target.classList.contains("bulkPrintCheck")) return;
+  const id = e.target.getAttribute("data-id");
+  if (e.target.checked) bulkPrintSelected.add(id); else bulkPrintSelected.delete(id);
+  updateBulkPrintCount();
+});
+$("bulkPrintSelectAll").addEventListener("click", () => {
+  $("bulkPrintList").querySelectorAll(".bulkPrintCheck").forEach(cb => { cb.checked = true; bulkPrintSelected.add(cb.getAttribute("data-id")); });
+  updateBulkPrintCount();
+});
+$("bulkPrintSelectNone").addEventListener("click", () => {
+  $("bulkPrintList").querySelectorAll(".bulkPrintCheck").forEach(cb => { cb.checked = false; bulkPrintSelected.delete(cb.getAttribute("data-id")); });
+  updateBulkPrintCount();
+});
+$("bulkPrintGoBtn").addEventListener("click", () => {
+  const list = bulkPrintFilteredAssets().filter(a => bulkPrintSelected.has(a._id));
+  if (!list.length) { alert(tr("bulkPrint.needSelect")); return; }
+  const area = $("printLabelArea");
+  area.innerHTML = "";
+  list.forEach(a => area.appendChild(buildLabelItemEl(a)));
+  const sectionF = $("bulkPrintSection").value;
+  const suggestedName = "tem-" + (sectionF ? sanitizeId(sectionF) : "tat-ca");
+  // Nhiều tem => nhiều canvas QR cần vẽ xong trước khi mở hộp thoại in,
+  // chờ lâu hơn 1 chút so với in đơn lẻ (150ms) cho chắc, nhất là trên
+  // điện thoại đời cũ.
+  setTimeout(() => printWithFilename(suggestedName), 250);
 });
 
 /* ---------- Camera / photo ---------- */

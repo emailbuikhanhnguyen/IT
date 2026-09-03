@@ -87,18 +87,25 @@
 .lang-switch button{flex:1;padding:6px 4px;font-size:11px;font-weight:650;background:#e2e8f0;color:#334155;border-radius:8px}
 .lang-switch button.active{background:#2563eb;color:#fff}
 .lang-switch-login{position:absolute;top:16px;right:16px;width:150px;z-index:101}
-.print-label{display:none}
+.print-label-container{display:none}
 @media print{
   @page{size:70mm 50mm;margin:0}
-  html,body{width:70mm;height:50mm;margin:0;padding:0}
+  html,body{width:70mm;margin:0;padding:0}
   body > *:not(#printLabelArea){display:none!important}
-  #printLabelArea{display:flex!important;align-items:center;justify-content:space-between;gap:2.5mm;width:70mm;height:50mm;box-sizing:border-box;padding:3mm;overflow:hidden}
+  #printLabelArea{display:block!important}
+  /* Mỗi .print-label-item là 1 tem = 1 trang in riêng — máy in tem GP-1424D
+     (hay các máy in tem cuộn liên tục khác) tự đẩy giấy sang tem tiếp theo
+     mỗi khi hết 1 trang, nên in hàng loạt N tem = in 1 lần duy nhất N trang. */
+  .print-label-item{display:flex;align-items:center;justify-content:space-between;gap:2.5mm;width:70mm;height:50mm;box-sizing:border-box;padding:3mm;overflow:hidden;page-break-after:always;break-after:page}
+  .print-label-item:last-child{page-break-after:auto;break-after:auto}
   .print-label-left{min-width:0;overflow:hidden;flex:1 1 auto}
   .print-label-left h3{font-size:13pt;line-height:1.15;margin:0 0 1.4mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .print-label-left .pl-muted{font-size:7pt;line-height:1.25;color:#334155;margin-bottom:1mm;white-space:normal;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .print-label-right{flex-shrink:0}
   .print-label-right img,.print-label-right canvas{width:26mm!important;height:26mm!important;display:block}
 }
+.bulk-print-row{display:flex;align-items:flex-start;gap:10px;cursor:pointer}
+.bulk-print-row input[type="checkbox"]{margin-top:4px;flex-shrink:0;width:18px;height:18px}
 .attach-item{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:8px 10px;margin-bottom:6px}
 .attach-item a{color:#2563eb;text-decoration:none;font-weight:650;font-size:13px;word-break:break-all}
 .attach-item .attach-meta{color:#64748b;font-size:11px}
