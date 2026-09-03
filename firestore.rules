@@ -140,5 +140,16 @@ service cloud.firestore {
       allow read: if isKnownRole();
       allow write: if isAdmin();
     }
+
+    // ---------- meta/{docId} — các "cờ trạng thái" nhỏ dùng nội bộ app,
+    // hiện chỉ có `homeLaptopExport` (chữ ký danh sách mang laptop về nhà
+    // ở lần xuất báo cáo gần nhất, để phát hiện thay đổi và cảnh báo cần
+    // xuất lại — xem exportHomeLaptopReport trong app.js). Đọc cho cả 3
+    // role để ai cũng thấy cảnh báo nếu cần, chỉ Admin ghi vì chỉ Admin
+    // thao tác xuất/gửi báo cáo này. ----------
+    match /meta/{docId} {
+      allow read: if isKnownRole();
+      allow write: if isAdmin();
+    }
   }
 }

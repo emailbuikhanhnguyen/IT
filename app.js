@@ -6,7 +6,7 @@
    Cập nhật thủ công mỗi lần deploy để bạn biết bản mới đã lên chưa (hiển thị
    ở màn hình đăng nhập và cuối trang Dữ liệu). Định dạng: YYYY.MM.DD.N —
    N là số thứ tự bản deploy trong ngày (bắt đầu từ 1). */
-const APP_VERSION = "2026.09.03.4";
+const APP_VERSION = "2026.09.03.5";
 document.querySelectorAll("#appVersionText, #appVersionText2").forEach(el => { el.textContent = APP_VERSION; });
 
 /* ---------- Mật khẩu xác nhận cho thao tác nguy hiểm (Xóa toàn bộ...) ----------
@@ -386,6 +386,7 @@ function initEmployeesSync() {
   unsubscribeEmployeesSync = db.collection(EMPLOYEES_COLLECTION).onSnapshot(snapshot => {
     if (snapshot.empty) return; // chưa từng import từ HR -> giữ nguyên employees.js
     window.EMPLOYEES = snapshot.docs.map(d => d.data());
+    homeLaptopExportBannerCheck(); // dữ liệu nhân viên đổi (tick mang về/gán tài sản...) -> soát lại cảnh báo cần xuất lại
   }, err => {
     console.warn("Employees sync error (giữ danh sách employees.js):", err);
   });
@@ -462,21 +463,22 @@ function renderEmployeeProfile(code) {
     .sort((a, b) => (b.ticketId || "").localeCompare(a.ticketId || ""));
 
   $("employeeProfileTitle").textContent = emp ? `${emp.name} (${emp.code})` : code;
-  // Admin tick/bỏ tick trực tiếp; role khác chỉ thấy badge (đúng với việc
-  // Firestore Rules chỉ cho Admin write collection `employees`).
-  const homeLaptopControl = emp
-    ? (isAdmin
-        ? `<label class="checkbox-inline" style="margin-top:8px"><input type="checkbox" id="employeeHomeLaptopToggle" ${emp.takeLaptopHome ? "checked" : ""} onchange="toggleEmployeeHomeLaptop('${emp.code}', this.checked)"><span>🏠 ${tr("employees.homeLaptopToggle")}</span></label>`
-        : (emp.takeLaptopHome ? `<div style="margin-top:8px"><span class="badge ok">🏠 ${tr("employees.homeLaptopBadge")}</span></div>` : ""))
-    : "";
+  // Admin sửa "Mang laptop về nhà" qua card cố định #employeeHomeLaptopCard
+  // (renderEmployeeHomeLaptopCard bên dưới, dùng ID cố định để autocomplete
+  // chọn tài sản hoạt động được) — ở đây chỉ hiện badge đọc-only cho role
+  // khác (Collector/Viewer), khớp việc Firestore Rules chỉ cho Admin ghi
+  // collection `employees`.
+  const homeLaptopBadge = (emp && emp.takeLaptopHome && !isAdmin)
+    ? `<div style="margin-top:8px"><span class="badge ok">🏠 ${tr("employees.homeLaptopBadge")}</span></div>` : "";
   $("employeeProfileInfo").innerHTML = emp ? `
     <div class="muted">${tr("field.employeeCode")}: <b style="color:#0f172a">${escapeHtml(emp.code)}</b></div>
     <div class="muted">${tr("employees.fullName")}: <b style="color:#0f172a">${escapeHtml(emp.name)}</b></div>
     ${emp.section ? `<div class="muted">🏢 ${tr("field.section")}: <b style="color:#0f172a">${escapeHtml(emp.section)}</b></div>` : ""}
     ${emp.group ? `<div class="muted">${tr("field.group")}: <b style="color:#0f172a">${escapeHtml(emp.group)}</b></div>` : ""}
     <span class="badge ${emp.active === false ? "bad" : "ok"}">${emp.active === false ? tr("employees.terminated") : tr("employees.active")}</span>
-    ${homeLaptopControl}
+    ${homeLaptopBadge}
   ` : `<div class="empty">${tr("employees.notInHr", { code })}</div>`;
+  renderEmployeeHomeLaptopCard(emp);
 
   $("employeeProfileAssetsHead").textContent = tr("employees.linkedAssetsHead", { count: linkedAssets.length });
   $("employeeProfileAssets").innerHTML = linkedAssets.length ? linkedAssets.map(a => `
@@ -509,20 +511,82 @@ window.viewEmployee = function (code) {
   renderEmployeeProfile(code);
   goPage("employeeProfile");
 };
-// Tick/bỏ tick "Mang laptop về nhà" — ghi thẳng vào employees/{code} với
-// merge:true nên KHÔNG ảnh hưởng các field khác (code/name/section/group),
-// và không bị mất khi lần Nhập Excel HR tiếp theo chạy lại (import cũng
-// dùng merge:true, chỉ đụng đúng 4 field HR, không đụng field này) — trừ
-// khi nhân viên đó bị xóa hẳn khỏi file HR (nghỉ việc) thì doc bị xóa luôn,
-// cờ này mất theo là hợp lý.
-window.toggleEmployeeHomeLaptop = async function (code, checked) {
+
+/* ---------- Card "Mang laptop về nhà" trong hồ sơ nhân viên (Admin) ----------
+   Tick "Cho phép mang về" -> hiện thêm ô chọn TÀI SẢN cụ thể (autocomplete
+   giống hệt cơ chế "Liên kết tài sản" ở form Ticket). Cho phép NHIỀU nhân
+   viên khác nhau cùng chọn đúng 1 tài sản — đúng use-case "1 laptop nhiều
+   người thay phiên mang về" (xem exportHomeLaptopReport bên dưới sẽ tự gộp
+   nhóm này lại khi xuất báo cáo). Field `homeLaptopAssetId` lưu riêng trên
+   employees/{code}, độc lập với field `employeeCode` trên chính tài sản đó
+   (tài sản vẫn chỉ có đúng 1 "chủ sở hữu chính thức" cho mục đích kiểm kê). */
+function renderEmployeeHomeLaptopCard(emp) {
+  const card = $("employeeHomeLaptopCard");
+  if (!card) return;
+  if (!emp) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  const toggle = $("employeeHomeLaptopToggle");
+  toggle.checked = !!emp.takeLaptopHome;
+  toggle.dataset.code = emp.code;
+  $("employeeHomeLaptopAssetWrap").classList.toggle("hidden", !emp.takeLaptopHome);
+  const linkedAsset = emp.homeLaptopAssetId ? assets.find(a => a._id === emp.homeLaptopAssetId) : null;
+  $("employeeHomeLaptopAssetInput").value = linkedAsset ? `${linkedAsset.code}${linkedAsset.model ? " · " + linkedAsset.model : ""}` : "";
+  $("employeeHomeLaptopAssetId").value = linkedAsset ? linkedAsset._id : "";
+  if (linkedAsset) {
+    const coUsers = (window.EMPLOYEES || []).filter(e => e.code !== emp.code && e.takeLaptopHome && e.homeLaptopAssetId === linkedAsset._id);
+    $("employeeHomeLaptopAssetHint").textContent = coUsers.length
+      ? tr("employees.homeLaptopSharedHint", { names: coUsers.map(e => e.name).join(", ") })
+      : "";
+  } else {
+    const owned = assets.filter(a => (a.employeeCode || "").trim() === emp.code);
+    $("employeeHomeLaptopAssetHint").textContent = owned.length ? tr("employees.homeLaptopAssetHintOwned") : tr("employees.homeLaptopAssetHintNone");
+  }
+}
+async function saveEmployeeHomeLaptopFlag(code, takeHome, assetId) {
   try {
-    await db.collection(EMPLOYEES_COLLECTION).doc(sanitizeId(code)).set({ takeLaptopHome: checked }, { merge: true });
+    await db.collection(EMPLOYEES_COLLECTION).doc(sanitizeId(code)).set({
+      takeLaptopHome: takeHome,
+      homeLaptopAssetId: takeHome ? (assetId || "") : ""
+    }, { merge: true });
   } catch (err) {
     alert(tr("msg.errSaveEmployeeFlag", { err: err.message }));
-    renderEmployeeProfile(code); // rollback checkbox về đúng trạng thái Firestore nếu ghi thất bại
+    renderEmployeeProfile(code); // rollback UI về đúng trạng thái Firestore nếu ghi thất bại
   }
-};
+}
+$("employeeHomeLaptopToggle").addEventListener("change", async e => {
+  const code = e.target.dataset.code;
+  if (!code) return;
+  const checked = e.target.checked;
+  $("employeeHomeLaptopAssetWrap").classList.toggle("hidden", !checked);
+  await saveEmployeeHomeLaptopFlag(code, checked, checked ? $("employeeHomeLaptopAssetId").value : "");
+});
+setupAutocomplete("employeeHomeLaptopAssetInput", "employeeHomeLaptopAssetSuggest",
+  q => {
+    const query = q.trim().toLowerCase();
+    let list = assets;
+    if (query) list = assets.filter(a => [a.code, a.user, a.employeeCode, a.type, a.model, a.serial, a.section].some(v => (v || "").toLowerCase().includes(query)));
+    return list.slice(0, 20);
+  },
+  a => `${escapeHtml(a.code)}<span class="muted">${escapeHtml(a.type || "")}${a.model ? " · " + escapeHtml(a.model) : ""}${a.user ? " · 👤 " + escapeHtml(a.user) : ""}</span>`,
+  async a => {
+    $("employeeHomeLaptopAssetInput").value = `${a.code}${a.model ? " · " + a.model : ""}`;
+    $("employeeHomeLaptopAssetId").value = a._id;
+    const code = $("employeeHomeLaptopToggle").dataset.code;
+    if (code) { await saveEmployeeHomeLaptopFlag(code, true, a._id); renderEmployeeProfile(code); }
+  }
+);
+$("employeeHomeLaptopAssetInput").addEventListener("input", () => { $("employeeHomeLaptopAssetId").value = ""; });
+$("employeeHomeLaptopAssetInput").addEventListener("blur", () => setTimeout(async () => {
+  // Gõ tay rồi rời ô mà không chọn từ gợi ý -> coi như xóa liên kết tài sản
+  // cũ (không tự đoán/giữ lại, tránh gán nhầm tài sản không đúng).
+  if ($("employeeHomeLaptopAssetId").value) return;
+  const code = $("employeeHomeLaptopToggle").dataset.code;
+  if (!code) return;
+  const emp = (window.EMPLOYEES || []).find(e => e.code === code);
+  if (emp && emp.takeLaptopHome && emp.homeLaptopAssetId && !$("employeeHomeLaptopAssetInput").value.trim()) {
+    await saveEmployeeHomeLaptopFlag(code, true, "");
+  }
+}, 150));
 
 /* ---------- Người dùng & phân quyền (Dữ liệu → Người dùng, chỉ Admin) ----------
    Đọc/ghi trực tiếp collection `users` (users/{uid} -> {role, email,
@@ -1382,6 +1446,176 @@ $("bulkPrintGoBtn").addEventListener("click", () => {
   // điện thoại đời cũ.
   setTimeout(() => printWithFilename(suggestedName), 250);
 });
+
+/* ---------- Báo cáo: Đăng ký nhân viên mang laptop về nhà ----------
+   Xuất file .xlsx đúng mẫu công ty đang dùng để gửi Bảo vệ đối chiếu:
+   STT | Họ và tên | Mã nhân viên | Bộ phận | Tổ/Chuyền | Mã tài sản |
+   Tên/Model Laptop | Số Serial | Ký tên nhân viên — có gộp (merge) dọc 3
+   cột cuối cùng của phần tài sản khi NHIỀU nhân viên dùng CHUNG 1 laptop
+   (đúng cách công ty đã làm tay trước đây). Nguồn dữ liệu: employees có
+   takeLaptopHome=true; tài sản lấy theo homeLaptopAssetId đã chọn ở hồ sơ
+   nhân viên (renderEmployeeHomeLaptopCard), fallback tự nhận nếu nhân
+   viên đó đang là chủ sở hữu chính thức của ĐÚNG 1 tài sản. */
+function resolveHomeLaptopAsset(emp) {
+  if (emp.homeLaptopAssetId) {
+    const a = assets.find(x => x._id === emp.homeLaptopAssetId);
+    if (a) return a;
+  }
+  const owned = assets.filter(a => (a.employeeCode || "").trim() === emp.code);
+  return owned.length === 1 ? owned[0] : null;
+}
+// Chuỗi đại diện toàn bộ đăng ký hiện tại (ai + mang tài sản nào) để so
+// sánh với lần xuất gần nhất trên Firestore -> phát hiện thay đổi.
+function homeLaptopSignature(list) {
+  return list.map(e => `${e.code}:${e.homeLaptopAssetId || ""}`).sort().join("|");
+}
+const HOME_LAPTOP_THIN_BORDER = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+const HOME_LAPTOP_FONT = { name: "Times New Roman", sz: 10 };
+
+function buildHomeLaptopSheet(list, scopeLabel) {
+  const rows = list.slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "vi"));
+  const aoa = [];
+  aoa.push(["", "", "CÔNG TY TNHH CÔNG NGHỆ SÁNG TẠO XANH S.E.C", "", "", "", "", "", ""]);
+  aoa.push(["", "", "DANH SÁCH ĐĂNG KÝ NHÂN VIÊN MANG LAPTOP VỀ NHÀ" + (scopeLabel ? ` — ${scopeLabel}` : ""), "", "", "", "", "", ""]);
+  aoa.push([]);
+  aoa.push(["STT", "Họ và tên", "Mã nhân viên", "Bộ phận", "Tổ/Chuyền", "Mã tài sản", "Tên/Model Laptop", "Số Serial", "Ký tên nhân viên"]);
+  const dataStartRow = aoa.length; // chỉ số dòng (0-based) của dòng dữ liệu đầu tiên
+  rows.forEach((e, i) => {
+    const a = resolveHomeLaptopAsset(e);
+    aoa.push([
+      i + 1, e.name || "", e.code || "", e.section || "", e.group || "",
+      a ? a.code : "", a ? [a.type, a.model].filter(Boolean).join(" ") : "", a ? (a.serial || "") : "", ""
+    ]);
+  });
+  const noteRowIdx = aoa.length;
+  aoa.push([`Ghi chú: Danh sách xuất tự động từ hệ thống IT Asset Inventory ngày ${new Date().toLocaleDateString("vi-VN")}. Mỗi nhân viên tự ký xác nhận ở cột "Ký tên nhân viên".`]);
+  aoa.push([]); aoa.push([]);
+  const signHeadRow = aoa.length;
+  aoa.push(["", "NGƯỜI LẬP DANH SÁCH", "", "", "", "", "TRƯỞNG BỘ PHẬN", "", ""]);
+  aoa.push(["", "(Ký, ghi rõ họ tên)", "", "", "", "", "(Ký, ghi rõ họ tên)", "", ""]);
+  aoa.push([]); aoa.push([]); aoa.push([]); aoa.push([]);
+  const signLineRow = aoa.length;
+  aoa.push(["", "", "", "", "", "", "", "", ""]);
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const merges = [
+    { s: { r: 0, c: 2 }, e: { r: 0, c: 8 } },
+    { s: { r: 1, c: 2 }, e: { r: 1, c: 8 } },
+    { s: { r: noteRowIdx, c: 0 }, e: { r: noteRowIdx, c: 8 } },
+    { s: { r: signHeadRow, c: 1 }, e: { r: signHeadRow, c: 3 } },
+    { s: { r: signHeadRow, c: 6 }, e: { r: signHeadRow, c: 7 } },
+    { s: { r: signHeadRow + 1, c: 1 }, e: { r: signHeadRow + 1, c: 3 } },
+    { s: { r: signHeadRow + 1, c: 6 }, e: { r: signHeadRow + 1, c: 7 } },
+    { s: { r: signLineRow, c: 1 }, e: { r: signLineRow, c: 3 } },
+    { s: { r: signLineRow, c: 6 }, e: { r: signLineRow, c: 7 } }
+  ];
+
+  // Gộp dọc 3 cột Mã tài sản/Model/Serial cho các nhân viên dùng CHUNG
+  // đúng 1 tài sản (nhóm theo asset._id, không cần các dòng nằm liền kề
+  // sẵn — sort lại theo tên nên có thể xen kẽ, ta tự gom nhóm bằng Map).
+  const groups = new Map();
+  rows.forEach((e, i) => {
+    const a = resolveHomeLaptopAsset(e);
+    if (!a) return;
+    if (!groups.has(a._id)) groups.set(a._id, []);
+    groups.get(a._id).push(dataStartRow + i);
+  });
+  groups.forEach((rowIdxs, assetId) => {
+    if (rowIdxs.length < 2) return; // chỉ merge khi thật sự có ≥2 người dùng chung
+    const first = rowIdxs[0], last = rowIdxs[rowIdxs.length - 1];
+    [5, 6, 7].forEach(col => merges.push({ s: { r: first, c: col }, e: { r: last, c: col } }));
+    for (let r = first + 1; r <= last; r++) {
+      [5, 6, 7].forEach(col => {
+        const addr = XLSX.utils.encode_cell({ r, c: col });
+        if (ws[addr]) ws[addr].v = "";
+      });
+    }
+    const codeAddr = XLSX.utils.encode_cell({ r: first, c: 5 });
+    if (ws[codeAddr]) ws[codeAddr].v = `${ws[codeAddr].v}\n(${rowIdxs.length} người dùng chung)`;
+  });
+  ws["!merges"] = merges;
+  ws["!cols"] = [{ wch: 5 }, { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 16 }];
+  ws["!rows"] = []; ws["!rows"][3] = { hpt: 30 };
+
+  function setStyle(r, c, style) {
+    const addr = XLSX.utils.encode_cell({ r, c });
+    if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+    ws[addr].s = style;
+  }
+  setStyle(0, 2, { font: Object.assign({}, HOME_LAPTOP_FONT, { sz: 12, bold: true }), alignment: { horizontal: "center", vertical: "center" } });
+  setStyle(1, 2, { font: Object.assign({}, HOME_LAPTOP_FONT, { sz: 14, bold: true }), alignment: { horizontal: "center", vertical: "center" } });
+  for (let c = 0; c <= 8; c++) {
+    setStyle(3, c, {
+      font: Object.assign({}, HOME_LAPTOP_FONT, { bold: true }),
+      alignment: { horizontal: "center", vertical: "center", wrapText: true },
+      fill: { fgColor: { rgb: "D9E1F2" } },
+      border: HOME_LAPTOP_THIN_BORDER
+    });
+  }
+  rows.forEach((e, i) => {
+    const r = dataStartRow + i;
+    for (let c = 0; c <= 8; c++) {
+      setStyle(r, c, { font: HOME_LAPTOP_FONT, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: HOME_LAPTOP_THIN_BORDER });
+    }
+  });
+  setStyle(noteRowIdx, 0, { font: Object.assign({}, HOME_LAPTOP_FONT, { sz: 9 }), alignment: { horizontal: "left" } });
+  [signHeadRow, signHeadRow + 1].forEach(r => {
+    setStyle(r, 1, { font: Object.assign({}, HOME_LAPTOP_FONT, { bold: r === signHeadRow }), alignment: { horizontal: "center" } });
+    setStyle(r, 6, { font: Object.assign({}, HOME_LAPTOP_FONT, { bold: r === signHeadRow }), alignment: { horizontal: "center" } });
+  });
+  setStyle(signLineRow, 1, { border: { top: { style: "thin" } } });
+  setStyle(signLineRow, 6, { border: { top: { style: "thin" } } });
+  return ws;
+}
+window.exportHomeLaptopReport = function (scopeFromBanner) {
+  const scope = (scopeFromBanner !== undefined ? scopeFromBanner : $("employeeFilterSection").value) || "";
+  const list = (window.EMPLOYEES || []).filter(e => e.takeLaptopHome === true && (!scope || (e.section || "").trim() === scope));
+  if (!list.length) { alert(tr("employees.homeLaptopExportEmpty")); return; }
+  const ws = buildHomeLaptopSheet(list, scope || tr("employees.homeLaptopAllScope"));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "DS Mang Laptop");
+  const scopeTag = scope ? sanitizeId(scope) : "TAT_CA";
+  const ts = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `DANG_KY_MANG_LAPTOP_VE_-_${scopeTag}_${ts}.xlsx`);
+  // "Chữ ký" chỉ cập nhật khi xuất TOÀN BỘ (không lọc bộ phận) — vì đó mới
+  // là danh sách tổng gửi Bảo vệ, xuất riêng theo từng bộ phận chỉ là tiện
+  // ích phụ, không tính là "đã gửi bản cập nhật mới nhất".
+  if (!scope) saveHomeLaptopExportSignature();
+};
+async function saveHomeLaptopExportSignature() {
+  const sig = homeLaptopSignature((window.EMPLOYEES || []).filter(e => e.takeLaptopHome === true));
+  try {
+    await db.collection("meta").doc("homeLaptopExport").set({
+      signature: sig, exportedAt: firebase.firestore.FieldValue.serverTimestamp(), exportedBy: currentEmail || ""
+    }, { merge: true });
+  } catch (err) {
+    console.warn("Không lưu được trạng thái xuất báo cáo mang laptop:", err);
+  }
+}
+$("exportHomeLaptopBtn").addEventListener("click", () => exportHomeLaptopReport());
+
+// Theo dõi thay đổi để cảnh báo "cần xuất lại" — so sánh chữ ký hiện tại
+// với chữ ký đã lưu ở lần xuất TOÀN BỘ gần nhất trên Firestore (meta/homeLaptopExport).
+let homeLaptopExportSignatureSaved = null; // null = chưa load xong từ Firestore
+let unsubscribeHomeLaptopExportMeta = null;
+function initHomeLaptopExportMetaSync() {
+  if (unsubscribeHomeLaptopExportMeta) return;
+  unsubscribeHomeLaptopExportMeta = db.collection("meta").doc("homeLaptopExport").onSnapshot(doc => {
+    homeLaptopExportSignatureSaved = doc.exists ? (doc.data().signature || "") : "";
+    homeLaptopExportBannerCheck();
+  }, err => console.warn("meta/homeLaptopExport sync error:", err));
+}
+function stopHomeLaptopExportMetaSync() {
+  if (unsubscribeHomeLaptopExportMeta) { unsubscribeHomeLaptopExportMeta(); unsubscribeHomeLaptopExportMeta = null; }
+  homeLaptopExportSignatureSaved = null;
+}
+function homeLaptopExportBannerCheck() {
+  const banner = $("homeLaptopChangeBanner");
+  if (!banner) return;
+  if (!isAdmin || homeLaptopExportSignatureSaved === null) { banner.classList.add("hidden"); return; }
+  const current = homeLaptopSignature((window.EMPLOYEES || []).filter(e => e.takeLaptopHome === true));
+  banner.classList.toggle("hidden", current === homeLaptopExportSignatureSaved);
+}
 
 /* ---------- Camera / photo ---------- */
 function resizeImage(file, maxDim = 900, quality = 0.7) {
@@ -4276,7 +4510,7 @@ auth.onAuthStateChanged(async user => {
       initTicketSync();
       initProjectSync();
       initEmployeesSync();
-      if (isAdmin) initUsersSync(); // chỉ Admin đọc được toàn bộ collection users (theo Rules)
+      if (isAdmin) { initUsersSync(); initHomeLaptopExportMetaSync(); } // chỉ Admin đọc toàn bộ users + cần thấy cảnh báo xuất lại báo cáo mang laptop
       goPage("dashboard");
       if (pendingScanCode) openPendingScanCodeAsset();
     }
@@ -4286,6 +4520,7 @@ auth.onAuthStateChanged(async user => {
     stopProjectSync();
     stopEmployeesSync();
     stopUsersSync();
+    stopHomeLaptopExportMetaSync();
     assets = [];
     ticketRecords = [];
     projectRecords = [];

@@ -569,12 +569,31 @@
     <label class="checkbox-inline"><input type="checkbox" id="employeeFilterActiveOnly" checked><span data-i18n="employees.activeOnly">Chỉ đang làm việc</span></label>
     <label class="checkbox-inline"><input type="checkbox" id="employeeFilterHomeLaptop"><span data-i18n="employees.filterHomeLaptop">🏠 Chỉ người được mang laptop về nhà</span></label>
   </div>
+  <div id="homeLaptopChangeBanner" class="card admin-only hidden" style="background:#fef3c7">
+    <p style="margin:0 0 8px">⚠️ <span data-i18n="employees.homeLaptopChanged">Danh sách "Mang laptop về nhà" đã thay đổi kể từ lần xuất báo cáo gần nhất — cần xuất lại và gửi cho Bảo vệ.</span></p>
+    <button type="button" onclick="exportHomeLaptopReport('')" data-i18n="employees.homeLaptopExportNow">📤 Xuất lại ngay (Tất cả)</button>
+  </div>
+  <div class="card admin-only">
+    <p class="hint" data-i18n="employees.homeLaptopExportHint">Để trống bộ lọc Bộ phận ở trên để xuất TẤT CẢ, hoặc chọn đúng 1 Bộ phận rồi bấm xuất để chỉ ra danh sách của bộ phận đó.</p>
+    <button type="button" id="exportHomeLaptopBtn">📤 <span data-i18n="employees.homeLaptopExportBtn">Xuất danh sách đăng ký mang laptop</span></button>
+  </div>
   <div id="employeeList"></div>
 </section>
 
 <section id="employeeProfile" class="page">
   <div class="section-head"><h2 id="employeeProfileTitle" data-i18n="employees.profileTitle">Hồ sơ nhân viên</h2><button data-page="employees">←</button></div>
   <div class="card" id="employeeProfileInfo"></div>
+  <div class="card admin-only" id="employeeHomeLaptopCard">
+    <label class="checkbox-inline"><input type="checkbox" id="employeeHomeLaptopToggle"><span>🏠 <span data-i18n="employees.homeLaptopToggle">Cho phép mang laptop về nhà</span></span></label>
+    <div id="employeeHomeLaptopAssetWrap" class="hidden">
+      <label class="autocomplete-field"><span data-i18n="employees.homeLaptopAssetLabel">Tài sản được mang về (chọn nếu nhiều người dùng chung 1 laptop thì chọn đúng tài sản đó)</span>
+        <input id="employeeHomeLaptopAssetInput" autocomplete="off" data-i18n-placeholder="employees.homeLaptopAssetPh" placeholder="Gõ mã tài sản / model / serial để tìm...">
+        <input type="hidden" id="employeeHomeLaptopAssetId">
+        <div id="employeeHomeLaptopAssetSuggest" class="suggest-list hidden"></div>
+      </label>
+      <p class="hint" id="employeeHomeLaptopAssetHint"></p>
+    </div>
+  </div>
   <h3 class="subhead" id="employeeProfileAssetsHead"></h3>
   <div id="employeeProfileAssets"></div>
   <h3 class="subhead" id="employeeProfileTicketsHead"></h3>
