@@ -1082,13 +1082,23 @@ function printWithFilename(suggestedName) {
 }
 function renderPrintLabel(data) {
   $("plCode").textContent = data.code || "";
-  $("plTypeModel").textContent = [data.type, data.model].filter(Boolean).join(" · ");
+  // Người sử dụng + Mã nhân viên gộp 1 dòng (giống cách hiển thị ở danh sách
+  // Tài sản/Ticket/Dự án: "👤 Tên (Mã NV)") để tiết kiệm diện tích tem.
+  const userEl = $("plUser");
+  const userText = data.user
+    ? ("👤 " + data.user + (data.employeeCode ? " (" + data.employeeCode + ")" : ""))
+    : (data.employeeCode ? ("👤 " + data.employeeCode) : "");
+  userEl.textContent = userText;
+  userEl.style.display = userText ? "" : "none";
+  const sectionEl = $("plSection");
+  sectionEl.textContent = data.section ? ("🏢 " + data.section) : "";
+  sectionEl.style.display = data.section ? "" : "none";
+  const modelEl = $("plModel");
+  modelEl.textContent = data.model || "";
+  modelEl.style.display = data.model ? "" : "none";
   const serialEl = $("plSerial");
   serialEl.textContent = data.serial ? ("SN: " + data.serial) : "";
   serialEl.style.display = data.serial ? "" : "none";
-  const specEl = $("plSpec");
-  specEl.textContent = data.spec || "";
-  specEl.style.display = data.spec ? "" : "none";
   $("plQr").innerHTML = "";
   new QRCode($("plQr"), { text: assetLinkFor(data.code || ""), width: 300, height: 300 });
 }
