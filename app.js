@@ -6,7 +6,7 @@
    Cập nhật thủ công mỗi lần deploy để bạn biết bản mới đã lên chưa (hiển thị
    ở màn hình đăng nhập và cuối trang Dữ liệu). Định dạng: YYYY.MM.DD.N —
    N là số thứ tự bản deploy trong ngày (bắt đầu từ 1). */
-const APP_VERSION = "2026.09.03.3";
+const APP_VERSION = "2026.09.03.4";
 document.querySelectorAll("#appVersionText, #appVersionText2").forEach(el => { el.textContent = APP_VERSION; });
 
 /* ---------- Mật khẩu xác nhận cho thao tác nguy hiểm (Xóa toàn bộ...) ----------
@@ -419,9 +419,11 @@ function renderEmployeeList() {
   const q = ($("employeeSearch").value || "").trim().toLowerCase();
   const sectionF = $("employeeFilterSection").value;
   const activeOnly = $("employeeFilterActiveOnly").checked;
+  const homeLaptopOnly = $("employeeFilterHomeLaptop").checked;
   let list = (window.EMPLOYEES || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "vi"));
   if (activeOnly) list = list.filter(e => e.active !== false);
   if (sectionF) list = list.filter(e => (e.section || "").trim() === sectionF);
+  if (homeLaptopOnly) list = list.filter(e => e.takeLaptopHome === true);
   if (q) list = list.filter(e => [e.code, e.name].some(v => (v || "").toLowerCase().includes(q)));
 
   if (!list.length) {
@@ -439,6 +441,7 @@ function renderEmployeeList() {
         ${e.active === false ? `<span class="badge bad">${tr("employees.terminated")}</span>` : ""}
         <span class="badge info">🖥 ${tr("employees.assetCount", { count: aCount })}</span>
         <span class="badge info">🎫 ${tr("employees.ticketCount", { count: tCount })}</span>
+        ${e.takeLaptopHome ? `<span class="badge ok">🏠 ${tr("employees.homeLaptopBadge")}</span>` : ""}
       </div>
       <div class="asset-actions">
         <button class="secondary" onclick="event.stopPropagation();viewEmployee('${e.code}')">👁 ${tr("action.view")}</button>
@@ -449,6 +452,7 @@ function renderEmployeeList() {
 $("employeeSearch").addEventListener("input", renderEmployeeList);
 $("employeeFilterSection").addEventListener("change", renderEmployeeList);
 $("employeeFilterActiveOnly").addEventListener("change", renderEmployeeList);
+$("employeeFilterHomeLaptop").addEventListener("change", renderEmployeeList);
 
 function renderEmployeeProfile(code) {
   const emp = (window.EMPLOYEES || []).find(e => e.code === code);
@@ -458,12 +462,20 @@ function renderEmployeeProfile(code) {
     .sort((a, b) => (b.ticketId || "").localeCompare(a.ticketId || ""));
 
   $("employeeProfileTitle").textContent = emp ? `${emp.name} (${emp.code})` : code;
+  // Admin tick/bỏ tick trực tiếp; role khác chỉ thấy badge (đúng với việc
+  // Firestore Rules chỉ cho Admin write collection `employees`).
+  const homeLaptopControl = emp
+    ? (isAdmin
+        ? `<label class="checkbox-inline" style="margin-top:8px"><input type="checkbox" id="employeeHomeLaptopToggle" ${emp.takeLaptopHome ? "checked" : ""} onchange="toggleEmployeeHomeLaptop('${emp.code}', this.checked)"><span>🏠 ${tr("employees.homeLaptopToggle")}</span></label>`
+        : (emp.takeLaptopHome ? `<div style="margin-top:8px"><span class="badge ok">🏠 ${tr("employees.homeLaptopBadge")}</span></div>` : ""))
+    : "";
   $("employeeProfileInfo").innerHTML = emp ? `
     <div class="muted">${tr("field.employeeCode")}: <b style="color:#0f172a">${escapeHtml(emp.code)}</b></div>
     <div class="muted">${tr("employees.fullName")}: <b style="color:#0f172a">${escapeHtml(emp.name)}</b></div>
     ${emp.section ? `<div class="muted">🏢 ${tr("field.section")}: <b style="color:#0f172a">${escapeHtml(emp.section)}</b></div>` : ""}
     ${emp.group ? `<div class="muted">${tr("field.group")}: <b style="color:#0f172a">${escapeHtml(emp.group)}</b></div>` : ""}
     <span class="badge ${emp.active === false ? "bad" : "ok"}">${emp.active === false ? tr("employees.terminated") : tr("employees.active")}</span>
+    ${homeLaptopControl}
   ` : `<div class="empty">${tr("employees.notInHr", { code })}</div>`;
 
   $("employeeProfileAssetsHead").textContent = tr("employees.linkedAssetsHead", { count: linkedAssets.length });
@@ -496,6 +508,20 @@ function renderEmployeeProfile(code) {
 window.viewEmployee = function (code) {
   renderEmployeeProfile(code);
   goPage("employeeProfile");
+};
+// Tick/bỏ tick "Mang laptop về nhà" — ghi thẳng vào employees/{code} với
+// merge:true nên KHÔNG ảnh hưởng các field khác (code/name/section/group),
+// và không bị mất khi lần Nhập Excel HR tiếp theo chạy lại (import cũng
+// dùng merge:true, chỉ đụng đúng 4 field HR, không đụng field này) — trừ
+// khi nhân viên đó bị xóa hẳn khỏi file HR (nghỉ việc) thì doc bị xóa luôn,
+// cờ này mất theo là hợp lý.
+window.toggleEmployeeHomeLaptop = async function (code, checked) {
+  try {
+    await db.collection(EMPLOYEES_COLLECTION).doc(sanitizeId(code)).set({ takeLaptopHome: checked }, { merge: true });
+  } catch (err) {
+    alert(tr("msg.errSaveEmployeeFlag", { err: err.message }));
+    renderEmployeeProfile(code); // rollback checkbox về đúng trạng thái Firestore nếu ghi thất bại
+  }
 };
 
 /* ---------- Người dùng & phân quyền (Dữ liệu → Người dùng, chỉ Admin) ----------
