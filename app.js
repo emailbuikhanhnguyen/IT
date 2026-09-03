@@ -6,8 +6,37 @@
    Cập nhật thủ công mỗi lần deploy để bạn biết bản mới đã lên chưa (hiển thị
    ở màn hình đăng nhập và cuối trang Dữ liệu). Định dạng: YYYY.MM.DD.N —
    N là số thứ tự bản deploy trong ngày (bắt đầu từ 1). */
-const APP_VERSION = "2026.09.03.1";
+const APP_VERSION = "2026.09.03.2";
 document.querySelectorAll("#appVersionText, #appVersionText2").forEach(el => { el.textContent = APP_VERSION; });
+
+/* ---------- Mật khẩu xác nhận cho thao tác nguy hiểm (Xóa toàn bộ...) ----------
+   Đây KHÔNG phải cơ chế bảo mật chống hacker — code chạy 100% ở trình
+   duyệt, không có backend riêng để giấu bí mật thật sự, nên ai cố tình đọc
+   source vẫn dò ra được nếu quyết tâm. Mục đích chỉ là 1 lớp "chặn bấm
+   nhầm/tay nhanh hơn não" cho chính admin, cộng thêm 2 hộp thoại confirm()
+   đã có sẵn — nên mình lưu SHA-256 của mật khẩu (không lưu chữ thường) để
+   người xem code không thấy ngay mật khẩu là gì.
+   Muốn đổi mật khẩu: mở Console (F12) ở BẤT KỲ trang web nào, chạy:
+     crypto.subtle.digest("SHA-256", new TextEncoder().encode("MẬT_KHẨU_MỚI"))
+       .then(b => console.log(Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2,"0")).join("")))
+   rồi thay chuỗi hex bên dưới bằng kết quả in ra. */
+const DANGER_ACTION_PASSWORD_HASH = "7c1b3b1251a44814eb1296235347773b8c2ba10b5b6ef0062a3c2faa58da4dea";
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+// Trả về true nếu nhập đúng mật khẩu, false nếu sai hoặc bấm Cancel (im
+// lặng thoát, không cần alert riêng vì Cancel đã là 1 cách "đổi ý" hợp lệ).
+async function verifyDangerPassword() {
+  const pw = prompt(tr("msg.enterDangerPassword"));
+  if (pw === null) return false;
+  const hash = await sha256Hex(pw);
+  if (hash !== DANGER_ACTION_PASSWORD_HASH) {
+    alert(tr("msg.wrongDangerPassword"));
+    return false;
+  }
+  return true;
+}
 
 /* ---------- Firebase init ---------- */
 const firebaseConfig = {
@@ -3695,6 +3724,7 @@ $("projectFormEl").addEventListener("submit", e => {
 $("clearAllTickets").addEventListener("click", async () => {
   if (!confirm(tr("msg.confirmClearAllTickets"))) return;
   if (!confirm(tr("msg.confirmClearAllTickets2"))) return;
+  if (!(await verifyDangerPassword())) return;
   try {
     const snap = await db.collection(TICKET_COLLECTION).get();
     let batch = db.batch();
@@ -3764,6 +3794,7 @@ $("restoreJson").addEventListener("change", async e => {
 $("clearAll").addEventListener("click", async () => {
   if (!confirm(tr("msg.confirmClearAllAssets"))) return;
   if (!confirm(tr("msg.confirmClearAllAssets2"))) return;
+  if (!(await verifyDangerPassword())) return;
   try {
     const snap = await db.collection(COLLECTION).get();
     let batch = db.batch();
