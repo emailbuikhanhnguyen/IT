@@ -42,6 +42,10 @@
       <span class="module-nav-icon">📦</span>
       <span class="module-nav-text"><b data-i18n="nav.assetHub">Quản lý tài sản</b><small data-i18n="nav.assetHub.desc">Kiểm kê, vòng đời tài sản</small></span>
     </button>
+    <button class="module-nav-item" data-page="employees">
+      <span class="module-nav-icon">👥</span>
+      <span class="module-nav-text"><b data-i18n="nav.employees">Danh bạ nhân viên</b><small data-i18n="nav.employees.desc">Hồ sơ nhân viên, tài sản &amp; ticket liên quan</small></span>
+    </button>
     <button class="module-nav-item admin-only" data-page="settings">
       <span class="module-nav-icon">⇅</span>
       <span class="module-nav-text"><b data-i18n="nav.settings">Quản trị dữ liệu</b><small data-i18n="nav.settings.desc">Excel, backup, nhân viên (HR)</small></span>
@@ -555,6 +559,25 @@
     <p data-i18n="common.building">🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
     <p class="muted" data-i18n="sop.desc">Dự kiến: các bước chuẩn (SOP) cho công việc IT thường gặp — có thể gắn trực tiếp vào Ticket khi tạo, để người xử lý theo đúng quy trình.</p>
   </div>
+</section>
+
+<section id="employees" class="page">
+  <div class="section-head"><h2 data-i18n="employees.title">👥 Danh bạ nhân viên</h2><button data-page="dashboard">←</button></div>
+  <div class="filters">
+    <input id="employeeSearch" data-i18n-placeholder="employees.searchPh" placeholder="Tìm theo tên hoặc mã nhân viên...">
+    <select id="employeeFilterSection"><option value="" data-i18n="filter.allSections">Tất cả khu vực</option></select>
+    <label class="checkbox-inline"><input type="checkbox" id="employeeFilterActiveOnly" checked><span data-i18n="employees.activeOnly">Chỉ đang làm việc</span></label>
+  </div>
+  <div id="employeeList"></div>
+</section>
+
+<section id="employeeProfile" class="page">
+  <div class="section-head"><h2 id="employeeProfileTitle" data-i18n="employees.profileTitle">Hồ sơ nhân viên</h2><button data-page="employees">←</button></div>
+  <div class="card" id="employeeProfileInfo"></div>
+  <h3 class="subhead" id="employeeProfileAssetsHead"></h3>
+  <div id="employeeProfileAssets"></div>
+  <h3 class="subhead" id="employeeProfileTicketsHead"></h3>
+  <div id="employeeProfileTickets"></div>
 </section>
 
 <section id="settings" class="page">

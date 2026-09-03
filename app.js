@@ -6,7 +6,7 @@
    Cập nhật thủ công mỗi lần deploy để bạn biết bản mới đã lên chưa (hiển thị
    ở màn hình đăng nhập và cuối trang Dữ liệu). Định dạng: YYYY.MM.DD.N —
    N là số thứ tự bản deploy trong ngày (bắt đầu từ 1). */
-const APP_VERSION = "2026.09.03.2";
+const APP_VERSION = "2026.09.03.3";
 document.querySelectorAll("#appVersionText, #appVersionText2").forEach(el => { el.textContent = APP_VERSION; });
 
 /* ---------- Mật khẩu xác nhận cho thao tác nguy hiểm (Xóa toàn bộ...) ----------
@@ -281,6 +281,7 @@ function goPage(name) {
   if (name === "projects") renderProjectList();
   if (name === "dashboard") renderDashboard();
   if (name === "bulkPrintLabels") renderBulkPrintList();
+  if (name === "employees") renderEmployeeList();
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
   btn.addEventListener("click", () => goPage(btn.getAttribute("data-page")));
@@ -392,6 +393,110 @@ function initEmployeesSync() {
 function stopEmployeesSync() {
   if (unsubscribeEmployeesSync) { unsubscribeEmployeesSync(); unsubscribeEmployeesSync = null; }
 }
+
+/* ---------- Danh bạ nhân viên (hồ sơ nhân viên + tài sản/ticket liên kết) ----------
+   Module thuần đọc — không có form tạo/sửa nhân viên ở đây, thông tin
+   nhân viên (code/name/section/group/active) vẫn quản lý qua "Nhập Excel
+   HR" ở trang Dữ liệu (xem importEmployeesXlsx). Mục đích module này: từ 1
+   nhân viên, xem nhanh họ đang giữ (những) tài sản nào và có (những)
+   ticket nào liên quan — khớp bằng field `employeeCode` đã có sẵn và nhất
+   quán trên cả 2 collection assets/tickets (xem field.employeeCode). */
+function populateEmployeeSectionFilter() {
+  const sel = $("employeeFilterSection");
+  if (!sel) return;
+  const prev = sel.value;
+  const sections = Array.from(new Set((window.EMPLOYEES || []).map(e => (e.section || "").trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, "vi"));
+  sel.innerHTML = `<option value="">${tr("filter.allSections")}</option>` +
+    sections.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+  if (prev && sections.includes(prev)) sel.value = prev;
+}
+function employeeAssetCount(code) { return assets.filter(a => (a.employeeCode || "").trim() === code).length; }
+function employeeTicketCount(code) { return ticketRecords.filter(t => (t.employeeCode || "").trim() === code).length; }
+
+function renderEmployeeList() {
+  populateEmployeeSectionFilter();
+  const q = ($("employeeSearch").value || "").trim().toLowerCase();
+  const sectionF = $("employeeFilterSection").value;
+  const activeOnly = $("employeeFilterActiveOnly").checked;
+  let list = (window.EMPLOYEES || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "vi"));
+  if (activeOnly) list = list.filter(e => e.active !== false);
+  if (sectionF) list = list.filter(e => (e.section || "").trim() === sectionF);
+  if (q) list = list.filter(e => [e.code, e.name].some(v => (v || "").toLowerCase().includes(q)));
+
+  if (!list.length) {
+    $("employeeList").innerHTML = `<div class="empty">${tr("employees.noneFound")}</div>`;
+    return;
+  }
+  $("employeeList").innerHTML = list.map(e => {
+    const aCount = employeeAssetCount(e.code);
+    const tCount = employeeTicketCount(e.code);
+    return `
+    <div class="asset" style="cursor:pointer" onclick="viewEmployee('${e.code}')">
+      <div>
+        <h3>${escapeHtml(e.name)} <span class="muted">(${escapeHtml(e.code)})</span></h3>
+        <div class="muted">${e.section ? "🏢 " + escapeHtml(e.section) : ""}${e.group ? " · " + escapeHtml(e.group) : ""}</div>
+        ${e.active === false ? `<span class="badge bad">${tr("employees.terminated")}</span>` : ""}
+        <span class="badge info">🖥 ${tr("employees.assetCount", { count: aCount })}</span>
+        <span class="badge info">🎫 ${tr("employees.ticketCount", { count: tCount })}</span>
+      </div>
+      <div class="asset-actions">
+        <button class="secondary" onclick="event.stopPropagation();viewEmployee('${e.code}')">👁 ${tr("action.view")}</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+$("employeeSearch").addEventListener("input", renderEmployeeList);
+$("employeeFilterSection").addEventListener("change", renderEmployeeList);
+$("employeeFilterActiveOnly").addEventListener("change", renderEmployeeList);
+
+function renderEmployeeProfile(code) {
+  const emp = (window.EMPLOYEES || []).find(e => e.code === code);
+  const linkedAssets = assets.filter(a => (a.employeeCode || "").trim() === code)
+    .sort((a, b) => (a.code || "").localeCompare(b.code || ""));
+  const linkedTickets = ticketRecords.filter(t => (t.employeeCode || "").trim() === code)
+    .sort((a, b) => (b.ticketId || "").localeCompare(a.ticketId || ""));
+
+  $("employeeProfileTitle").textContent = emp ? `${emp.name} (${emp.code})` : code;
+  $("employeeProfileInfo").innerHTML = emp ? `
+    <div class="muted">${tr("field.employeeCode")}: <b style="color:#0f172a">${escapeHtml(emp.code)}</b></div>
+    <div class="muted">${tr("employees.fullName")}: <b style="color:#0f172a">${escapeHtml(emp.name)}</b></div>
+    ${emp.section ? `<div class="muted">🏢 ${tr("field.section")}: <b style="color:#0f172a">${escapeHtml(emp.section)}</b></div>` : ""}
+    ${emp.group ? `<div class="muted">${tr("field.group")}: <b style="color:#0f172a">${escapeHtml(emp.group)}</b></div>` : ""}
+    <span class="badge ${emp.active === false ? "bad" : "ok"}">${emp.active === false ? tr("employees.terminated") : tr("employees.active")}</span>
+  ` : `<div class="empty">${tr("employees.notInHr", { code })}</div>`;
+
+  $("employeeProfileAssetsHead").textContent = tr("employees.linkedAssetsHead", { count: linkedAssets.length });
+  $("employeeProfileAssets").innerHTML = linkedAssets.length ? linkedAssets.map(a => `
+    <div class="asset">
+      <div>
+        <h3>${escapeHtml(a.code)}</h3>
+        <div class="muted">${escapeHtml(a.type || "")}${a.model ? " · " + escapeHtml(a.model) : ""}</div>
+        <span class="badge ${badgeClass(a.checkStatus)}">${escapeHtml(checkLabel(a.checkStatus))}</span>
+      </div>
+      <div class="asset-actions">
+        <button onclick="editAsset('${a._id}')">${isAdmin ? "✎ " + tr("action.edit") : "👁 " + tr("action.view")}</button>
+      </div>
+    </div>`).join("") : `<div class="empty">${tr("employees.noAssets")}</div>`;
+
+  $("employeeProfileTicketsHead").textContent = tr("employees.linkedTicketsHead", { count: linkedTickets.length });
+  $("employeeProfileTickets").innerHTML = linkedTickets.length ? linkedTickets.map(t => `
+    <div class="asset">
+      <div>
+        <h3>${escapeHtml(t.ticketId)}</h3>
+        <div class="muted">${escapeHtml((t.description || "").slice(0, 80))}</div>
+        <span class="badge ${ticketBadgeClass(t.status)}">${escapeHtml(ticketStatusLabel(t.status))}</span>
+        <span class="prio-badge prio-${prioritySlug(t.priority)}">${escapeHtml(ticketPriorityLabel(t.priority || "Trung bình"))}</span>
+      </div>
+      <div class="asset-actions">
+        <button onclick="editTicket('${t._id}')">${isAdmin ? "✎ " + tr("action.edit") : "👁 " + tr("action.view")}</button>
+      </div>
+    </div>`).join("") : `<div class="empty">${tr("employees.noTickets")}</div>`;
+}
+window.viewEmployee = function (code) {
+  renderEmployeeProfile(code);
+  goPage("employeeProfile");
+};
 
 /* ---------- Người dùng & phân quyền (Dữ liệu → Người dùng, chỉ Admin) ----------
    Đọc/ghi trực tiếp collection `users` (users/{uid} -> {role, email,

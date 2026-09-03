@@ -106,6 +106,10 @@
 }
 .bulk-print-row{display:flex;align-items:flex-start;gap:10px;cursor:pointer}
 .bulk-print-row input[type="checkbox"]{margin-top:4px;flex-shrink:0;width:18px;height:18px}
+.checkbox-inline{display:flex;align-items:center;gap:8px;font-weight:600;margin:0}
+.checkbox-inline input{width:auto;margin:0}
+.subhead{margin:16px 2px 8px;font-size:15px;color:#0f172a}
+.subhead:empty{display:none}
 .attach-item{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:8px 10px;margin-bottom:6px}
 .attach-item a{color:#2563eb;text-decoration:none;font-weight:650;font-size:13px;word-break:break-all}
 .attach-item .attach-meta{color:#64748b;font-size:11px}
