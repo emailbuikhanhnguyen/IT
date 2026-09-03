@@ -2054,6 +2054,258 @@ async function generateTicketPdfReport() {
 
 $("exportTicketPdfReport").addEventListener("click", generateTicketPdfReport);
 
+/* ---------- PDF report export (Dự án CNTT) ----------
+   Xuất báo cáo Dự án dạng PDF: trang bìa + trang tổng quan (thẻ số liệu:
+   tổng số, trễ hạn, tiến độ trung bình + bảng theo Trạng thái/Ưu tiên +
+   bảng danh sách toàn bộ dự án) + 1 trang chi tiết cho MỖI dự án (thông
+   tin, mô tả/ghi chú, mốc tiến độ nếu có, tài liệu đính kèm nếu có). Dùng
+   lại đúng cơ chế render HTML ẩn ngoài màn hình rồi chụp html2canvas + ghép
+   jsPDF như báo cáo Ticket (generateTicketPdfReport) ở trên — không thêm
+   thư viện mới, giữ nguyên palette PDF_PALETTE.
+*/
+const PPDF_STATUS_COLORS = {
+  "Lên kế hoạch": { bg: PDF_PALETTE.amberBg, fg: PDF_PALETTE.amber },
+  "Đang thực hiện": { bg: "#dbeafe", fg: "#1e40af" },
+  "Tạm dừng": { bg: "#e2e8f0", fg: "#334155" },
+  "Hoàn thành": { bg: PDF_PALETTE.greenBg, fg: PDF_PALETTE.green },
+  "Hủy": { bg: PDF_PALETTE.redBg, fg: PDF_PALETTE.red }
+};
+const PPDF_PRIORITY_COLORS = TPDF_PRIORITY_COLORS;
+function ppdfStatusColors(status) { return PPDF_STATUS_COLORS[status] || PPDF_STATUS_COLORS["Lên kế hoạch"]; }
+function ppdfPriorityColors(p) { return TPDF_PRIORITY_COLORS[p] || TPDF_PRIORITY_COLORS["Trung bình"]; }
+
+// Suy ra thời điểm/tài khoản tạo dự án từ Lịch sử thay đổi (history), giống
+// hệt cơ chế ticketCreatedInfo (dự án không lưu riêng createdAt/createdBy).
+function projectCreatedInfo(p) {
+  const list = Array.isArray(p.history) ? p.history : [];
+  const entry = list.find(e => e.action === "create") || list[0];
+  if (!entry) return "";
+  const time = formatHistoryTime(entry.at);
+  return entry.by ? `${time} · ${entry.by}` : time;
+}
+
+function ensureProjectPdfReportStyles() {
+  if ($("ppdfReportStyles")) return;
+  const style = document.createElement("style");
+  style.id = "ppdfReportStyles";
+  style.textContent = `
+  .pk-topbar{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px}
+  .pk-id{font-size:22px; font-weight:800; color:${PDF_PALETTE.navy}}
+  .pk-sub{font-size:11px; color:${PDF_PALETTE.slate}; margin-top:2px}
+  .pk-badges{display:flex; gap:6px; flex-shrink:0}
+  .pk-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; margin:16px 0; font-size:11.5px}
+  .pk-field b{display:block; color:${PDF_PALETTE.slate}; font-size:9.5px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; font-weight:700}
+  .pk-field span{color:#1e293b}
+  .pk-section-title{font-size:12.5px; font-weight:800; color:${PDF_PALETTE.navy}; margin:16px 0 6px; padding-bottom:4px; border-bottom:2px solid ${PDF_PALETTE.slateLight}}
+  .pk-text{font-size:11.5px; color:#334155; line-height:1.6; background:${PDF_PALETTE.slateLight}; border-radius:8px; padding:10px 12px; margin-bottom:2px; white-space:pre-wrap}
+  .pk-progress-item{display:flex; gap:10px; font-size:10.5px; padding:6px 0; border-bottom:1px dashed #e2e8f0}
+  .pk-progress-time{color:${PDF_PALETTE.slate}; white-space:nowrap; min-width:120px}
+  .pk-attach-item{font-size:10.5px; padding:5px 0; border-bottom:1px dashed #e2e8f0}
+  .pk-attach-item span{color:${PDF_PALETTE.slate}; margin-left:6px}
+  .pk-breakdown{display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 18px}
+  .pk-breakdown-item{display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #e2e8f0; border-radius:999px; padding:5px 12px; font-size:11px}
+  .pk-breakdown-item b{color:${PDF_PALETTE.navy}}
+  table.ppdf-list-table{width:100%; border-collapse:collapse; font-size:10.5px; table-layout:fixed}
+  table.ppdf-list-table thead th{background:${PDF_PALETTE.navy}; color:#fff; text-align:left; padding:8px 8px; font-size:10px}
+  table.ppdf-list-table tbody td{padding:6px 8px; border-bottom:1px solid #e2e8f0; vertical-align:top; word-break:break-word}
+  table.ppdf-list-table tbody tr:nth-child(even) td{background:${PDF_PALETTE.slateLight}}
+  `;
+  document.head.appendChild(style);
+}
+
+async function generateProjectPdfReport() {
+  if (!window.jspdf || !window.html2canvas) {
+    alert(tr("msg.pdfLibError"));
+    return;
+  }
+  if (!projectRecords.length) { alert(tr("msg.noProjectDataReport")); return; }
+
+  const btn = $("exportProjectPdfReport");
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ " + tr("common.generatingPdf");
+
+  ensurePdfReportStyles();
+  ensureProjectPdfReportStyles();
+  const root = document.createElement("div");
+  root.id = "pdfReportRoot";
+  document.body.appendChild(root);
+
+  try {
+    const statusFilter = $("projectPdfStatusFilter") ? $("projectPdfStatusFilter").value : "";
+    const list = projectRecords.slice()
+      .filter(p => !statusFilter || (p.status || "Lên kế hoạch") === statusFilter)
+      .sort((a, b) => (b.projectCode || "").localeCompare(a.projectCode || ""));
+    if (!list.length) {
+      alert(tr("msg.noProjectDataReport"));
+      root.remove();
+      btn.disabled = false;
+      btn.textContent = oldText;
+      return;
+    }
+    const total = list.length;
+    const statusCounts = {}; PROJECT_STATUSES.forEach(s => statusCounts[s] = 0);
+    const priorityCounts = {}; TICKET_PRIORITIES.forEach(p => priorityCounts[p] = 0);
+    let overdue = 0, progressSum = 0;
+    list.forEach(p => {
+      const st = p.status || "Lên kế hoạch";
+      if (statusCounts[st] === undefined) statusCounts[st] = 0;
+      statusCounts[st]++;
+      const pr = p.priority || "Trung bình";
+      if (priorityCounts[pr] === undefined) priorityCounts[pr] = 0;
+      priorityCounts[pr]++;
+      if (isProjectOverdue(p)) overdue++;
+      progressSum += Math.max(0, Math.min(100, Number(p.progress) || 0));
+    });
+    const avgProgress = total ? Math.round(progressSum / total) : 0;
+    const now = new Date();
+    const dateLocale = { vi: "vi-VN", en: "en-US", zh: "zh-CN" }[getLang()] || "vi-VN";
+    const dateStr = now.toLocaleDateString(dateLocale);
+    const headerBar = `<div class="pdf-header"><img src="logo.png" class="pdf-header-logo"><span>${tr("ppdf.title")}</span><span class="pdf-header-sub">SEC — IT Project Report</span></div>`;
+    const footerBar = pageNum => `<div class="pdf-footer"><span>${tr("pdf.exportedOn", { date: dateStr })}</span><span>${tr("pdf.page", { n: pageNum })}</span></div>`;
+
+    /* ---- Trang bìa ---- */
+    const cover = document.createElement("div");
+    cover.className = "pdf-page pdf-cover";
+    cover.innerHTML = `
+      <div class="pdf-blob1"></div><div class="pdf-blob2"></div>
+      <div class="pdf-logo-wrap"><img src="logo.png" alt="S.E.C."></div>
+      <h1>${tr("ppdf.title")}</h1>
+      <div class="pdf-sub">SEC — IT Project Report</div>
+      <div class="pdf-meta">${tr("ppdf.coverMeta", { date: dateStr, total })}${statusFilter ? `<br>${tr("ppdf.filterStatusLabel")}: ${escapeHtml(projectStatusLabel(statusFilter))}` : ""}</div>`;
+    root.appendChild(cover);
+
+    /* ---- Trang tổng quan: thẻ số liệu + breakdown + bảng danh sách ---- */
+    const statusBreakdown = PROJECT_STATUSES.map(s => {
+      const c = ppdfStatusColors(s);
+      return `<div class="pk-breakdown-item"><span class="pdf-badge" style="background:${c.bg};color:${c.fg}">${escapeHtml(projectStatusLabel(s))}</span><b>${statusCounts[s] || 0}</b></div>`;
+    }).join("");
+    const priorityBreakdown = TICKET_PRIORITIES.map(p => {
+      const c = ppdfPriorityColors(p);
+      return `<div class="pk-breakdown-item"><span class="pdf-badge" style="background:${c.bg};color:${c.fg}">${escapeHtml(ticketPriorityLabel(p))}</span><b>${priorityCounts[p] || 0}</b></div>`;
+    }).join("");
+    const listRows = list.map(p => {
+      const sc = ppdfStatusColors(p.status || "Lên kế hoạch");
+      const pc = ppdfPriorityColors(p.priority || "Trung bình");
+      const pct = Math.max(0, Math.min(100, Number(p.progress) || 0));
+      return `<tr>
+        <td><b>${escapeHtml(p.projectCode)}</b></td>
+        <td>${escapeHtml(p.name || "")}</td>
+        <td><span class="pdf-badge" style="background:${pc.bg};color:${pc.fg}">${escapeHtml(ticketPriorityLabel(p.priority || "Trung bình"))}</span></td>
+        <td><span class="pdf-badge" style="background:${sc.bg};color:${sc.fg}">${escapeHtml(projectStatusLabel(p.status))}</span></td>
+        <td>${escapeHtml(p.owner || tr("tpdf.noValue"))}</td>
+        <td>${pct}%</td>
+        <td>${escapeHtml(p.endDate || tr("tpdf.noValue"))}${isProjectOverdue(p) ? ` ⚠` : ""}</td>
+      </tr>`;
+    }).join("");
+    const overview = document.createElement("div");
+    overview.className = "pdf-page";
+    overview.innerHTML = `
+      ${headerBar}
+      <div class="pdf-content">
+        <div class="pdf-h1">${tr("ppdf.section1Title")}</div>
+        <hr class="pdf-hr">
+        <div class="pdf-cards">
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.blue}"><b>${total}</b><span>${tr("ppdf.statTotal")}</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.green}"><b>${avgProgress}%</b><span>${tr("ppdf.statAvgProgress")}</span></div>
+          <div class="pdf-card" style="--accent:${PDF_PALETTE.red}"><b>${overdue}</b><span>${tr("ppdf.statOverdue")}</span></div>
+        </div>
+        <div class="pdf-h2">${tr("ppdf.byStatusTitle")}</div>
+        <div class="pk-breakdown">${statusBreakdown}</div>
+        <div class="pdf-h2">${tr("ppdf.byPriorityTitle")}</div>
+        <div class="pk-breakdown">${priorityBreakdown}</div>
+        <div class="pdf-h2">${tr("ppdf.listTitle")}</div>
+        <table class="ppdf-list-table">
+          <thead><tr>
+            <th style="width:14%">${tr("ppdf.colProjectCode")}</th>
+            <th style="width:22%">${tr("ppdf.colName")}</th>
+            <th style="width:11%">${tr("ppdf.colPriority")}</th>
+            <th style="width:14%">${tr("ppdf.colStatus")}</th>
+            <th style="width:16%">${tr("ppdf.colOwner")}</th>
+            <th style="width:9%">${tr("ppdf.colProgress")}</th>
+            <th style="width:14%">${tr("ppdf.colEndDate")}</th>
+          </tr></thead>
+          <tbody>${listRows}</tbody>
+        </table>
+      </div>
+      ${footerBar(1)}`;
+    root.appendChild(overview);
+
+    /* ---- 1 trang chi tiết cho mỗi dự án ---- */
+    list.forEach((p, idx) => {
+      const sc = ppdfStatusColors(p.status || "Lên kế hoạch");
+      const pc = ppdfPriorityColors(p.priority || "Trung bình");
+      const created = projectCreatedInfo(p);
+      const pct = Math.max(0, Math.min(100, Number(p.progress) || 0));
+      const progressRows = (p.progressLog && p.progressLog.length)
+        ? p.progressLog.slice().sort((a, b) => (b.at || 0) - (a.at || 0)).map(e => `<div class="pk-progress-item"><span class="pk-progress-time">${escapeHtml(formatHistoryTime(e.at))}${e.by ? " · " + escapeHtml(e.by) : ""}</span><span>${escapeHtml(e.note || "")}</span></div>`).join("")
+        : "";
+      const attachRows = (p.attachments && p.attachments.length)
+        ? p.attachments.map(a => `<div class="pk-attach-item">🔗 ${escapeHtml(a.name || a.url)}<span>${escapeHtml(a.url || "")}</span></div>`).join("")
+        : "";
+      const page = document.createElement("div");
+      page.className = "pdf-page";
+      page.innerHTML = `
+        ${headerBar}
+        <div class="pdf-content">
+          ${idx === 0 ? `<div class="pdf-h1">${tr("ppdf.section2Title")}</div><hr class="pdf-hr">` : ""}
+          <div class="pk-topbar">
+            <div>
+              <div class="pk-id">${escapeHtml(p.projectCode)} — ${escapeHtml(p.name || "")}</div>
+              ${created ? `<div class="pk-sub">${escapeHtml(created)}</div>` : ""}
+            </div>
+            <div class="pk-badges">
+              <span class="pdf-badge" style="background:${pc.bg};color:${pc.fg}">${escapeHtml(ticketPriorityLabel(p.priority || "Trung bình"))}</span>
+              <span class="pdf-badge" style="background:${sc.bg};color:${sc.fg}">${escapeHtml(projectStatusLabel(p.status))}</span>
+            </div>
+          </div>
+          <div class="pdf-progress-wrap">
+            <div class="tk-field"><b>${tr("ppdf.fieldProgress")}</b></div>
+            <div class="pdf-progress-bar"><i style="width:${pct}%"></i></div>
+          </div>
+          <div class="pk-grid">
+            <div class="pk-field"><b>${tr("ppdf.fieldOwner")}</b><span>${escapeHtml(p.owner || tr("tpdf.noValue"))}</span></div>
+            <div class="pk-field"><b>${tr("ppdf.fieldDepartment")}</b><span>${escapeHtml(p.department || tr("tpdf.noValue"))}</span></div>
+            <div class="pk-field"><b>${tr("ppdf.fieldStart")}</b><span>${escapeHtml(p.startDate || tr("tpdf.noValue"))}</span></div>
+            <div class="pk-field"><b>${tr("ppdf.fieldEnd")}</b><span>${escapeHtml(p.endDate || tr("tpdf.noValue"))}${isProjectOverdue(p) ? " ⚠" : ""}</span></div>
+          </div>
+          ${p.description ? `<div class="pk-section-title">${tr("ppdf.sectionDescription")}</div><div class="pk-text">${escapeHtml(p.description)}</div>` : ""}
+          ${p.note ? `<div class="pk-section-title">${tr("ppdf.sectionNote")}</div><div class="pk-text">${escapeHtml(p.note)}</div>` : ""}
+          ${progressRows ? `<div class="pk-section-title">${tr("ppdf.sectionProgress")}</div>${progressRows}` : ""}
+          ${attachRows ? `<div class="pk-section-title">${tr("ppdf.sectionAttachments")}</div>${attachRows}` : ""}
+        </div>
+        ${footerBar(2 + idx)}`;
+      root.appendChild(page);
+    });
+
+    /* ---- Chụp từng trang & ghép vào PDF (giống báo cáo ticket) ---- */
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const pageEls = Array.from(root.querySelectorAll(".pdf-page"));
+    for (let i = 0; i < pageEls.length; i++) {
+      const canvas = await html2canvas(pageEls[i], { scale: 2, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const pageW = 210, pageH = 297;
+      const ratio = canvas.height / canvas.width;
+      let imgW = pageW, imgH = pageW * ratio;
+      if (imgH > pageH) { imgH = pageH; imgW = pageH / ratio; }
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
+    }
+    const statusSlug = { "Lên kế hoạch": "len-ke-hoach", "Đang thực hiện": "dang-thuc-hien", "Tạm dừng": "tam-dung", "Hoàn thành": "hoan-thanh", "Hủy": "huy" }[statusFilter] || "";
+    pdf.save(`bao-cao-du-an${statusSlug ? "-" + statusSlug : ""}-${now.toISOString().slice(0, 10)}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert(tr("msg.errProjectPdfReport", { err: err.message }));
+  } finally {
+    root.remove();
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+}
+
+$("exportProjectPdfReport").addEventListener("click", generateProjectPdfReport);
+
 $("importXlsx").addEventListener("change", async e => {
   const file = e.target.files[0];
   if (!file) return;

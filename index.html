@@ -608,6 +608,23 @@
     </div>
   </div>
   <div class="card">
+    <h3 data-i18n="settings.projectPdfReport">Báo cáo PDF — Dự án</h3>
+    <p data-i18n="settings.projectPdfReportDesc">Xuất báo cáo Dự án CNTT dạng PDF: trang tổng quan (số liệu, tiến độ trung bình, trễ hạn, theo trạng thái/ưu tiên) + 1 trang chi tiết cho mỗi dự án, kèm mốc tiến độ và tài liệu đính kèm (nếu có) — dùng để in hoặc lưu hồ sơ.</p>
+    <label><span data-i18n="tpdf.filterStatusLabel">Xuất theo trạng thái</span>
+      <select id="projectPdfStatusFilter">
+        <option value="" data-i18n="filter.allStatus">Tất cả trạng thái</option>
+        <option value="Lên kế hoạch" data-i18n="project.status.planning">Lên kế hoạch</option>
+        <option value="Đang thực hiện" data-i18n="project.status.inProgress">Đang thực hiện</option>
+        <option value="Tạm dừng" data-i18n="project.status.onHold">Tạm dừng</option>
+        <option value="Hoàn thành" data-i18n="project.status.done">Hoàn thành</option>
+        <option value="Hủy" data-i18n="project.status.cancelled">Hủy</option>
+      </select>
+    </label>
+    <div class="quick">
+      <button id="exportProjectPdfReport" data-i18n="btn.exportProjectPdf">📄 Xuất báo cáo PDF Dự án</button>
+    </div>
+  </div>
+  <div class="card">
     <h3 data-i18n="settings.backup">Backup</h3>
     <div class="quick"><button id="backupJson" data-i18n="btn.backupJson">Sao lưu JSON</button><label class="button secondary"><span data-i18n="btn.restoreJson">Khôi phục JSON</span><input id="restoreJson" type="file" accept=".json" hidden></label></div>
   </div>
