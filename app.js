@@ -1518,7 +1518,9 @@ function buildHomeLaptopSheet(list, scopeLabel) {
   });
 
   const aoa = [];
-  aoa.push(["", "", "CÔNG TY TNHH CÔNG NGHỆ SÁNG TẠO XANH S.E.C", "", "", "", "", "", ""]);
+  // Tên công ty đổi từ 10/08/2026: "CÔNG TY TNHH CÔNG NGHỆ SÁNG TẠO XANH
+  // S.E.C" cũ -> "CÔNG TY TNHH SẢN XUẤT CÔNG NGHỆ S.E.C." mới.
+  aoa.push(["", "", "CÔNG TY TNHH SẢN XUẤT CÔNG NGHỆ S.E.C.", "", "", "", "", "", ""]);
   aoa.push(["", "", "DANH SÁCH ĐĂNG KÝ NHÂN VIÊN MANG LAPTOP VỀ NHÀ" + (scopeLabel ? ` — ${scopeLabel}` : ""), "", "", "", "", "", ""]);
   aoa.push([]);
   aoa.push(["STT", "Họ và tên", "Mã nhân viên", "Bộ phận", "Tổ/Chuyền", "Mã tài sản", "Tên/Model Laptop", "Số Serial", "Ký tên nhân viên"]);
