@@ -1653,7 +1653,100 @@ function buildHomeLaptopSheet(list, scopeLabel) {
   setStyle(signLineRow, 6, { font: HOME_LAPTOP_FONT, alignment: { horizontal: "center" }, border: { top: { style: "thin" } } });
   return ws;
 }
-window.exportHomeLaptopReport = function (scopeFromBanner) {
+
+/* ---------- Chèn logo công ty vào góc trên-trái file .xlsx đã xuất ----------
+   xlsx-js-style (bản Community của SheetJS) không hỗ trợ ghi ảnh vào file
+   Excel, nên phải tự "vá" file .xlsx sau khi xuất: mở lại bằng JSZip, nhét
+   thêm ảnh + XML mô tả hình vẽ (drawing) đúng chuẩn OOXML rồi nén lại —
+   đúng cách Excel tự lưu khi người dùng chèn ảnh bằng tay. Dùng chung được
+   cho báo cáo khác sau này nếu cũng cần logo, không riêng gì báo cáo mang
+   laptop về nhà. */
+let cachedLogoArrayBuffer = null;
+async function getLogoArrayBuffer() {
+  if (cachedLogoArrayBuffer) return cachedLogoArrayBuffer;
+  const res = await fetch("logo.png");
+  if (!res.ok) throw new Error("Không tải được logo.png (HTTP " + res.status + ")");
+  cachedLogoArrayBuffer = await res.arrayBuffer();
+  return cachedLogoArrayBuffer;
+}
+async function embedLogoTopLeft(xlsxArrayBuffer, logoArrayBuffer) {
+  if (typeof JSZip === "undefined") throw new Error("Thiếu thư viện JSZip");
+  const EMU_PER_PX = 9525; // quy đổi chuẩn OOXML: 1px = 9525 EMU ở 96 DPI
+  const widthPx = 130;
+  const heightPx = Math.round(widthPx * 87 / 365); // giữ đúng tỉ lệ logo gốc 365x87
+  const cx = widthPx * EMU_PER_PX, cy = heightPx * EMU_PER_PX;
+  const offset = 3 * EMU_PER_PX; // chừa vài px cho logo không dính sát viền ô
+
+  const zip = await JSZip.loadAsync(xlsxArrayBuffer);
+  zip.file("xl/media/image1.png", logoArrayBuffer);
+  zip.file("xl/drawings/drawing1.xml",
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+    '<xdr:oneCellAnchor>' +
+    `<xdr:from><xdr:col>0</xdr:col><xdr:colOff>${offset}</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>${offset}</xdr:rowOff></xdr:from>` +
+    `<xdr:ext cx="${cx}" cy="${cy}"/>` +
+    '<xdr:pic>' +
+    '<xdr:nvPicPr><xdr:cNvPr id="2" name="Logo SEC"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>' +
+    '<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>' +
+    `<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>` +
+    '</xdr:pic>' +
+    '<xdr:clientData/>' +
+    '</xdr:oneCellAnchor>' +
+    '</xdr:wsDr>');
+  zip.file("xl/drawings/_rels/drawing1.xml.rels",
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>' +
+    '</Relationships>');
+
+  // Báo cáo chỉ có đúng 1 sheet nên luôn là xl/worksheets/sheet1.xml — nối
+  // sheet đó với drawing vừa tạo (tự dò rId còn trống để không đụng quan hệ
+  // có sẵn, phòng khi sheet sau này có thêm hyperlink/comment...).
+  const sheetPath = "xl/worksheets/sheet1.xml";
+  const sheetRelsPath = "xl/worksheets/_rels/sheet1.xml.rels";
+  let sheetXml = await zip.file(sheetPath).async("string");
+  const existingRelsFile = zip.file(sheetRelsPath);
+  let relsXml, drawingRelId;
+  if (existingRelsFile) {
+    relsXml = await existingRelsFile.async("string");
+    const usedIds = Array.from(relsXml.matchAll(/Id="rId(\d+)"/g)).map(m => parseInt(m[1], 10));
+    drawingRelId = "rId" + (usedIds.length ? Math.max(...usedIds) + 1 : 1);
+    relsXml = relsXml.replace("</Relationships>",
+      `<Relationship Id="${drawingRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`);
+  } else {
+    drawingRelId = "rId1";
+    relsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      `<Relationship Id="${drawingRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>` +
+      '</Relationships>';
+  }
+  zip.file(sheetRelsPath, relsXml);
+  if (!sheetXml.includes("<drawing ")) {
+    sheetXml = sheetXml.replace("</worksheet>", `<drawing r:id="${drawingRelId}"/></worksheet>`);
+    zip.file(sheetPath, sheetXml);
+  }
+
+  // [Content_Types].xml: xlsx-js-style đã khai báo sẵn Default cho đuôi
+  // .png, chỉ còn thiếu Override khai loại nội dung cho drawing1.xml.
+  const ctPath = "[Content_Types].xml";
+  let ctXml = await zip.file(ctPath).async("string");
+  if (!ctXml.includes("/xl/drawings/drawing1.xml")) {
+    ctXml = ctXml.replace("</Types>",
+      '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>');
+    zip.file(ctPath, ctXml);
+  }
+
+  return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+window.exportHomeLaptopReport = async function (scopeFromBanner) {
   const scope = (scopeFromBanner !== undefined ? scopeFromBanner : $("employeeFilterSection").value) || "";
   const list = (window.EMPLOYEES || []).filter(e => e.takeLaptopHome === true && (!scope || (e.section || "").trim() === scope));
   if (!list.length) { alert(tr("employees.homeLaptopExportEmpty")); return; }
@@ -1673,7 +1766,18 @@ window.exportHomeLaptopReport = function (scopeFromBanner) {
   XLSX.utils.book_append_sheet(wb, ws, "DS Mang Laptop");
   const scopeTag = scope ? sanitizeId(scope) : "TAT_CA";
   const ts = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `DANG_KY_MANG_LAPTOP_VE_-_${scopeTag}_${ts}.xlsx`);
+  const filename = `DANG_KY_MANG_LAPTOP_VE_-_${scopeTag}_${ts}.xlsx`;
+  try {
+    const rawArrayBuf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    const logoBuf = await getLogoArrayBuffer();
+    const blobWithLogo = await embedLogoTopLeft(rawArrayBuf, logoBuf);
+    downloadBlob(blobWithLogo, filename);
+  } catch (err) {
+    // Không để lỗi chèn logo (thiếu JSZip, không tải được logo.png...) làm
+    // mất luôn báo cáo — vẫn xuất file bình thường, chỉ là không có logo.
+    console.warn("Không chèn được logo vào file Excel, xuất file không có logo:", err);
+    XLSX.writeFile(wb, filename);
+  }
   // "Chữ ký" chỉ cập nhật khi xuất TOÀN BỘ (không lọc bộ phận) — vì đó mới
   // là danh sách tổng gửi Bảo vệ, xuất riêng theo từng bộ phận chỉ là tiện
   // ích phụ, không tính là "đã gửi bản cập nhật mới nhất".

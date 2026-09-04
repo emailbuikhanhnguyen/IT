@@ -750,6 +750,10 @@
 
 <script src="employees.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<!-- xlsx-js-style không hỗ trợ chèn ảnh vào file .xlsx — dùng JSZip để tự
+     ghép logo công ty vào file Excel đã xuất (xem embedLogoIntoXlsx trong
+     app.js, dùng cho báo cáo "Đăng ký mang laptop về nhà"). -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
