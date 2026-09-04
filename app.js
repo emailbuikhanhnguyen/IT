@@ -1464,6 +1464,23 @@ function resolveHomeLaptopAsset(emp) {
   const owned = assets.filter(a => (a.employeeCode || "").trim() === emp.code);
   return owned.length === 1 ? owned[0] : null;
 }
+// Dò lý do CỤ THỂ vì sao 1 nhân viên bị trống cột tài sản trong báo cáo —
+// để không phải mở từng hồ sơ ra soát tay (như case PHẠM THỊ QUẾ PHƯƠNG:
+// tem in vẫn có đủ vì tem đọc thẳng từ tài sản, nhưng báo cáo lại lấy theo
+// resolveHomeLaptopAsset() nên nếu đang bị "gán trùng" ≥2 tài sản cho cùng
+// 1 mã NV mà hồ sơ nhân viên chưa chỉ rõ chọn cái nào, app sẽ không tự
+// đoán và để trống thay vì lụi ra sai cái).
+function diagnoseHomeLaptopAsset(emp) {
+  if (resolveHomeLaptopAsset(emp)) return null; // đã có tài sản, không có gì để báo
+  if (emp.homeLaptopAssetId) {
+    return `đã chọn tài sản trong hồ sơ nhưng tài sản đó (id: ${emp.homeLaptopAssetId}) không còn tồn tại — có thể đã bị xoá, cần chọn lại`;
+  }
+  const owned = assets.filter(a => (a.employeeCode || "").trim() === emp.code);
+  if (owned.length === 0) {
+    return `chưa có tài sản nào trong danh sách Tài sản đang ghi "Người sử dụng" đúng mã ${emp.code}, và hồ sơ nhân viên cũng chưa chọn tài sản thủ công`;
+  }
+  return `mã ${emp.code} đang được ghi là người dùng của ${owned.length} tài sản cùng lúc (${owned.map(a => a.code).join(", ")}) — cần vào hồ sơ nhân viên, thẻ "Mang laptop về nhà", chọn rõ đúng 1 tài sản`;
+}
 // Chuỗi đại diện toàn bộ đăng ký hiện tại (ai + mang tài sản nào) để so
 // sánh với lần xuất gần nhất trên Firestore -> phát hiện thay đổi.
 function homeLaptopSignature(list) {
@@ -1629,6 +1646,17 @@ window.exportHomeLaptopReport = function (scopeFromBanner) {
   const scope = (scopeFromBanner !== undefined ? scopeFromBanner : $("employeeFilterSection").value) || "";
   const list = (window.EMPLOYEES || []).filter(e => e.takeLaptopHome === true && (!scope || (e.section || "").trim() === scope));
   if (!list.length) { alert(tr("employees.homeLaptopExportEmpty")); return; }
+  // Báo ngay lúc xuất — thay vì để IT tự dò từng dòng trống trong file Excel
+  // — ai đang bị thiếu cột tài sản và vì sao, kèm hướng xử lý cụ thể.
+  const problems = list
+    .map(e => ({ e, reason: diagnoseHomeLaptopAsset(e) }))
+    .filter(x => x.reason);
+  if (problems.length) {
+    const msg = "⚠️ " + problems.length + " nhân viên sẽ bị TRỐNG cột tài sản trong báo cáo:\n\n" +
+      problems.map(x => `• ${x.e.name} (${x.e.code}): ${x.reason}`).join("\n") +
+      "\n\nBáo cáo vẫn được xuất bình thường, nhưng nên xử lý các trường hợp trên rồi xuất lại.";
+    alert(msg);
+  }
   const ws = buildHomeLaptopSheet(list, scope || tr("employees.homeLaptopAllScope"));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "DS Mang Laptop");
