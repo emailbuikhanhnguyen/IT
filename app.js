@@ -1613,6 +1613,15 @@ function buildHomeLaptopSheet(list, scopeLabel) {
   ws["!cols"] = [{ wch: 5 }, { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 16 }];
   ws["!rows"] = []; ws["!rows"][3] = { hpt: 30 };
   groupHeaderRowIdxs.forEach(r => { ws["!rows"][r] = { hpt: 20 }; });
+  // Cấu hình in khuyến nghị: lề trái/phải ~1cm, trên/dưới ~1.2cm (đơn vị
+  // lưu trong file là inch). Phần còn lại (khổ ngang A4, fit 1 trang rộng,
+  // lặp dòng 1-4) không ghi được qua API của xlsx-js-style — xem
+  // applyPrintSetup() ở dưới, chạy sau khi xuất file.
+  ws["!margins"] = {
+    left: +(1 / 2.54).toFixed(4), right: +(1 / 2.54).toFixed(4),
+    top: +(1.2 / 2.54).toFixed(4), bottom: +(1.2 / 2.54).toFixed(4),
+    header: +(0.3 / 2.54).toFixed(4), footer: +(0.3 / 2.54).toFixed(4)
+  };
 
   function setStyle(r, c, style) {
     const addr = XLSX.utils.encode_cell({ r, c });
@@ -1656,13 +1665,14 @@ function buildHomeLaptopSheet(list, scopeLabel) {
   return ws;
 }
 
-/* ---------- Chèn logo công ty vào góc trên-trái file .xlsx đã xuất ----------
-   xlsx-js-style (bản Community của SheetJS) không hỗ trợ ghi ảnh vào file
-   Excel, nên phải tự "vá" file .xlsx sau khi xuất: mở lại bằng JSZip, nhét
-   thêm ảnh + XML mô tả hình vẽ (drawing) đúng chuẩn OOXML rồi nén lại —
-   đúng cách Excel tự lưu khi người dùng chèn ảnh bằng tay. Dùng chung được
-   cho báo cáo khác sau này nếu cũng cần logo, không riêng gì báo cáo mang
-   laptop về nhà. */
+/* ---------- Chèn logo + cấu hình in vào file .xlsx đã xuất ----------
+   xlsx-js-style (bản Community của SheetJS) không hỗ trợ ghi ảnh, cũng
+   không ghi được <pageSetup>, nên phải tự "vá" file .xlsx sau khi xuất:
+   mở lại bằng JSZip, nhét thêm ảnh + XML mô tả hình vẽ (drawing) và vá
+   thêm cấu hình in (applyPrintSetup, xem ngay bên dưới) đúng chuẩn OOXML
+   rồi nén lại — đúng cách Excel tự lưu khi người dùng tự làm bằng tay.
+   Dùng chung được cho báo cáo khác sau này nếu cũng cần logo/cấu hình in,
+   không riêng gì báo cáo mang laptop về nhà. */
 let cachedLogoArrayBuffer = null;
 async function getLogoArrayBuffer() {
   if (cachedLogoArrayBuffer) return cachedLogoArrayBuffer;
@@ -1670,6 +1680,38 @@ async function getLogoArrayBuffer() {
   if (!res.ok) throw new Error("Không tải được logo.png (HTTP " + res.status + ")");
   cachedLogoArrayBuffer = await res.arrayBuffer();
   return cachedLogoArrayBuffer;
+}
+/* ---------- Cấu hình in khuyến nghị, nhúng thẳng vào file .xlsx ----------
+   xlsx-js-style ghi được !margins (đã set ở buildHomeLaptopSheet) nhưng
+   KHÔNG ghi được <pageSetup> (khổ giấy/hướng giấy/fit-to-page) — tự vá
+   thêm bằng cách chèn XML trực tiếp vào sheet1.xml, cùng lúc với bước vá
+   logo (đỡ phải mở/nén zip 2 lần). Áp dụng:
+     - Khổ A4 (paperSize 9), hướng ngang (landscape)
+     - Fit to page: vừa đúng 1 trang theo chiều rộng, không giới hạn số
+       trang theo chiều dọc (fitToWidth=1, fitToHeight=0) — cần bật thêm
+       cờ <sheetPr><pageSetUpPr fitToPage="1"/></sheetPr> thì Excel mới áp
+       dụng fitToWidth/fitToHeight thay vì scale% mặc định.
+     - Lặp lại 4 dòng tiêu đề đầu (STT...Ký tên nhân viên) trên mỗi trang
+       khi in nhiều trang — set qua definedName "_xlnm.Print_Titles" ở
+       exportHomeLaptopReport (định dạng file, không phải XML sheet, nên
+       làm ở chỗ tạo workbook chứ không phải ở đây).
+   Không nhúng được: "in 2 mặt" và "lật theo cạnh ngắn" — đó là cài đặt
+   của MÁY IN (driver) lúc bấm in, không phải thuộc tính của file Excel,
+   không có cách nào lưu sẵn vào file được. Người in vẫn cần tự chọn 2 mục
+   đó trong hộp thoại in mỗi lần. */
+function applyPrintSetup(sheetXml) {
+  if (!sheetXml.includes("<sheetPr>")) {
+    sheetXml = sheetXml.replace(/(<worksheet\b[^>]*>)/, '$1<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+  }
+  const pageSetupTag = '<pageSetup paperSize="9" orientation="landscape" scale="100" fitToWidth="1" fitToHeight="0" horizontalDpi="300" verticalDpi="300"/>';
+  if (!sheetXml.includes("<pageSetup ")) {
+    if (sheetXml.includes("<pageMargins")) {
+      sheetXml = sheetXml.replace(/(<pageMargins\b[^>]*\/>)/, `$1${pageSetupTag}`);
+    } else {
+      sheetXml = sheetXml.replace("</worksheet>", `${pageSetupTag}</worksheet>`);
+    }
+  }
+  return sheetXml;
 }
 async function embedLogoTopLeft(xlsxArrayBuffer, logoArrayBuffer) {
   if (typeof JSZip === "undefined") throw new Error("Thiếu thư viện JSZip");
@@ -1707,6 +1749,8 @@ async function embedLogoTopLeft(xlsxArrayBuffer, logoArrayBuffer) {
   const sheetPath = "xl/worksheets/sheet1.xml";
   const sheetRelsPath = "xl/worksheets/_rels/sheet1.xml.rels";
   let sheetXml = await zip.file(sheetPath).async("string");
+  sheetXml = applyPrintSetup(sheetXml);
+  zip.file(sheetPath, sheetXml);
   const existingRelsFile = zip.file(sheetRelsPath);
   let relsXml, drawingRelId;
   if (existingRelsFile) {
@@ -1766,6 +1810,12 @@ window.exportHomeLaptopReport = async function (scopeFromBanner) {
   const ws = buildHomeLaptopSheet(list, scope || tr("employees.homeLaptopAllScope"));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "DS Mang Laptop");
+  // Lặp lại 4 dòng tiêu đề (STT...Ký tên nhân viên) trên mỗi trang khi in
+  // nhiều trang — Excel gọi đây là "Print Titles", lưu dưới dạng defined
+  // name đặc biệt trong workbook (không phải thuộc tính của sheet).
+  wb.Workbook = wb.Workbook || {};
+  wb.Workbook.Names = wb.Workbook.Names || [];
+  wb.Workbook.Names.push({ Name: "_xlnm.Print_Titles", Sheet: 0, Ref: "'DS Mang Laptop'!$1:$4" });
   const scopeTag = scope ? sanitizeId(scope) : "TAT_CA";
   const ts = new Date().toISOString().slice(0, 10);
   const filename = `DANG_KY_MANG_LAPTOP_VE_-_${scopeTag}_${ts}.xlsx`;
