@@ -1490,8 +1490,13 @@ const HOME_LAPTOP_THIN_BORDER = { top: { style: "thin" }, bottom: { style: "thin
 const HOME_LAPTOP_FONT = { name: "Times New Roman", sz: 10 };
 // Người ký cố định ở khối cuối báo cáo — đổi tên/chức danh ở đây khi công
 // ty đổi người phụ trách, không cần sửa gì khác trong hàm buildHomeLaptopSheet.
-const HOME_LAPTOP_SIGN_LEFT_LABEL = "NGƯỜI LẬP DANH SÁCH: BÙI KHÁNH NGUYÊN";
-const HOME_LAPTOP_SIGN_RIGHT_LABEL = "GIÁM ĐỐC HÀNH CHÁNH NHÂN SỰ: LÊ NHẬT THÀNH";
+const HOME_LAPTOP_SIGN_LEFT_LABEL = "NGƯỜI LẬP DANH SÁCH";
+const HOME_LAPTOP_SIGN_RIGHT_LABEL = "GIÁM ĐỐC HÀNH CHÁNH NHÂN SỰ";
+// Tên in phía dưới dòng ký (không nhét chung vào dòng chức danh) — đúng bố
+// cục chữ ký giấy tờ VN thường thấy: chức danh -> "(Ký, ghi rõ họ tên)" ->
+// chừa khoảng trống để ký tay -> họ tên in phía dưới cùng.
+const HOME_LAPTOP_SIGN_LEFT_NAME = "BÙI KHÁNH NGUYÊN";
+const HOME_LAPTOP_SIGN_RIGHT_NAME = "LÊ NHẬT THÀNH";
 
 function buildHomeLaptopSheet(list, scopeLabel) {
   // Nhóm theo Tổ/Chuyền (e.group) rồi sắp các nhóm A-Z, trong mỗi nhóm sắp
@@ -1549,7 +1554,7 @@ function buildHomeLaptopSheet(list, scopeLabel) {
   aoa.push(["", "(Ký, ghi rõ họ tên)", "", "", "", "", "(Ký, ghi rõ họ tên)", "", ""]);
   aoa.push([]); aoa.push([]); aoa.push([]); aoa.push([]);
   const signLineRow = aoa.length;
-  aoa.push(["", "", "", "", "", "", "", "", ""]);
+  aoa.push(["", HOME_LAPTOP_SIGN_LEFT_NAME, "", "", "", "", HOME_LAPTOP_SIGN_RIGHT_NAME, "", ""]);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const merges = [
@@ -1644,8 +1649,8 @@ function buildHomeLaptopSheet(list, scopeLabel) {
     setStyle(r, 1, { font: Object.assign({}, HOME_LAPTOP_FONT, { bold: r === signHeadRow }), alignment: { horizontal: "center" } });
     setStyle(r, 6, { font: Object.assign({}, HOME_LAPTOP_FONT, { bold: r === signHeadRow }), alignment: { horizontal: "center" } });
   });
-  setStyle(signLineRow, 1, { border: { top: { style: "thin" } } });
-  setStyle(signLineRow, 6, { border: { top: { style: "thin" } } });
+  setStyle(signLineRow, 1, { font: HOME_LAPTOP_FONT, alignment: { horizontal: "center" }, border: { top: { style: "thin" } } });
+  setStyle(signLineRow, 6, { font: HOME_LAPTOP_FONT, alignment: { horizontal: "center" }, border: { top: { style: "thin" } } });
   return ws;
 }
 window.exportHomeLaptopReport = function (scopeFromBanner) {
