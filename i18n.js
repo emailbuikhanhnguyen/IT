@@ -362,8 +362,9 @@ const I18N = {
     "settings.ticketPdfReportDesc": "Xuất báo cáo Ticket dạng PDF: trang tổng quan + 1 trang chi tiết cho mỗi ticket, kèm ảnh hiện trạng đã đính kèm (nếu có) — dùng để in hoặc lưu hồ sơ.",
     "btn.exportTicketPdf": "📄 Xuất báo cáo PDF Ticket",
     "settings.projectPdfReport": "Báo cáo PDF — Dự án",
-    "settings.projectPdfReportDesc": "Xuất báo cáo Dự án CNTT dạng PDF: trang tổng quan (số liệu, tiến độ trung bình, trễ hạn, theo trạng thái/ưu tiên) + 1 trang chi tiết cho mỗi dự án, kèm mốc tiến độ và tài liệu đính kèm (nếu có) — dùng để in hoặc lưu hồ sơ.",
+    "settings.projectPdfReportDesc": "Xuất báo cáo Dự án CNTT — chọn PDF (trang tổng quan + 1 trang chi tiết/dự án, kèm mốc tiến độ và tài liệu đính kèm, dùng để in/lưu hồ sơ) hoặc Excel (1 dòng/dự án + sheet riêng liệt kê mốc tiến độ, dùng để lọc/thống kê).",
     "btn.exportProjectPdf": "📄 Xuất báo cáo PDF Dự án",
+    "btn.exportProjectXlsx": "📊 Xuất báo cáo Excel Dự án",
 
     "settings.backup": "Backup",
     "btn.backupJson": "Sao lưu JSON",
@@ -982,8 +983,9 @@ const I18N = {
     "settings.ticketPdfReportDesc": "Export a ticket report as PDF: an overview page plus one detail page per ticket, including the attached photo (if any) — for printing or record-keeping.",
     "btn.exportTicketPdf": "📄 Export ticket PDF report",
     "settings.projectPdfReport": "PDF Report — Projects",
-    "settings.projectPdfReportDesc": "Export an IT Project report as PDF: an overview page (totals, average progress, overdue count, breakdown by status/priority) plus one detail page per project, including progress milestones and linked documents (if any) — for printing or record-keeping.",
+    "settings.projectPdfReportDesc": "Export an IT Project report — as PDF (overview page + one detail page per project, with progress milestones and linked documents, for printing/record-keeping) or as Excel (one row per project plus a separate milestone sheet, for filtering/analysis).",
     "btn.exportProjectPdf": "📄 Export project PDF report",
+    "btn.exportProjectXlsx": "📊 Export project Excel report",
 
     "settings.backup": "Backup",
     "btn.backupJson": "Back up JSON",
@@ -1601,8 +1603,9 @@ const I18N = {
     "settings.ticketPdfReportDesc": "导出工单PDF报告：总览页 + 每张工单一页详情，包含已上传的现场照片（如有）——用于打印或存档。",
     "btn.exportTicketPdf": "📄 导出工单PDF报告",
     "settings.projectPdfReport": "PDF报告 — 项目",
-    "settings.projectPdfReportDesc": "导出IT项目PDF报告：总览页（总数、平均进度、逾期数量、按状态/优先级统计）+ 每个项目一页详情，包含进度里程碑和关联文档（如有）——用于打印或存档。",
+    "settings.projectPdfReportDesc": "导出IT项目报告——PDF（总览页+每个项目一页详情，含进度里程碑和关联文档，用于打印或存档）或Excel（每个项目一行，另附里程碑工作表，便于筛选统计）。",
     "btn.exportProjectPdf": "📄 导出项目PDF报告",
+    "btn.exportProjectXlsx": "📊 导出项目Excel报告",
 
     "settings.backup": "备份",
     "btn.backupJson": "备份为JSON",

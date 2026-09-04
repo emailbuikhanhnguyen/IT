@@ -6,7 +6,7 @@
    Cập nhật thủ công mỗi lần deploy để bạn biết bản mới đã lên chưa (hiển thị
    ở màn hình đăng nhập và cuối trang Dữ liệu). Định dạng: YYYY.MM.DD.N —
    N là số thứ tự bản deploy trong ngày (bắt đầu từ 1). */
-const APP_VERSION = "2026.09.03.5";
+const APP_VERSION = "2026.09.04.2";
 document.querySelectorAll("#appVersionText, #appVersionText2").forEach(el => { el.textContent = APP_VERSION; });
 
 /* ---------- Mật khẩu xác nhận cho thao tác nguy hiểm (Xóa toàn bộ...) ----------
@@ -2373,7 +2373,8 @@ function ensureTicketPdfReportStyles() {
   .tk-photo-wrap img{max-width:100%; max-height:280px; border-radius:10px; border:1px solid #e2e8f0}
   .tk-photo-caption{font-size:9.5px; color:${PDF_PALETTE.slate}; margin-top:6px}
   .tk-progress-item{display:flex; gap:10px; font-size:10.5px; padding:6px 0; border-bottom:1px dashed #e2e8f0}
-  .tk-progress-time{color:${PDF_PALETTE.slate}; white-space:nowrap; min-width:120px}
+  .tk-progress-time{color:${PDF_PALETTE.slate}; white-space:nowrap; min-width:120px; flex-shrink:0}
+  .tk-progress-item span:last-child{flex:1; min-width:0; word-break:break-word}
   table.tpdf-list-table{width:100%; border-collapse:collapse; font-size:10.5px; table-layout:fixed}
   table.tpdf-list-table thead th{background:${PDF_PALETTE.navy}; color:#fff; text-align:left; padding:8px 8px; font-size:10px}
   table.tpdf-list-table tbody td{padding:6px 8px; border-bottom:1px solid #e2e8f0; vertical-align:top; word-break:break-word}
@@ -2601,7 +2602,8 @@ function ensureProjectPdfReportStyles() {
   .pk-section-title{font-size:12.5px; font-weight:800; color:${PDF_PALETTE.navy}; margin:16px 0 6px; padding-bottom:4px; border-bottom:2px solid ${PDF_PALETTE.slateLight}}
   .pk-text{font-size:11.5px; color:#334155; line-height:1.6; background:${PDF_PALETTE.slateLight}; border-radius:8px; padding:10px 12px; margin-bottom:2px; white-space:pre-wrap}
   .pk-progress-item{display:flex; gap:10px; font-size:10.5px; padding:6px 0; border-bottom:1px dashed #e2e8f0}
-  .pk-progress-time{color:${PDF_PALETTE.slate}; white-space:nowrap; min-width:120px}
+  .pk-progress-time{color:${PDF_PALETTE.slate}; white-space:nowrap; min-width:120px; flex-shrink:0}
+  .pk-progress-item span:last-child{flex:1; min-width:0; word-break:break-word}
   .pk-attach-item{font-size:10.5px; padding:5px 0; border-bottom:1px dashed #e2e8f0}
   .pk-attach-item span{color:${PDF_PALETTE.slate}; margin-left:6px}
   .pk-breakdown{display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 18px}
@@ -2807,6 +2809,79 @@ async function generateProjectPdfReport() {
 }
 
 $("exportProjectPdfReport").addEventListener("click", generateProjectPdfReport);
+
+/* ---------- Báo cáo Excel — Dự án CNTT (giống cơ chế export Ticket Excel) ----------
+   Sheet 1 "Du an": 1 dòng / dự án, đủ cột tổng quan để lọc/sắp xếp trong Excel.
+   Sheet 2 "Moc tien do": 1 dòng / mốc tiến độ (progressLog), có cột Mã dự án +
+   Tên dự án để đối chiếu ngược lại sheet 1 — tránh nhồi nhiều mốc vào 1 ô như
+   PDF (excel nên phẳng, dễ lọc/pivot hơn là văn bản dài trong 1 cell). */
+const PROJECT_EXPORT_COLUMN_LABELS_VN = {
+  projectCode: "Mã dự án", name: "Tên dự án", priority: "Ưu tiên", status: "Trạng thái",
+  owner: "Phụ trách", department: "Phòng ban", startDate: "Ngày bắt đầu", endDate: "Hạn hoàn thành",
+  progress: "Tiến độ (%)", overdue: "Trễ hạn", description: "Mô tả", note: "Ghi chú", createdInfo: "Ngày tạo"
+};
+const PROJECT_EXPORT_COLUMNS = ["projectCode", "name", "priority", "status", "owner", "department", "startDate", "endDate", "progress", "overdue", "description", "note", "createdInfo"];
+const PROJECT_MILESTONE_COLUMN_LABELS_VN = { projectCode: "Mã dự án", name: "Tên dự án", time: "Thời gian", by: "Người cập nhật", note: "Nội dung mốc tiến độ" };
+const PROJECT_MILESTONE_COLUMNS = ["projectCode", "name", "time", "by", "note"];
+
+$("exportProjectXlsxReport").addEventListener("click", () => {
+  if (!projectRecords.length) { alert(tr("msg.noProjectDataReport")); return; }
+  const statusFilter = $("projectPdfStatusFilter") ? $("projectPdfStatusFilter").value : "";
+  const list = projectRecords.slice()
+    .filter(p => !statusFilter || (p.status || "Lên kế hoạch") === statusFilter)
+    .sort((a, b) => (a.projectCode || "").localeCompare(b.projectCode || ""));
+  if (!list.length) { alert(tr("msg.noProjectDataReport")); return; }
+
+  /* ---- Sheet 1: Du an ---- */
+  const rows = list.map(p => {
+    const pct = Math.max(0, Math.min(100, Number(p.progress) || 0));
+    const row = {};
+    PROJECT_EXPORT_COLUMNS.forEach(c => {
+      if (c === "priority") { row[PROJECT_EXPORT_COLUMN_LABELS_VN.priority] = ticketPriorityLabel(p.priority || "Trung bình"); return; }
+      if (c === "status") { row[PROJECT_EXPORT_COLUMN_LABELS_VN.status] = projectStatusLabel(p.status); return; }
+      if (c === "progress") { row[PROJECT_EXPORT_COLUMN_LABELS_VN.progress] = pct; return; }
+      if (c === "overdue") { row[PROJECT_EXPORT_COLUMN_LABELS_VN.overdue] = isProjectOverdue(p) ? "Có" : ""; return; }
+      if (c === "createdInfo") { row[PROJECT_EXPORT_COLUMN_LABELS_VN.createdInfo] = projectCreatedInfo(p); return; }
+      row[PROJECT_EXPORT_COLUMN_LABELS_VN[c]] = p[c] || "";
+    });
+    return row;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws["!cols"] = PROJECT_EXPORT_COLUMNS.map(c =>
+    c === "projectCode" ? { wch: 20 } :
+    c === "name" || c === "description" || c === "note" ? { wch: 32 } :
+    c === "createdInfo" ? { wch: 24 } : { wch: 16 });
+  ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: PROJECT_EXPORT_COLUMNS.length - 1 } }) };
+
+  /* ---- Sheet 2: Moc tien do (progressLog phẳng ra, mới nhất trước) ---- */
+  const milestoneRows = [];
+  list.forEach(p => {
+    const log = Array.isArray(p.progressLog) ? p.progressLog.slice().sort((a, b) => (b.at || 0) - (a.at || 0)) : [];
+    log.forEach(e => {
+      const row = {};
+      row[PROJECT_MILESTONE_COLUMN_LABELS_VN.projectCode] = p.projectCode || "";
+      row[PROJECT_MILESTONE_COLUMN_LABELS_VN.name] = p.name || "";
+      row[PROJECT_MILESTONE_COLUMN_LABELS_VN.time] = formatHistoryTime(e.at) || "";
+      row[PROJECT_MILESTONE_COLUMN_LABELS_VN.by] = e.by || "";
+      row[PROJECT_MILESTONE_COLUMN_LABELS_VN.note] = e.note || "";
+      milestoneRows.push(row);
+    });
+  });
+  const wsMilestones = XLSX.utils.json_to_sheet(milestoneRows.length ? milestoneRows : [{}]);
+  wsMilestones["!cols"] = PROJECT_MILESTONE_COLUMNS.map(c =>
+    c === "note" ? { wch: 60 } : c === "name" ? { wch: 32 } : c === "time" ? { wch: 20 } : { wch: 18 });
+  if (milestoneRows.length) {
+    wsMilestones["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: milestoneRows.length, c: PROJECT_MILESTONE_COLUMNS.length - 1 } }) };
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Du an");
+  XLSX.utils.book_append_sheet(wb, wsMilestones, "Moc tien do");
+  const ts = new Date().toISOString().slice(0, 10);
+  const userTag = currentUserFileTag();
+  const statusSlug = { "Lên kế hoạch": "len-ke-hoach", "Đang thực hiện": "dang-thuc-hien", "Tạm dừng": "tam-dung", "Hoàn thành": "hoan-thanh", "Hủy": "huy" }[statusFilter] || "";
+  XLSX.writeFile(wb, `bao-cao-du-an${statusSlug ? "-" + statusSlug : ""}-${ts}${userTag ? ` (${userTag})` : ""}.xlsx`);
+});
 
 $("importXlsx").addEventListener("change", async e => {
   const file = e.target.files[0];
