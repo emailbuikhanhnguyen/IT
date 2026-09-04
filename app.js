@@ -1488,6 +1488,10 @@ function homeLaptopSignature(list) {
 }
 const HOME_LAPTOP_THIN_BORDER = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
 const HOME_LAPTOP_FONT = { name: "Times New Roman", sz: 10 };
+// Người ký cố định ở khối cuối báo cáo — đổi tên/chức danh ở đây khi công
+// ty đổi người phụ trách, không cần sửa gì khác trong hàm buildHomeLaptopSheet.
+const HOME_LAPTOP_SIGN_LEFT_LABEL = "NGƯỜI LẬP DANH SÁCH: BÙI KHÁNH NGUYÊN";
+const HOME_LAPTOP_SIGN_RIGHT_LABEL = "GIÁM ĐỐC HÀNH CHÁNH NHÂN SỰ: LÊ NHẬT THÀNH";
 
 function buildHomeLaptopSheet(list, scopeLabel) {
   // Nhóm theo Tổ/Chuyền (e.group) rồi sắp các nhóm A-Z, trong mỗi nhóm sắp
@@ -1541,7 +1545,7 @@ function buildHomeLaptopSheet(list, scopeLabel) {
   aoa.push([`Ghi chú: Danh sách xuất tự động từ hệ thống IT Asset Inventory ngày ${new Date().toLocaleDateString("vi-VN")}. Mỗi nhân viên tự ký xác nhận ở cột "Ký tên nhân viên".`]);
   aoa.push([]); aoa.push([]);
   const signHeadRow = aoa.length;
-  aoa.push(["", "NGƯỜI LẬP DANH SÁCH", "", "", "", "", "TRƯỞNG BỘ PHẬN", "", ""]);
+  aoa.push(["", HOME_LAPTOP_SIGN_LEFT_LABEL, "", "", "", "", HOME_LAPTOP_SIGN_RIGHT_LABEL, "", ""]);
   aoa.push(["", "(Ký, ghi rõ họ tên)", "", "", "", "", "(Ký, ghi rõ họ tên)", "", ""]);
   aoa.push([]); aoa.push([]); aoa.push([]); aoa.push([]);
   const signLineRow = aoa.length;
@@ -1553,11 +1557,13 @@ function buildHomeLaptopSheet(list, scopeLabel) {
     { s: { r: 1, c: 2 }, e: { r: 1, c: 8 } },
     { s: { r: noteRowIdx, c: 0 }, e: { r: noteRowIdx, c: 8 } },
     { s: { r: signHeadRow, c: 1 }, e: { r: signHeadRow, c: 3 } },
-    { s: { r: signHeadRow, c: 6 }, e: { r: signHeadRow, c: 7 } },
+    // Cột G:I (thay vì G:H như trước) vì nhãn bên phải giờ dài hơn (có kèm
+    // chức danh + tên người ký, xem HOME_LAPTOP_SIGN_RIGHT_LABEL ở trên).
+    { s: { r: signHeadRow, c: 6 }, e: { r: signHeadRow, c: 8 } },
     { s: { r: signHeadRow + 1, c: 1 }, e: { r: signHeadRow + 1, c: 3 } },
-    { s: { r: signHeadRow + 1, c: 6 }, e: { r: signHeadRow + 1, c: 7 } },
+    { s: { r: signHeadRow + 1, c: 6 }, e: { r: signHeadRow + 1, c: 8 } },
     { s: { r: signLineRow, c: 1 }, e: { r: signLineRow, c: 3 } },
-    { s: { r: signLineRow, c: 6 }, e: { r: signLineRow, c: 7 } }
+    { s: { r: signLineRow, c: 6 }, e: { r: signLineRow, c: 8 } }
   ];
   groupHeaderRowIdxs.forEach(r => merges.push({ s: { r, c: 0 }, e: { r, c: 8 } }));
 
