@@ -1507,11 +1507,16 @@ function buildHomeLaptopSheet(list, scopeLabel) {
     aoa.push([`TỔ / CHUYỀN: ${groupName}   (Bộ phận: ${grp.section || "—"})   —  ${grp.members.length} người`, "", "", "", "", "", "", "", ""]);
     grp.members.forEach(e => {
       const a = resolveHomeLaptopAsset(e);
+      // Cột "Tên/Model Laptop": ưu tiên Model (mô tả đầy đủ hơn), nếu tài
+      // sản chưa nhập Model thì lấy tạm "Tên tài sản" (deviceName) để
+      // không bị bỏ trống oan — trước đây chỉ ghép type+model nên tài sản
+      // nào chỉ có deviceName (chưa nhập Model) sẽ bị trống ô này dù đã
+      // gán đúng tài sản cho nhân viên.
       rowIdxOf.push(aoa.length);
       rows.push(e);
       aoa.push([
         stt++, e.name || "", e.code || "", e.section || "", e.group || "",
-        a ? a.code : "", a ? [a.type, a.model].filter(Boolean).join(" ") : "", a ? (a.serial || "") : "", ""
+        a ? a.code : "", a ? [a.type, (a.model || a.deviceName)].filter(Boolean).join(" ") : "", a ? (a.serial || "") : "", ""
       ]);
     });
   });
