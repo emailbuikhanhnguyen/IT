@@ -1473,19 +1473,47 @@ const HOME_LAPTOP_THIN_BORDER = { top: { style: "thin" }, bottom: { style: "thin
 const HOME_LAPTOP_FONT = { name: "Times New Roman", sz: 10 };
 
 function buildHomeLaptopSheet(list, scopeLabel) {
-  const rows = list.slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "vi"));
+  // Nhóm theo Tổ/Chuyền (e.group) rồi sắp các nhóm A-Z, trong mỗi nhóm sắp
+  // theo tên (vi) — để danh sách xuất ra đã sẵn sàng phát/ký theo từng
+  // tổ/chuyền mà không cần chỉnh tay lại như trước (mỗi nhóm có 1 dòng
+  // tiêu đề phân cách, tô nền, ghi rõ Bộ phận + số người trong nhóm).
+  const UNGROUPED_LABEL = "Chưa phân Tổ/Chuyền";
+  const sortedByName = list.slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "vi"));
+  const groupMap = new Map(); // Tổ/Chuyền -> { section, members: [] }
+  sortedByName.forEach(e => {
+    const groupName = (e.group || "").trim() || UNGROUPED_LABEL;
+    if (!groupMap.has(groupName)) groupMap.set(groupName, { section: e.section || "", members: [] });
+    groupMap.get(groupName).members.push(e);
+  });
+  const groupNames = Array.from(groupMap.keys()).sort((a, b) => {
+    if (a === UNGROUPED_LABEL) return 1;
+    if (b === UNGROUPED_LABEL) return -1;
+    return a.localeCompare(b, "vi");
+  });
+
   const aoa = [];
   aoa.push(["", "", "CÔNG TY TNHH CÔNG NGHỆ SÁNG TẠO XANH S.E.C", "", "", "", "", "", ""]);
   aoa.push(["", "", "DANH SÁCH ĐĂNG KÝ NHÂN VIÊN MANG LAPTOP VỀ NHÀ" + (scopeLabel ? ` — ${scopeLabel}` : ""), "", "", "", "", "", ""]);
   aoa.push([]);
   aoa.push(["STT", "Họ và tên", "Mã nhân viên", "Bộ phận", "Tổ/Chuyền", "Mã tài sản", "Tên/Model Laptop", "Số Serial", "Ký tên nhân viên"]);
-  const dataStartRow = aoa.length; // chỉ số dòng (0-based) của dòng dữ liệu đầu tiên
-  rows.forEach((e, i) => {
-    const a = resolveHomeLaptopAsset(e);
-    aoa.push([
-      i + 1, e.name || "", e.code || "", e.section || "", e.group || "",
-      a ? a.code : "", a ? [a.type, a.model].filter(Boolean).join(" ") : "", a ? (a.serial || "") : "", ""
-    ]);
+
+  const groupHeaderRowIdxs = []; // dòng (0-based) của các dòng phân nhóm, để style riêng
+  const rows = []; // danh sách nhân viên theo đúng thứ tự đã ghi vào aoa
+  const rowIdxOf = []; // rowIdxOf[i] = dòng (0-based) trong aoa của rows[i]
+  let stt = 1;
+  groupNames.forEach(groupName => {
+    const grp = groupMap.get(groupName);
+    groupHeaderRowIdxs.push(aoa.length);
+    aoa.push([`TỔ / CHUYỀN: ${groupName}   (Bộ phận: ${grp.section || "—"})   —  ${grp.members.length} người`, "", "", "", "", "", "", "", ""]);
+    grp.members.forEach(e => {
+      const a = resolveHomeLaptopAsset(e);
+      rowIdxOf.push(aoa.length);
+      rows.push(e);
+      aoa.push([
+        stt++, e.name || "", e.code || "", e.section || "", e.group || "",
+        a ? a.code : "", a ? [a.type, a.model].filter(Boolean).join(" ") : "", a ? (a.serial || "") : "", ""
+      ]);
+    });
   });
   const noteRowIdx = aoa.length;
   aoa.push([`Ghi chú: Danh sách xuất tự động từ hệ thống IT Asset Inventory ngày ${new Date().toLocaleDateString("vi-VN")}. Mỗi nhân viên tự ký xác nhận ở cột "Ký tên nhân viên".`]);
@@ -1509,33 +1537,47 @@ function buildHomeLaptopSheet(list, scopeLabel) {
     { s: { r: signLineRow, c: 1 }, e: { r: signLineRow, c: 3 } },
     { s: { r: signLineRow, c: 6 }, e: { r: signLineRow, c: 7 } }
   ];
+  groupHeaderRowIdxs.forEach(r => merges.push({ s: { r, c: 0 }, e: { r, c: 8 } }));
 
   // Gộp dọc 3 cột Mã tài sản/Model/Serial cho các nhân viên dùng CHUNG
-  // đúng 1 tài sản (nhóm theo asset._id, không cần các dòng nằm liền kề
-  // sẵn — sort lại theo tên nên có thể xen kẽ, ta tự gom nhóm bằng Map).
+  // đúng 1 tài sản (nhóm theo asset._id). Từ khi xuất theo Tổ/Chuyền, các
+  // nhân viên dùng chung 1 laptop thường cùng tổ nên các dòng liền kề nhau
+  // — chỉ gộp dọc khi thật sự liền kề, nếu bị dòng phân nhóm khác chen vào
+  // thì không gộp (tránh đè lên dữ liệu/tiêu đề nhóm khác) mà chỉ ghi chú
+  // số người dùng chung ở từng dòng.
   const groups = new Map();
   rows.forEach((e, i) => {
     const a = resolveHomeLaptopAsset(e);
     if (!a) return;
     if (!groups.has(a._id)) groups.set(a._id, []);
-    groups.get(a._id).push(dataStartRow + i);
+    groups.get(a._id).push(rowIdxOf[i]);
   });
   groups.forEach((rowIdxs, assetId) => {
-    if (rowIdxs.length < 2) return; // chỉ merge khi thật sự có ≥2 người dùng chung
+    if (rowIdxs.length < 2) return; // chỉ xử lý khi thật sự có ≥2 người dùng chung
+    rowIdxs.sort((x, y) => x - y);
     const first = rowIdxs[0], last = rowIdxs[rowIdxs.length - 1];
-    [5, 6, 7].forEach(col => merges.push({ s: { r: first, c: col }, e: { r: last, c: col } }));
-    for (let r = first + 1; r <= last; r++) {
-      [5, 6, 7].forEach(col => {
-        const addr = XLSX.utils.encode_cell({ r, c: col });
-        if (ws[addr]) ws[addr].v = "";
+    const contiguous = (last - first + 1) === rowIdxs.length;
+    if (contiguous) {
+      [5, 6, 7].forEach(col => merges.push({ s: { r: first, c: col }, e: { r: last, c: col } }));
+      for (let r = first + 1; r <= last; r++) {
+        [5, 6, 7].forEach(col => {
+          const addr = XLSX.utils.encode_cell({ r, c: col });
+          if (ws[addr]) ws[addr].v = "";
+        });
+      }
+      const codeAddr = XLSX.utils.encode_cell({ r: first, c: 5 });
+      if (ws[codeAddr]) ws[codeAddr].v = `${ws[codeAddr].v}\n(${rowIdxs.length} người dùng chung)`;
+    } else {
+      rowIdxs.forEach(r => {
+        const codeAddr = XLSX.utils.encode_cell({ r, c: 5 });
+        if (ws[codeAddr]) ws[codeAddr].v = `${ws[codeAddr].v}\n(${rowIdxs.length} người dùng chung)`;
       });
     }
-    const codeAddr = XLSX.utils.encode_cell({ r: first, c: 5 });
-    if (ws[codeAddr]) ws[codeAddr].v = `${ws[codeAddr].v}\n(${rowIdxs.length} người dùng chung)`;
   });
   ws["!merges"] = merges;
   ws["!cols"] = [{ wch: 5 }, { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 16 }];
   ws["!rows"] = []; ws["!rows"][3] = { hpt: 30 };
+  groupHeaderRowIdxs.forEach(r => { ws["!rows"][r] = { hpt: 20 }; });
 
   function setStyle(r, c, style) {
     const addr = XLSX.utils.encode_cell({ r, c });
@@ -1552,8 +1594,19 @@ function buildHomeLaptopSheet(list, scopeLabel) {
       border: HOME_LAPTOP_THIN_BORDER
     });
   }
+  groupHeaderRowIdxs.forEach(r => {
+    setStyle(r, 0, {
+      font: Object.assign({}, HOME_LAPTOP_FONT, { bold: true }),
+      alignment: { horizontal: "left", vertical: "center", indent: 1 },
+      fill: { fgColor: { rgb: "E8EEF7" } },
+      border: HOME_LAPTOP_THIN_BORDER
+    });
+    for (let c = 1; c <= 8; c++) {
+      setStyle(r, c, { fill: { fgColor: { rgb: "E8EEF7" } }, border: HOME_LAPTOP_THIN_BORDER });
+    }
+  });
   rows.forEach((e, i) => {
-    const r = dataStartRow + i;
+    const r = rowIdxOf[i];
     for (let c = 0; c <= 8; c++) {
       setStyle(r, c, { font: HOME_LAPTOP_FONT, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: HOME_LAPTOP_THIN_BORDER });
     }
