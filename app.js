@@ -3458,6 +3458,19 @@ function renderTicketList() {
           ${t.resolution ? `<div class="scan-row"><span class="muted">${tr("field.resolution")}:</span> ${escapeHtml(t.resolution)}</div>` : ""}
           ${t.note ? `<div class="scan-row"><span class="muted">${tr("field.ticketNote")}:</span> ${escapeHtml(t.note)}</div>` : ""}
         </div>` : "";
+    // Mốc xử lý mới nhất (progressLog, ghi tay theo thời gian) — hiển thị to,
+    // rõ ràng ngay trên thẻ ticket để nhìn lướt là biết ticket đang ở đâu,
+    // không cần bấm "Chi tiết" mới thấy.
+    const latestProgress = (t.progressLog && t.progressLog.length)
+      ? t.progressLog.reduce((a, b) => (b.at || 0) > (a.at || 0) ? b : a)
+      : null;
+    const latestProgressHtml = latestProgress
+      ? `<div class="ticket-latest">
+          <div class="ticket-latest-label">${tr("progress.latestLabel")}</div>
+          <div class="ticket-latest-note">${escapeHtml(latestProgress.note || "")}</div>
+          <div class="ticket-latest-time muted">${formatHistoryTime(latestProgress.at)}${latestProgress.by ? " · " + escapeHtml(latestProgress.by) : ""}</div>
+        </div>`
+      : `<div class="ticket-latest ticket-latest-empty muted">${tr("progress.latestEmpty")}</div>`;
     return `
     <div class="asset">
       <div>
@@ -3476,6 +3489,7 @@ function renderTicketList() {
         ${!isAdmin ? `<span class="badge view-only-tag">👁 ${tr("action.viewOnly")}</span>` : ""}
         ${detailRow}
       </div>
+      ${latestProgressHtml}
       <div class="asset-actions">
         ${detailBtn}
         ${editBtn}

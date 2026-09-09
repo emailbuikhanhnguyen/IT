@@ -495,6 +495,8 @@ const I18N = {
     "linked.view": "Xem ticket liên quan",
     "progress.count": "{{count}} mốc xử lý",
     "progress.none": "Chưa có mốc xử lý nào.",
+    "progress.latestLabel": "🕒 Mốc mới nhất",
+    "progress.latestEmpty": "Chưa có mốc xử lý",
     "suggest.empty": "Không có gợi ý khớp — vẫn có thể nhập tay hoặc để trống.",
 
     "scan.openToUpdate": "Mở để cập nhật kiểm kê",
@@ -1115,6 +1117,8 @@ const I18N = {
     "linked.view": "View related ticket",
     "progress.count": "{{count}} progress note(s)",
     "progress.none": "No progress notes yet.",
+    "progress.latestLabel": "🕒 Latest milestone",
+    "progress.latestEmpty": "No progress notes yet",
     "suggest.empty": "No matching suggestions — you can still type manually or leave it blank.",
 
     "scan.openToUpdate": "Open to update inventory check",
@@ -1735,6 +1739,8 @@ const I18N = {
     "linked.view": "查看相关工单",
     "progress.count": "{{count}}个处理节点",
     "progress.none": "尚无处理节点。",
+    "progress.latestLabel": "🕒 最新节点",
+    "progress.latestEmpty": "尚无处理节点",
     "suggest.empty": "没有匹配的建议——仍可手动输入或留空。",
 
     "scan.openToUpdate": "打开以更新盘点",
