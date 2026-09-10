@@ -388,6 +388,9 @@ const I18N = {
     "account.install": "Cài app",
     "account.logout": "Đăng xuất",
 
+    "theme.light": "☀ Sáng",
+    "theme.dark": "🌙 Tối",
+
     /* ---- dynamic strings used from app.js ---- */
     "toast.qrFilled": "Đã điền thông tin từ QR ({{name}}). Chọn Loại thiết bị/Bộ phận rồi lưu.",
     "toast.unnamedDevice": "máy không tên",
@@ -1011,6 +1014,9 @@ const I18N = {
     "account.install": "Install app",
     "account.logout": "Sign out",
 
+    "theme.light": "☀ Light",
+    "theme.dark": "🌙 Dark",
+
     "toast.qrFilled": "Info filled from QR ({{name}}). Select Device type/Section then save.",
     "toast.unnamedDevice": "unnamed device",
 
@@ -1633,6 +1639,9 @@ const I18N = {
     "account.install": "安装应用",
     "account.logout": "退出登录",
 
+    "theme.light": "☀ 浅色",
+    "theme.dark": "🌙 深色",
+
     "toast.qrFilled": "已从二维码填写信息（{{name}}）。请选择设备类型/部门后保存。",
     "toast.unnamedDevice": "未命名设备",
 
@@ -1916,6 +1925,8 @@ function applyI18n() {
   document.querySelectorAll(".lang-switch [data-lang]").forEach(btn => {
     btn.classList.toggle("active", btn.getAttribute("data-lang") === lang);
   });
+
+  applyThemeButtons();
 }
 
 function setLang(lang) {
@@ -1934,4 +1945,33 @@ document.addEventListener("DOMContentLoaded", applyI18n);
 document.addEventListener("click", e => {
   const btn = e.target.closest("[data-lang]");
   if (btn) setLang(btn.getAttribute("data-lang"));
+});
+
+/* Theme sáng/tối — cờ đã set sớm ở <head> của index.html (trước khi
+   styles.css áp dụng, tránh nháy sáng->tối lúc load). Ở đây chỉ xử lý đổi
+   theme lúc người dùng bấm nút + đồng bộ trạng thái nút active, y hệt cơ
+   chế data-lang ở trên. */
+const THEME_STORAGE_KEY = "app_theme";
+function getTheme() {
+  return localStorage.getItem(THEME_STORAGE_KEY) ||
+    (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+}
+
+function setTheme(theme) {
+  if (theme !== "light" && theme !== "dark") return;
+  localStorage.setItem(THEME_STORAGE_KEY, theme);
+  document.documentElement.classList.toggle("dark", theme === "dark");
+  applyThemeButtons();
+}
+
+function applyThemeButtons() {
+  const theme = getTheme();
+  document.querySelectorAll("[data-theme-btn]").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-theme-btn") === theme);
+  });
+}
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest("[data-theme-btn]");
+  if (btn) setTheme(btn.getAttribute("data-theme-btn"));
 });

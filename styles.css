@@ -129,3 +129,52 @@
 .ticket-latest-time{font-size:11px}
 .ticket-latest.ticket-latest-empty{background:#f8fafc;border-color:#e2e8f0;border-left-color:#cbd5e1;color:#94a3b8;font-style:italic;font-size:12.5px;align-items:center;justify-content:center;text-align:center}
 @media(max-width:520px){.asset{flex-wrap:wrap}.ticket-latest{flex-basis:100%}}
+
+/* ===== Theme tối (dark mode) =====
+   Bật/tắt bằng class "dark" trên <html> — set sớm ở <head> của index.html
+   (đọc localStorage "app_theme", tránh nháy sáng->tối lúc load) và đổi lúc
+   chạy qua nút Sáng/Tối trong menu tài khoản (xem setTheme() trong i18n.js).
+   Chỉ ghi đè màu nền/chữ/viền — không đụng bố cục (layout không đổi).
+   .topbar, .login-screen, .account-fab-btn, .role-badge... vốn đã nền tối
+   sẵn (dùng chung 1 màu cho cả 2 theme) nên không cần ghi đè ở đây.
+   .report-render-box CỐ Ý không đổi màu — đây là khung dựng trang báo cáo
+   Word để chụp ảnh (mục "Chuyển đổi báo cáo"), luôn phải trắng như giấy in
+   thật bất kể theme, nếu không ảnh JPG xuất ra sẽ bị sai màu nền. */
+html.dark body{background:#0b1220;color:#e2e8f0}
+html.dark .stat,html.dark .card,html.dark .asset,html.dark .module-card,html.dark .module-nav-item,html.dark .login-card,html.dark .account-panel,html.dark .suggest-list{background:#141e2c;box-shadow:0 2px 10px #00000040}
+html.dark .module-nav-item{color:#e2e8f0}
+html.dark .stat span,html.dark .muted,html.dark .empty,html.dark .hint,html.dark .module-nav-text small,html.dark .account-panel small,html.dark .suggest-empty,html.dark .attach-item .attach-meta{color:#94a3b8}
+html.dark input,html.dark select,html.dark textarea{background:#111c2c;border-color:#334155;color:#e2e8f0}
+html.dark .badge{background:#1e293b}
+html.dark .ok{background:#14532d;color:#bbf7d0}
+html.dark .warn{background:#78350f;color:#fde68a}
+html.dark .bad{background:#7f1d1d;color:#fecaca}
+html.dark .info{background:#1e3a5f;color:#bfdbfe}
+html.dark .prio-khan{background:#7f1d1d;color:#fecaca}
+html.dark .prio-cao{background:#78350f;color:#fde68a}
+html.dark .prio-trungbinh{background:#1e3a5f;color:#bfdbfe}
+html.dark .prio-thap{background:#334155;color:#cbd5e1}
+html.dark .asset-link-tag{background:#1e3a5f;color:#93c5fd}
+html.dark .view-only-tag{background:#334155;color:#cbd5e1}
+html.dark .qrbox,html.dark .scan-info{border-top-color:#263349}
+html.dark .scan-result,html.dark .psbox,html.dark .report-page-card,html.dark .attach-item{background:#101827;border-color:#263349}
+html.dark .bar,html.dark .attach-progress{background:#1e293b}
+html.dark .danger{border-color:#7f1d1d}
+html.dark .bottomnav{background:#0b1220;border-top-color:#1e293b}
+html.dark .bottomnav button{background:#0b1220;color:#94a3b8}
+html.dark .login-error{background:#7f1d1d;color:#fecaca}
+html.dark .suggest-list{border-color:#334155;box-shadow:0 8px 24px #00000055}
+html.dark .suggest-item{border-bottom-color:#1e293b}
+html.dark .suggest-item:hover,html.dark .suggest-item.active{background:#1e3a5f}
+html.dark .history-entry{border-bottom-color:#263349}
+html.dark .history-change{color:#cbd5e1}
+html.dark .chip{background:#1e3a5f;color:#93c5fd}
+html.dark .chip button{color:#93c5fd}
+html.dark .recur-badge{background:#4c0519;color:#fecdd3}
+html.dark .module-nav-soon,html.dark .locked-notice{background:#78350f;color:#fde68a}
+html.dark .lang-switch button{background:#1e293b;color:#cbd5e1}
+html.dark .subhead{color:#e2e8f0}
+html.dark .ticket-latest{background:#132339;border-color:#1e3a5f;border-left-color:#3b82f6}
+html.dark .ticket-latest-label{color:#93c5fd}
+html.dark .ticket-latest-note{color:#e2e8f0}
+html.dark .ticket-latest.ticket-latest-empty{background:#101827;border-color:#263349;border-left-color:#334155;color:#64748b}
