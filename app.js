@@ -4217,6 +4217,18 @@ function renderProjectList() {
       : "";
     const overdue = isProjectOverdue(p);
     const pct = Math.max(0, Math.min(100, Number(p.progress) || 0));
+    // Mốc xử lý mới nhất (progressLog) — hiển thị ngay trên thẻ dự án, giống
+    // hệt cơ chế bên Ticket, để nhìn lướt danh sách là biết dự án đang ở đâu.
+    const latestProjectProgress = (p.progressLog && p.progressLog.length)
+      ? p.progressLog.reduce((a, b) => (b.at || 0) > (a.at || 0) ? b : a)
+      : null;
+    const latestProjectProgressHtml = latestProjectProgress
+      ? `<div class="ticket-latest">
+          <div class="ticket-latest-label">${tr("progress.latestLabel")}</div>
+          <div class="ticket-latest-note">${escapeHtml(latestProjectProgress.note || "")}</div>
+          <div class="ticket-latest-time muted">${formatHistoryTime(latestProjectProgress.at)}${latestProjectProgress.by ? " · " + escapeHtml(latestProjectProgress.by) : ""}</div>
+        </div>`
+      : `<div class="ticket-latest ticket-latest-empty muted">${tr("progress.latestEmpty")}</div>`;
     return `
     <div class="asset">
       <div>
@@ -4232,6 +4244,7 @@ function renderProjectList() {
         ${(p.progressLog && p.progressLog.length) ? `<span class="badge info">🕒 ${tr("progress.count", { count: p.progressLog.length })}</span>` : ""}
         ${!isAdmin ? `<span class="badge view-only-tag">👁 ${tr("action.viewOnly")}</span>` : ""}
       </div>
+      ${latestProjectProgressHtml}
       <div class="asset-actions">
         ${editBtn}
         ${deleteBtn}
