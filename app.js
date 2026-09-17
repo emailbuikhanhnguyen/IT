@@ -282,6 +282,7 @@ function goPage(name) {
   if (name === "dashboard") renderDashboard();
   if (name === "bulkPrintLabels") renderBulkPrintList();
   if (name === "employees") renderEmployeeList();
+  if (name === "camera") renderCameraPage();
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
   btn.addEventListener("click", () => goPage(btn.getAttribute("data-page")));
@@ -732,6 +733,7 @@ function renderAll() {
   renderAssetList();
   renderTicketList();
   renderProjectList();
+  renderCameraPage();
 }
 
 /* ---------- Dashboard ---------- */
@@ -1037,6 +1039,33 @@ function autoAbbr(text) {
 }
 function typeAbbr(type) { return ASSET_TYPE_ABBR[type] || autoAbbr(type); }
 function sectionAbbr(section) { return section ? (SECTION_ABBR[section] || autoAbbr(section)) : ""; }
+
+// ---------- Camera / NVR — thông tin 3 đầu ghi Hikvision, truy cập qua DDNS ----------
+// Sửa tay ở đây khi đổi host/port/khu vực phụ trách — không cần lưu Firestore
+// vì đây chỉ là 3 dòng cấu hình cố định, giống ASSET_TYPE_ABBR/SECTION_ABBR ở trên.
+// ⚠️ Cổng NAT (81/82/83) suy theo cổng nội bộ từng đầu ghi đang dùng — nếu
+// đối chiếu thực tế thấy lệch (VD: mở NVR-1 nhưng Serial hiện ra lại là của
+// đầu ghi khác), chỉ cần đổi lại "port" cho đúng ở đây.
+const CAMERA_DDNS_HOST = "camerasecinnotex1.cameraddns.net";
+const CAMERA_NVRS = [
+  { name: "NVR-1", port: 81, area: "" },
+  { name: "NVR-2", port: 82, area: "" },
+  { name: "NVR-3", port: 83, area: "" }
+];
+function cameraPortalUrl(port) {
+  return `http://${CAMERA_DDNS_HOST}:${port}/doc/index.html#/portal/login`;
+}
+function renderCameraPage() {
+  const box = $("cameraNvrList");
+  if (!box) return;
+  box.innerHTML = CAMERA_NVRS.map(nvr => `
+    <div class="card">
+      <h3>📹 ${escapeHtml(nvr.name)}${nvr.area ? ` <span class="muted">— ${escapeHtml(nvr.area)}</span>` : ""}</h3>
+      <p class="muted">${escapeHtml(CAMERA_DDNS_HOST)}:${nvr.port}</p>
+      <a class="button secondary" href="${escapeHtml(cameraPortalUrl(nvr.port))}" target="_blank" rel="noopener">🔗 ${tr("camera.openPortal")}</a>
+    </div>
+  `).join("");
+}
 
 // false khi mã hiện tại KHÔNG phải do app tự gợi ý nữa (người dùng đã gõ
 // tay, đang sửa tài sản có sẵn, hoặc mã đến từ QR đã in trước đó) — để
