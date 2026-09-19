@@ -107,6 +107,7 @@
   };
   window.printerPageBlocked = name => PRINTER_PAGES.indexOf(name) !== -1 && !canSee();
   window.onPrinterPage = function (name) {
+    if (name !== "printerForm") stopPrinterScanner(); // rời form -> tắt camera
     if (PRINTER_PAGES.indexOf(name) === -1) return;
     renderPrinterAll();
   };
@@ -353,6 +354,7 @@
     ["prSectionSuggest", "prAssetSuggest"].forEach(id => { $(id).classList.add("hidden"); $(id).innerHTML = ""; });
     applyOwnershipVisibility();
     setFormLocked("prFormEl", "prLockedNotice", false);
+    stopPrinterScanner(); $("prScanResult").classList.add("hidden"); $("prScanResult").innerHTML = "";
   }
   $("prResetBtn").addEventListener("click", clearPrinterForm);
   $("prAddBtn").addEventListener("click", clearPrinterForm);
@@ -381,6 +383,7 @@
     $("prFormTitle").textContent = tr("pr.form.edit", { id: p.code || "" });
     applyOwnershipVisibility();
     setFormLocked("prFormEl", "prLockedNotice", !isAdmin);
+    stopPrinterScanner(); $("prScanResult").classList.add("hidden"); $("prScanResult").innerHTML = "";
   }
   window.prOpenPrinter = function (id) {
     const p = printerById(id);
@@ -824,4 +827,164 @@
     const tag = typeof currentUserFileTag === "function" ? currentUserFileTag() : "";
     XLSX.writeFile(wb, `may-in-cong-no-${ts}${tag ? ` (${tag})` : ""}.xlsx`);
   });
+  /* ---------- Quét QR / barcode trên máy in để điền form ----------
+     Dùng html5-qrcode (đã nạp sẵn cho trang Quét QR của app) với instance
+     RIÊNG (#prReader) để không đụng máy quét tài sản. Nhận dạng:
+     - Tem tài sản của app (ITASSET:<mã> hoặc link ?code=) -> liên kết tài sản
+       kiểm kê + điền model/serial/IP/bộ phận còn trống.
+     - DEVINFO:<base64> (QR từ script PowerShell) -> model/serial/IP.
+     - QR/barcode của hãng: tìm "S/N:", "Serial:", "Model:", tham số ?sn= trong
+       URL...; barcode trơn (Code128/39...) coi là Serial.
+     Không nhận dạng được thì hiện nút để chọn điền vào Serial/Model/Mã/Ghi chú. */
+  let prScanner = null, prScanning = false, lastScanRaw = "";
+  const BRANDS = ["HP", "Canon", "Brother", "Ricoh", "Epson", "Xerox", "Samsung", "Kyocera", "Konica", "Fujifilm", "Sharp", "Lexmark", "Pantum", "Zebra", "Toshiba", "Oki"];
+
+  function scannerConfig() {
+    const cfg = { verbose: false, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
+    const F = window.Html5QrcodeSupportedFormats;
+    if (F) {
+      cfg.formatsToSupport = ["QR_CODE", "CODE_128", "CODE_39", "CODE_93", "EAN_13", "EAN_8", "UPC_A", "UPC_E", "ITF", "CODABAR", "DATA_MATRIX", "PDF_417", "AZTEC"]
+        .filter(k => F[k] !== undefined).map(k => F[k]);
+    }
+    return cfg;
+  }
+  function stopPrinterScanner() {
+    if (!prScanning || !prScanner) { prScanning = false; return; }
+    const sc = prScanner;
+    prScanning = false;
+    sc.stop().then(() => sc.clear()).catch(() => {});
+  }
+  function startPrinterScanner() {
+    if (prScanning) return;
+    prScanner = new Html5Qrcode("prReader", scannerConfig());
+    prScanning = true;
+    prScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 280, height: 160 } },
+      text => { stopPrinterScanner(); applyScan(text); }, () => {})
+      .catch(err => { prScanning = false; alert(tr("msg.cameraError", { err })); });
+  }
+  $("prScanStart").addEventListener("click", startPrinterScanner);
+  $("prScanStop").addEventListener("click", stopPrinterScanner);
+  $("prScanFile").addEventListener("change", async e => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    stopPrinterScanner();
+    try {
+      const sc = new Html5Qrcode("prReader", scannerConfig());
+      const text = await sc.scanFile(file, false);
+      try { sc.clear(); } catch (x) { /* bỏ qua */ }
+      applyScan(text);
+    } catch (err) { alert(tr("pr.sc.notRead")); }
+  });
+
+  // Phân tích nội dung mã -> { fields:{serial,model,ip,brand,deviceName}, assetCode }
+  function parseScanText(raw) {
+    const text = (raw || "").trim();
+    const out = { fields: {}, assetCode: "" };
+    if (/^DEVINFO:/i.test(text)) {
+      try {
+        const bin = atob(text.slice(8).trim());
+        const d = JSON.parse(new TextDecoder("utf-8").decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+        if (d.MODEL) out.fields.model = String(d.MODEL);
+        if (d.SERIAL) out.fields.serial = String(d.SERIAL);
+        if (d.IP) out.fields.ip = String(d.IP);
+        return out;
+      } catch (e) { /* không giải mã được -> xử lý như chữ thường */ }
+    }
+    if (/^ITASSET:/i.test(text) || (typeof SEC_APP_URL === "string" && text.indexOf(SEC_APP_URL) === 0)) {
+      const code = extractAssetCodeFromScan(text);
+      if (code) { out.assetCode = code; return out; }
+    }
+    const grab = (obj, keys) => { for (const k of keys) { const v = obj.get(k); if (v) return v.trim(); } return ""; };
+    let host = "";
+    try {
+      const u = new URL(text);
+      host = u.hostname.toLowerCase();
+      const q = new URLSearchParams(); u.searchParams.forEach((v, k) => q.set(k.toLowerCase(), v));
+      const sn = grab(q, ["sn", "serial", "serialnumber", "serial_number", "serialno", "s/n"]);
+      const md = grab(q, ["model", "modelname", "product", "pn"]);
+      if (sn) out.fields.serial = sn;
+      if (md) out.fields.model = md;
+    } catch (e) { /* không phải URL */ }
+    if (!out.fields.serial) {
+      const m = /(?:serial(?:\s*(?:number|no\.?|#))?|s\/n|\bsn)\s*[:=#]?\s*([A-Za-z0-9][A-Za-z0-9\-_.\/]{3,39})/i.exec(text);
+      if (m) out.fields.serial = m[1];
+    }
+    if (!out.fields.model) {
+      const m = /model(?:\s*(?:name|no\.?|number))?\s*[:=]\s*([^\n\r;,|]{2,60})/i.exec(text);
+      if (m) out.fields.model = m[1].trim();
+    }
+    const ip = /\b(\d{1,3}(?:\.\d{1,3}){3})\b/.exec(text);
+    if (ip) out.fields.ip = ip[1];
+    const hay = (text + " " + host).toLowerCase();
+    const brand = BRANDS.find(b => new RegExp("(^|[^a-z0-9])" + b.toLowerCase() + "([^a-z0-9]|$)").test(hay));
+    if (brand) out.fields.brand = brand;
+    // Barcode trơn (Code128/39...): coi cả chuỗi là Serial.
+    if (!out.fields.serial && /^[A-Za-z0-9][A-Za-z0-9\-_.\/+]{4,39}$/.test(text)) out.fields.serial = text;
+    return out;
+  }
+
+  const SCAN_TARGETS = { serial: "prSerial", model: "prModel", brand: "prBrand", ip: "prIp" };
+  function linkAssetToForm(a) {
+    $("prAssetCode").value = a.code; $("prAssetId").value = a._id;
+    if (!$("prModel").value.trim()) $("prModel").value = a.model || "";
+    if (!$("prSerial").value.trim()) $("prSerial").value = a.serial || "";
+    if (!$("prIp").value.trim()) $("prIp").value = a.ip || "";
+    if (!$("prSection").value.trim()) $("prSection").value = a.section || "";
+  }
+  window.prScanLinkAsset = function (id) {
+    const a = assets.find(x => x._id === id);
+    if (a) { linkAssetToForm(a); $("prScanResult").insertAdjacentHTML("beforeend", `<div class="scan-row">✅ ${esc(tr("pr.sc.assetLinked", { code: a.code }))}</div>`); }
+  };
+  window.prScanAssign = function (field) {
+    const map = { serial: "prSerial", model: "prModel", code: "prCode", note: "prNote" };
+    if (field === "code" && $("prCode").readOnly) return;
+    const el = $(map[field]);
+    if (!el || !lastScanRaw) return;
+    el.value = field === "note" && el.value ? el.value + "\n" + lastScanRaw : lastScanRaw;
+    $("prScanResult").insertAdjacentHTML("beforeend", `<div class="scan-row">✅ ${esc(tr(field === "code" ? "pr.f.code" : field === "note" ? "pr.f.note" : "pr.f." + field).replace("*", ""))}</div>`);
+  };
+
+  function applyScan(raw) {
+    lastScanRaw = (raw || "").trim();
+    const box = $("prScanResult");
+    box.classList.remove("hidden");
+    const p = parseScanText(lastScanRaw);
+    const lines = [];
+    let recognised = false;
+
+    if (p.assetCode) {
+      recognised = true;
+      const a = assets.find(x => x.code === p.assetCode);
+      if (a) { linkAssetToForm(a); lines.push("✅ " + tr("pr.sc.assetLinked", { code: a.code })); }
+      else lines.push("⚠ " + tr("pr.sc.assetNotFound", { code: p.assetCode }));
+    } else {
+      // Serial luôn ghi đè (đó là mục đích quét); model/hãng/IP chỉ điền khi đang trống.
+      const filled = [];
+      Object.keys(p.fields).forEach(k => {
+        const el = $(SCAN_TARGETS[k]);
+        if (!el || !p.fields[k]) return;
+        if (k === "serial" || !el.value.trim()) { el.value = p.fields[k]; filled.push(tr("pr.f." + k)); }
+      });
+      if (filled.length) { recognised = true; lines.push("✅ " + tr("pr.sc.filled", { fields: filled.join(", ") })); }
+      const sn = p.fields.serial;
+      if (sn) {
+        const cur = $("prDocId").value;
+        const dup = printerRecords.find(x => (x.serial || "").toLowerCase() === sn.toLowerCase() && x._id !== cur);
+        if (dup) lines.push(`⚠ ${esc(tr("pr.sc.dupPrinter", { code: dup.code }))} <button type="button" class="secondary" style="margin-top:6px" onclick="prOpenPrinter('${dup._id}')">${tr("pr.tk.open")}</button>`);
+        const am = assets.find(x => (x.serial || "").toLowerCase() === sn.toLowerCase());
+        if (am && $("prAssetId").value !== am._id) lines.push(`🔗 ${esc(tr("pr.sc.matchAsset", { code: am.code }))} <button type="button" class="secondary" style="margin-top:6px" onclick="prScanLinkAsset('${am._id}')">${tr("pr.sc.linkAsset")}</button>`);
+      }
+    }
+    if (!recognised) lines.push("❔ " + tr("pr.sc.nothing"));
+    const assign = `<div class="scan-info"><span class="muted">${tr("pr.sc.assignTo")}</span>
+      <div class="qr-btn-row" style="margin-top:6px">
+        <button type="button" class="secondary" onclick="prScanAssign('serial')">${esc(tr("pr.f.serial"))}</button>
+        <button type="button" class="secondary" onclick="prScanAssign('model')">${esc(tr("pr.f.model"))}</button>
+        <button type="button" class="secondary" onclick="prScanAssign('code')">${esc(tr("pr.f.code").replace("*", ""))}</button>
+        <button type="button" class="secondary" onclick="prScanAssign('note')">${esc(tr("pr.f.note"))}</button>
+      </div></div>`;
+    box.innerHTML = `<div class="muted">${tr("pr.sc.raw")}:</div><div style="word-break:break-all;margin-bottom:6px"><b>${esc(lastScanRaw.slice(0, 300))}</b></div>` +
+      lines.map(l => `<div class="scan-row">${l.indexOf("<button") === -1 ? esc(l) : l}</div>`).join("") + assign;
+  }
 })();

@@ -245,6 +245,7 @@ muốn.
 ## Máy in (🛠 Vận hành & Hỗ trợ IT → 🖨 Máy in)
 Theo dõi máy in **thuê** và **tự mua**, nhà cung cấp (NCC), công nợ và lịch sử sửa chữa. Code ở `printers.js` (+ chuỗi VI/EN/ZH ở `printers-i18n.js`).
 
+- **Quét QR/barcode khi thêm máy in**: nút "Bắt đầu quét" (hoặc chọn ảnh chứa mã) ở đầu form. Nhận tem tài sản của app (liên kết + điền thông tin), QR hãng (`S/N:`, `Model:`, `?sn=`), barcode trơn (= Serial), DEVINFO từ PowerShell; cảnh báo nếu Serial trùng máy in khác và gợi ý liên kết tài sản trùng Serial.
 - **Danh sách máy in**: mã `MI-0001` tự gợi ý; hãng/model/serial/loại, bộ phận, vị trí, IP, tình trạng; có thể liên kết với tài sản đã kiểm kê. Máy thuê: số HĐ, ngày bắt đầu/hết hạn, tiền thuê/tháng, số trang miễn phí, đơn giá trang vượt. Máy tự mua: ngày mua, giá, bảo hành.
 - **Lịch sử sửa chữa/bảo trì**: từng lần (ngày, loại, nội dung, chi phí, NCC). Tick "Ghi nhận công nợ" để khi Lưu máy in tự tạo hóa đơn phải trả cho NCC. Form còn hiện các Ticket liên quan (qua Mã tài sản hoặc mã máy in ghi ở ô Thiết bị).
 - **NCC**: bên cho thuê / sửa chữa / mực & vật tư / bán máy, liên hệ, MST, thời hạn thanh toán (dùng tự tính hạn thanh toán hóa đơn).

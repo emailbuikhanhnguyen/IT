@@ -635,6 +635,17 @@
   <div class="section-head"><h2 id="prFormTitle" data-i18n="pr.form.create">Thêm máy in</h2><button data-page="printerList">←</button></div>
   <form id="prFormEl" class="card">
     <div id="prLockedNotice" class="locked-notice hidden" data-i18n="pr.form.locked">🔒 Bạn chỉ có quyền xem.</div>
+    <div class="psbox admin-only" id="prScanBox">
+      <h3 data-i18n="pr.sc.title">📷 Quét mã trên máy in</h3>
+      <p class="hint" data-i18n="pr.sc.hint">Quét QR hoặc barcode trên máy in để tự điền thông tin.</p>
+      <div id="prReader"></div>
+      <div class="scan-actions">
+        <button type="button" id="prScanStart" data-i18n="scan.start">▶ Bắt đầu quét</button>
+        <button type="button" id="prScanStop" class="secondary" data-i18n="scan.stop">■ Dừng</button>
+      </div>
+      <label class="button secondary" style="margin-top:8px;display:block"><span data-i18n="pr.sc.fromImage">🖼 Chọn ảnh chứa mã</span><input id="prScanFile" type="file" accept="image/*" hidden></label>
+      <div id="prScanResult" class="scan-result hidden"></div>
+    </div>
     <input type="hidden" id="prDocId">
     <input type="hidden" id="prAssetId">
     <label><span data-i18n="pr.f.code">Mã máy in*</span>
