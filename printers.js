@@ -24,7 +24,7 @@
   const PRINTER_COLLECTION = "printers";
   const VENDOR_COLLECTION = "printer_vendors";
   const INVOICE_COLLECTION = "printer_invoices";
-  const PRINTER_PAGES = ["printers", "printerList", "printerForm", "printerVendors", "vendorForm", "printerDebts", "invoiceForm"];
+  const PRINTER_PAGES = ["printers", "printerList", "printerForm", "printerVendors", "vendorForm", "printerDebts", "invoiceForm", "printerReport"];
   const EXPIRING_DAYS = 60; // cảnh báo hợp đồng thuê còn <= N ngày
   const E = window.PR_ENUMS;
 
@@ -120,6 +120,7 @@
     renderPrinterList();
     renderVendorList();
     renderDebtPage();
+    renderRepairReport();
   }
   window.renderPrinterAll = renderPrinterAll;
 
@@ -128,6 +129,7 @@
     setOptions($("prType"), enumItems("pt"));
     setOptions($("prStatus"), enumItems("st"));
     setOptions($("prRepairKind"), enumItems("rk"));
+    setOptions($("prRepairResultSt"), [{ value: "", label: tr("pr.rs.none") }].concat(enumItems("rs")));
     setOptions($("prVendorRole"), enumItems("vr"));
     setOptions($("prInvKind"), enumItems("ik"));
     setOptions($("prFilterOwn"), [{ value: "", label: tr("pr.filter.allOwn") }].concat(enumItems("own")));
@@ -289,6 +291,7 @@
     return "MI-" + String(max + 1).padStart(4, "0");
   }
 
+  const rsIcon = v => v === E.rs[0] ? "🟩" : v === E.rs[1] ? "🟨" : v === E.rs[2] ? "🟥" : "";
   function renderRepairList() {
     const box = $("prRepairList");
     if (!currentRepairs.length) { box.innerHTML = `<div class="muted" style="padding:4px 0 10px">${tr("pr.rp.none")}</div>`; return; }
@@ -300,7 +303,10 @@
           <span><b>${esc(fmtDate(r.date))}</b> · ${esc(enumLabel("rk", r.kind))}${r.cost ? " · " + esc(money(r.cost)) : ""}</span>
           <button type="button" class="secondary admin-only" style="padding:3px 8px;font-size:11px" onclick="prRemoveRepair(${i})">🗑</button>
         </div>
+        ${r.issue ? `<div class="muted">${esc(tr("pr.rr.issue"))}: ${esc(r.issue)}</div>` : ""}
         <div class="history-change">${esc(r.description || "")}</div>
+        ${r.resultStatus || r.result ? `<div class="muted">${esc(tr("pr.rr.result"))}: ${rsIcon(r.resultStatus)} ${esc(r.resultStatus ? enumLabel("rs", r.resultStatus) : "")}${r.result ? " — " + esc(r.result) : ""}</div>` : ""}
+        ${r.next ? `<div class="muted">${esc(tr("pr.rr.next"))}: ${esc(r.next)}</div>` : ""}
         <div class="muted">${r.vendorId || r.vendorName ? "🤝 " + esc(vendorNameOf(r)) : ""}${r._makeInvoice ? " · 💳 " + tr("pr.rp.invoiceQueued") : (r.invoiceId ? " · 💳 " + tr("pr.rp.invoiceLinked") : "")}${r.by ? " · " + esc(r.by) : ""}</div>
       </div>`).join("");
   }
@@ -316,11 +322,13 @@
     const entry = {
       id: Date.now().toString(36), at: Date.now(), by: currentEmail || "?",
       date: $("prRepairDate").value || todayStr(), kind: $("prRepairKind").value, description, cost,
+      issue: $("prRepairIssue").value.trim(), resultStatus: $("prRepairResultSt").value, result: $("prRepairResult").value.trim(), next: $("prRepairNext").value.trim(),
       vendorId, vendorName: vendorId ? (vendorById(vendorId) || {}).name || "" : ""
     };
     if (makeInvoice) entry._makeInvoice = true;
     currentRepairs.push(entry);
     $("prRepairDesc").value = ""; $("prRepairCost").value = ""; $("prRepairMakeInvoice").checked = false;
+    ["prRepairIssue", "prRepairResult", "prRepairNext"].forEach(id => { $(id).value = ""; }); $("prRepairResultSt").value = "";
     $("prRepairDate").value = todayStr();
     renderRepairList();
   });
@@ -826,16 +834,150 @@
 
     const repairs = [];
     printerRecords.forEach(p => (p.repairs || []).forEach(r => repairs.push({
-      [lbl("pr.x.printerCode")]: p.code, [lbl("pr.rp.date")]: fmtDate(r.date), [lbl("pr.rp.kind")]: enumLabel("rk", r.kind), [lbl("pr.rp.desc")]: r.description || "",
+      [lbl("pr.x.printerCode")]: p.code, [lbl("pr.rp.date")]: fmtDate(r.date), [lbl("pr.rp.kind")]: enumLabel("rk", r.kind), [lbl("pr.rp.issue")]: r.issue || "", [lbl("pr.rp.desc")]: r.description || "",
+      [lbl("pr.rp.resultSt")]: r.resultStatus ? enumLabel("rs", r.resultStatus) : "", [lbl("pr.rp.result")]: r.result || "", [lbl("pr.rp.next")]: r.next || "",
       [lbl("pr.rp.cost")]: Number(r.cost) || 0, [lbl("pr.x.vendorName")]: vendorNameOf(r), [lbl("pr.x.by")]: r.by || "", _d: r.date || ""
     })));
     repairs.sort((a, b) => b._d.localeCompare(a._d)).forEach(r => delete r._d);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(repairs, [12, 13, 18, 44, 16, 24, 26]), tr("pr.x.sheetRepairs"));
+    XLSX.utils.book_append_sheet(wb, sheetFrom(repairs, [12, 13, 18, 34, 44, 16, 30, 34, 16, 24, 26]), tr("pr.x.sheetRepairs"));
 
     const ts = new Date().toISOString().slice(0, 10);
     const tag = typeof currentUserFileTag === "function" ? currentUserFileTag() : "";
     XLSX.writeFile(wb, `may-in-cong-no-${ts}${tag ? ` (${tag})` : ""}.xlsx`);
   });
+
+  /* ---------- Báo cáo sửa chữa (lọc theo NCC / máy / loại / kết quả / thời gian) ---------- */
+  const NO_VENDOR = "__none__";
+  function collectRepairs() {
+    const rows = [];
+    printerRecords.forEach(p => (p.repairs || []).forEach(r => rows.push({ p, r, date: r.date || "" })));
+    return rows;
+  }
+  function fillReportFilters() {
+    const keep = id => $(id).value;
+    const vSel = keep("prRrVendor"), pSel = keep("prRrPrinter"), kSel = keep("prRrKind"), rSel = keep("prRrResult");
+    setOptions($("prRrVendor"), [{ value: "", label: tr("pr.rr.allVendors") }].concat(vendorItems().filter(x => x.value), [{ value: NO_VENDOR, label: tr("pr.rr.noVendor") }]), vSel);
+    setOptions($("prRrPrinter"), [{ value: "", label: tr("pr.rr.allPrinters") }].concat(printerRecords.slice().sort((a, b) => (a.code || "").localeCompare(b.code || "", undefined, { numeric: true }))
+      .map(p => ({ value: p._id, label: [p.code, p.brand, p.model, p.section].filter(Boolean).join(" · ") }))), pSel);
+    setOptions($("prRrKind"), [{ value: "", label: tr("pr.rr.allKinds") }].concat(enumItems("rk")), kSel);
+    setOptions($("prRrResult"), [{ value: "", label: tr("pr.rr.allResults") }].concat(enumItems("rs")), rSel);
+  }
+  function filteredRepairs() {
+    const v = $("prRrVendor").value, pid = $("prRrPrinter").value, k = $("prRrKind").value, rs = $("prRrResult").value;
+    const from = $("prRrFrom").value, to = $("prRrTo").value;
+    return collectRepairs().filter(x => {
+      if (v === NO_VENDOR ? (x.r.vendorId || x.r.vendorName) : (v && x.r.vendorId !== v)) return false;
+      if (pid && x.p._id !== pid) return false;
+      if (k && x.r.kind !== k) return false;
+      if (rs && x.r.resultStatus !== rs) return false;
+      if (from && x.date < from) return false;
+      if (to && x.date > to) return false;
+      return true;
+    }).sort((a, b) => b.date.localeCompare(a.date) || (b.r.at || 0) - (a.r.at || 0));
+  }
+  const repVendorName = x => vendorNameOf(x.r) || tr("pr.rr.noVendor");
+  function renderRepairReport() {
+    if (!$("prRrList") || !canSee()) return;
+    fillReportFilters();
+    const rows = filteredRepairs();
+    $("prRrCount").textContent = rows.length;
+    $("prRrPrinters").textContent = new Set(rows.map(x => x.p._id)).size;
+    $("prRrFail").textContent = rows.filter(x => x.r.resultStatus === E.rs[2]).length;
+    $("prRrCost").textContent = money(rows.reduce((s, x) => s + (Number(x.r.cost) || 0), 0));
+    $("prRrCost").classList.add("pr-money-stat");
+    const groups = new Map();
+    rows.forEach(x => { const n = repVendorName(x); if (!groups.has(n)) groups.set(n, []); groups.get(n).push(x); });
+    $("prRrSummary").innerHTML = groups.size ? Array.from(groups).map(([n, a]) =>
+      `<div class="pr-vrow"><span>${esc(n)}</span><b>${esc(tr("pr.rr.vline", { n: a.length, p: new Set(a.map(x => x.p._id)).size, cost: money(a.reduce((s, x) => s + (Number(x.r.cost) || 0), 0)) }))}</b></div>`).join("")
+      : `<div class="muted">${tr("pr.rr.empty")}</div>`;
+    const line = (k, v) => v ? `<div class="muted"><b>${esc(tr(k))}:</b> ${esc(v)}</div>` : "";
+    $("prRrList").innerHTML = rows.map(x => `<div class="card">
+        <div class="history-head"><span><b>${esc(fmtDate(x.r.date))}</b> · ${esc(x.p.code)} · ${esc([x.p.brand, x.p.model].filter(Boolean).join(" "))}${x.p.section ? " · 🏢 " + esc(x.p.section) : ""}</span>
+          <span>${rsIcon(x.r.resultStatus)}</span></div>
+        <div class="muted">🔧 ${esc(enumLabel("rk", x.r.kind))} · 🤝 ${esc(repVendorName(x))}${x.r.cost ? " · " + esc(money(x.r.cost)) : ""}</div>
+        ${line("pr.rr.issue", x.r.issue)}${line("pr.rr.action", x.r.description)}
+        ${x.r.resultStatus || x.r.result ? line("pr.rr.result", [x.r.resultStatus ? enumLabel("rs", x.r.resultStatus) : "", x.r.result].filter(Boolean).join(" — ")) : ""}
+        ${line("pr.rr.next", x.r.next)}
+        <button type="button" class="secondary" style="margin-top:6px" onclick="prOpenPrinter('${x.p._id}')">${esc(tr("pr.rr.open"))}</button>
+      </div>`).join("");
+  }
+  ["prRrVendor", "prRrPrinter", "prRrKind", "prRrResult", "prRrFrom", "prRrTo"].forEach(id => $(id).addEventListener("change", renderRepairReport));
+  $("prRrExport").addEventListener("click", () => {
+    const rows = filteredRepairs();
+    if (!rows.length) { alert(tr("pr.rr.empty")); return; }
+    const wb = XLSX.utils.book_new();
+    const detail = rows.map(x => ({
+      [lbl("pr.rp.date")]: fmtDate(x.r.date), [lbl("pr.x.vendorName")]: repVendorName(x), [lbl("pr.x.printerCode")]: x.p.code,
+      [lbl("pr.f.brand")]: x.p.brand || "", [lbl("pr.f.model")]: x.p.model || "", [lbl("pr.f.section")]: x.p.section || "", [lbl("pr.f.group")]: x.p.group || "",
+      [lbl("pr.rp.kind")]: enumLabel("rk", x.r.kind), [lbl("pr.rp.issue")]: x.r.issue || "", [lbl("pr.rp.desc")]: x.r.description || "",
+      [lbl("pr.rp.resultSt")]: x.r.resultStatus ? enumLabel("rs", x.r.resultStatus) : "", [lbl("pr.rp.result")]: x.r.result || "", [lbl("pr.rp.next")]: x.r.next || "",
+      [lbl("pr.rp.cost")]: Number(x.r.cost) || 0
+    }));
+    XLSX.utils.book_append_sheet(wb, sheetFrom(detail, [12, 20, 12, 12, 26, 14, 18, 18, 34, 44, 16, 30, 34, 14]), tr("pr.x.sheetReport"));
+    const groups = new Map();
+    rows.forEach(x => { const n = repVendorName(x); if (!groups.has(n)) groups.set(n, []); groups.get(n).push(x); });
+    const sum = Array.from(groups).map(([n, a]) => ({
+      [lbl("pr.x.vendorName")]: n, [lbl("pr.rr.count")]: a.length, [lbl("pr.rr.printers")]: new Set(a.map(x => x.p._id)).size,
+      [lbl("pr.rr.fail")]: a.filter(x => x.r.resultStatus === E.rs[2]).length, [lbl("pr.rr.cost")]: a.reduce((s, x) => s + (Number(x.r.cost) || 0), 0)
+    }));
+    XLSX.utils.book_append_sheet(wb, sheetFrom(sum, [26, 12, 10, 16, 16]), tr("pr.x.sheetVSum"));
+    const ts = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `bao-cao-sua-chua-may-in-${ts}.xlsx`);
+  });
+
+  /* ---------- Nạp dữ liệu máy in DNP từ file (idempotent) ---------- */
+  function planSeed() {
+    const S = window.PR_SEED_DNP;
+    const vendor = vendorRecords.find(v => (v.name || "").trim().toLowerCase() === S.vendor.name.toLowerCase());
+    let max = 0;
+    printerRecords.forEach(p => { const m = /^MI-(\d+)$/i.exec(p.code || ""); if (m) max = Math.max(max, parseInt(m[1], 10)); });
+    const byKey = {}; const newPrinters = []; let n = max;
+    S.printers.forEach(sp => {
+      const ex = printerRecords.find(p => p.seedKey === sp.seedKey);
+      if (ex) byKey[sp.seedKey] = { existing: ex };
+      else { n++; byKey[sp.seedKey] = { code: "MI-" + String(n).padStart(4, "0"), sp }; newPrinters.push(byKey[sp.seedKey]); }
+    });
+    const newRepairs = S.repairs.filter(r => {
+      const t = byKey[r.printerKey];
+      return t && !(t.existing && (t.existing.repairs || []).some(x => x.id === r.id));
+    });
+    return { S, vendor, byKey, newPrinters, newRepairs };
+  }
+  $("prSeedBtn").addEventListener("click", () => {
+    if (!isAdmin) { alert(tr("pr.msg.noPerm")); return; }
+    const pl = planSeed();
+    if (!pl.newPrinters.length && !pl.newRepairs.length && pl.vendor) { alert(tr("pr.seed.nothing")); return; }
+    if (!confirm(tr("pr.seed.confirm", { np: pl.newPrinters.length, nr: pl.newRepairs.length, nv: pl.vendor ? "" : tr("pr.seed.newVendor") }))) return;
+    const ts = firebase.firestore.FieldValue.serverTimestamp;
+    const batch = db.batch();
+    let vid = pl.vendor && pl.vendor._id;
+    if (!vid) {
+      const ref = db.collection(VENDOR_COLLECTION).doc(); vid = ref.id;
+      batch.set(ref, Object.assign({ contact: "", phone: "", email: "", address: "", taxCode: "", paymentTerms: 30, createdAt: ts(), updatedAt: ts() }, pl.S.vendor));
+    }
+    const vname = pl.vendor ? pl.vendor.name : pl.S.vendor.name;
+    const mkRepair = r => ({ id: r.id, at: Date.parse(r.date + "T00:00:00") || Date.now(), by: currentEmail || "import", date: r.date, kind: r.kind, description: r.description,
+      issue: r.issue, resultStatus: r.resultStatus, result: r.result, next: r.next, cost: 0, vendorId: vid, vendorName: vname });
+    const repsBy = {};
+    pl.newRepairs.forEach(r => { (repsBy[r.printerKey] = repsBy[r.printerKey] || []).push(mkRepair(r)); });
+    pl.newPrinters.forEach(t => {
+      const sp = t.sp, id = sanitizeId(t.code);
+      batch.set(db.collection(PRINTER_COLLECTION).doc(id), {
+        code: t.code, seedKey: sp.seedKey, ownership: E.own[0], brand: sp.brand, model: sp.model, serial: sp.serial, type: sp.type, status: E.st[0],
+        section: sp.section, group: "", location: sp.location, ip: "", assetId: "", assetCode: "", vendorId: vid, vendorName: vname,
+        purchaseDate: "", purchasePrice: 0, warrantyEnd: "", contractNo: "", rentStart: "", rentEnd: "", monthlyFee: 0, includedPages: 0, extraPageFee: 0,
+        note: "Nhập từ file theo dõi sửa máy in DNP 18/09/2026 — cần bổ sung hợp đồng/giá thuê.",
+        repairs: repsBy[sp.seedKey] || [], history: [historyEntry("create", [])], createdAt: ts(), updatedAt: ts()
+      });
+    });
+    Object.keys(repsBy).forEach(k => {
+      const t = pl.byKey[k]; if (!t.existing) return;
+      batch.set(db.collection(PRINTER_COLLECTION).doc(t.existing._id), { repairs: (t.existing.repairs || []).concat(repsBy[k]), updatedAt: ts() }, { merge: true });
+    });
+    batch.commit().then(() => alert(tr("pr.seed.done", { np: pl.newPrinters.length, nr: pl.newRepairs.length })))
+      .catch(err => alert(tr("pr.msg.errSave", { err: err.message }) + "\n\n" + tr("msg.errSyncServerHint")));
+  });
+
   /* ---------- Quét QR / barcode trên máy in để điền form ----------
      Dùng html5-qrcode (đã nạp sẵn cho trang Quét QR của app) với instance
      RIÊNG (#prReader) để không đụng máy quét tài sản. Nhận dạng:

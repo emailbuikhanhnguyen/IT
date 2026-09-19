@@ -609,14 +609,42 @@
       <span class="module-nav-icon">🏢</span>
       <span class="module-nav-text"><b data-i18n="pr.nav.vendors">Nhà cung cấp (NCC)</b><small data-i18n="pr.nav.vendors.desc">Bên cho thuê, sửa chữa, mực &amp; vật tư</small></span>
     </button>
+    <button class="module-nav-item" data-page="printerReport">
+      <span class="module-nav-icon">📈</span>
+      <span class="module-nav-text"><b data-i18n="pr.nav.report">Báo cáo sửa chữa</b><small data-i18n="pr.nav.report.desc">Lọc theo NCC, máy, thời gian</small></span>
+    </button>
     <button class="module-nav-item" data-page="printerDebts">
       <span class="module-nav-icon">💳</span>
       <span class="module-nav-text"><b data-i18n="pr.nav.debts">Công nợ &amp; thanh toán</b><small data-i18n="pr.nav.debts.desc">Hóa đơn phải trả, đã thanh toán, quá hạn</small></span>
     </button>
   </div>
   <div class="quick" style="margin-top:12px">
+    <button type="button" id="prSeedBtn" class="secondary admin-only" data-i18n="pr.seed.btn">⬇ Nạp dữ liệu máy in DNP (từ file)</button>
     <button type="button" id="prExportBtn" class="secondary" data-i18n="pr.export">📊 Xuất Excel máy in &amp; công nợ</button>
   </div>
+</section>
+
+<section id="printerReport" class="page">
+  <div class="section-head"><h2 data-i18n="pr.rr.title">📈 Báo cáo sửa chữa máy in</h2><button data-page="printers">←</button></div>
+  <div class="filters">
+    <select id="prRrVendor"></select>
+    <select id="prRrPrinter"></select>
+    <select id="prRrKind"></select>
+    <select id="prRrResult"></select>
+  </div>
+  <div class="filters">
+    <label><span data-i18n="pr.rr.from">Từ ngày</span><input id="prRrFrom" type="date"></label>
+    <label><span data-i18n="pr.rr.to">Đến ngày</span><input id="prRrTo" type="date"></label>
+  </div>
+  <div class="stats">
+    <div class="stat"><b id="prRrCount">0</b><span data-i18n="pr.rr.count">Số lần sửa</span></div>
+    <div class="stat"><b id="prRrPrinters">0</b><span data-i18n="pr.rr.printers">Số máy</span></div>
+    <div class="stat"><b id="prRrFail">0</b><span data-i18n="pr.rr.fail">Chưa thành công</span></div>
+    <div class="stat"><b id="prRrCost">0</b><span data-i18n="pr.rr.cost">Tổng chi phí</span></div>
+  </div>
+  <div class="card"><h3 data-i18n="pr.rr.byVendor">Theo NCC</h3><div id="prRrSummary"></div></div>
+  <div class="quick"><button type="button" id="prRrExport" class="secondary" data-i18n="pr.rr.export">📊 Xuất Excel báo cáo</button></div>
+  <div id="prRrList"></div>
 </section>
 
 <section id="printerList" class="page">
@@ -703,7 +731,11 @@
       <div id="prRepairAdd" class="admin-only">
         <label><span data-i18n="pr.rp.date">Ngày</span><input id="prRepairDate" type="date"></label>
         <label><span data-i18n="pr.rp.kind">Loại</span><select id="prRepairKind"></select></label>
-        <label><span data-i18n="pr.rp.desc">Nội dung / nguyên nhân*</span><textarea id="prRepairDesc" rows="2"></textarea></label>
+        <label><span data-i18n="pr.rp.issue">Tình trạng</span><textarea id="prRepairIssue" rows="2"></textarea></label>
+        <label><span data-i18n="pr.rp.desc">Xử lý / nội dung*</span><textarea id="prRepairDesc" rows="2"></textarea></label>
+        <label><span data-i18n="pr.rp.resultSt">Kết quả</span><select id="prRepairResultSt"></select></label>
+        <label><span data-i18n="pr.rp.result">Ghi chú kết quả</span><input id="prRepairResult"></label>
+        <label><span data-i18n="pr.rp.next">Đề xuất tiếp theo</span><input id="prRepairNext"></label>
         <label><span data-i18n="pr.rp.cost">Chi phí (VNĐ)</span><input id="prRepairCost" type="number" min="0" step="1000"></label>
         <label><span data-i18n="pr.rp.vendor">NCC thực hiện</span><select id="prRepairVendor"></select></label>
         <label class="checkbox-label"><input id="prRepairMakeInvoice" type="checkbox"> <span data-i18n="pr.rp.makeInvoice">Ghi nhận công nợ với NCC này</span></label>
@@ -1019,6 +1051,7 @@
 <script src="i18n.js"></script>
 <script src="printers-i18n.js"></script>
 <script src="app.js"></script>
+<script src="printers-seed.js"></script>
 <script src="printers.js"></script>
 </body>
 </html>

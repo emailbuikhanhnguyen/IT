@@ -287,3 +287,8 @@ trang, để dễ gửi Zalo/in/lưu thay vì gửi nguyên file Word.
 7. Bổ sung IP/MAC/Serial nếu còn thiếu.
 8. Chọn `Đã kiểm - OK`, `Sai thông tin`, `Không tìm thấy` hoặc `Thiết bị mới`.
 9. Export Excel cuối đợt.
+
+### Máy in — Báo cáo sửa chữa & nạp dữ liệu DNP
+- **Máy in → Báo cáo sửa chữa**: lọc theo NCC / máy / loại / kết quả / khoảng ngày, thống kê theo NCC, xuất Excel (2 sheet: chi tiết + tổng hợp NCC).
+- Mỗi lần sửa chữa có thêm: Tình trạng, Xử lý, Kết quả (🟩 Thành công / 🟨 Đang theo dõi / 🟥 Chưa thành công), Đề xuất tiếp theo.
+- Nút **Nạp dữ liệu máy in DNP** (admin) ở trang Máy in: tạo NCC DNP, 6 máy in và 16 lần sửa từ file theo dõi 18/09/2026 (dữ liệu trong `printers-seed.js`); bấm lại không bị trùng.
