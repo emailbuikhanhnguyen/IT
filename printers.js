@@ -197,7 +197,7 @@
     const q = ($("prSearch").value || "").trim().toLowerCase();
     const ownF = $("prFilterOwn").value, stF = $("prFilterStatus").value, vF = $("prFilterVendor").value;
     let list = printerRecords.slice().sort((a, b) => (a.code || "").localeCompare(b.code || "", undefined, { numeric: true }));
-    if (q) list = list.filter(p => [p.code, p.brand, p.model, p.serial, p.section, p.location, p.ip, vendorNameOf(p), p.contractNo].some(v => (v || "").toLowerCase().includes(q)));
+    if (q) list = list.filter(p => [p.code, p.brand, p.model, p.serial, p.section, p.group, p.location, p.ip, vendorNameOf(p), p.contractNo].some(v => (v || "").toLowerCase().includes(q)));
     if (ownF) list = list.filter(p => p.ownership === ownF);
     if (stF) list = list.filter(p => p.status === stF);
     if (vF) list = list.filter(p => p.vendorId === vF);
@@ -212,7 +212,7 @@
         <div>
           <h3>${esc(p.code)}${p.brand || p.model ? " — " + esc((p.brand || "") + " " + (p.model || "")) : ""}</h3>
           <div class="muted">${esc(enumLabel("pt", p.type))}${p.serial ? " · S/N " + esc(p.serial) : ""}</div>
-          <div class="muted">${p.section ? "🏢 " + esc(p.section) : ""}${p.location ? " · 📍 " + esc(p.location) : ""}${p.ip ? " · 🌐 " + esc(p.ip) : ""}</div>
+          <div class="muted">${p.section ? "🏢 " + esc(p.section) : ""}${p.group ? " · " + esc(p.group) : ""}${p.location ? " · 📍 " + esc(p.location) : ""}${p.ip ? " · 🌐 " + esc(p.ip) : ""}</div>
           ${vendorNameOf(p) ? `<div class="muted">🤝 ${esc(vendorNameOf(p))}</div>` : ""}
           ${rent ? `<div class="muted">📄 ${p.monthlyFee ? esc(tr("pr.card.rentFee", { fee: money(p.monthlyFee) })) : ""}${p.rentEnd ? " · " + esc(tr("pr.card.until", { date: fmtDate(p.rentEnd) })) : ""}${p.contractNo ? " · " + esc(p.contractNo) : ""}</div>` : ""}
           ${repairs ? `<div class="muted">🔧 ${esc(tr("pr.card.repairCount", { count: repairs }))} · ${esc(tr("pr.card.repairCost", { amount: money(printerRepairTotal(p)) }))}</div>` : ""}
@@ -232,7 +232,7 @@
   let currentRepairs = [];
   const PRINTER_FIELD_LABELS = () => [
     ["ownership", tr("pr.f.ownership")], ["brand", tr("pr.f.brand")], ["model", tr("pr.f.model")], ["serial", tr("pr.f.serial")],
-    ["type", tr("pr.f.type")], ["status", tr("pr.f.status")], ["section", tr("pr.f.section")], ["location", tr("pr.f.location")],
+    ["type", tr("pr.f.type")], ["status", tr("pr.f.status")], ["section", tr("pr.f.section")], ["group", tr("pr.f.group")], ["location", tr("pr.f.location")],
     ["ip", tr("pr.f.ip")], ["assetCode", tr("pr.f.asset")], ["vendorName", tr("pr.f.vendor")],
     ["purchaseDate", tr("pr.f.purchaseDate")], ["purchasePrice", tr("pr.f.purchasePrice")], ["warrantyEnd", tr("pr.f.warrantyEnd")],
     ["contractNo", tr("pr.f.contractNo")], ["rentStart", tr("pr.f.rentStart")], ["rentEnd", tr("pr.f.rentEnd")],
@@ -351,7 +351,7 @@
     renderRelatedTickets(null);
     $("prHistoryBox").classList.add("hidden");
     $("prHistoryList").innerHTML = "";
-    ["prSectionSuggest", "prAssetSuggest"].forEach(id => { $(id).classList.add("hidden"); $(id).innerHTML = ""; });
+    ["prSectionSuggest", "prGroupSuggest", "prAssetSuggest"].forEach(id => { $(id).classList.add("hidden"); $(id).innerHTML = ""; });
     applyOwnershipVisibility();
     setFormLocked("prFormEl", "prLockedNotice", false);
     stopPrinterScanner(); $("prScanResult").classList.add("hidden"); $("prScanResult").innerHTML = "";
@@ -367,7 +367,7 @@
     $("prOwnership").value = p.ownership || E.own[0];
     $("prBrand").value = p.brand || ""; $("prModel").value = p.model || ""; $("prSerial").value = p.serial || "";
     $("prType").value = p.type || E.pt[0]; $("prStatus").value = p.status || E.st[0];
-    $("prSection").value = p.section || ""; $("prLocation").value = p.location || ""; $("prIp").value = p.ip || "";
+    $("prSection").value = p.section || ""; $("prGroup").value = p.group || ""; $("prLocation").value = p.location || ""; $("prIp").value = p.ip || "";
     $("prAssetId").value = p.assetId || ""; $("prAssetCode").value = p.assetCode || "";
     $("prVendor").value = p.vendorId || "";
     $("prPurchaseDate").value = p.purchaseDate || ""; $("prPurchasePrice").value = p.purchasePrice || "";
@@ -413,10 +413,19 @@
       if (!$("prSerial").value.trim()) $("prSerial").value = a.serial || "";
       if (!$("prIp").value.trim()) $("prIp").value = a.ip || "";
       if (!$("prSection").value.trim()) $("prSection").value = a.section || "";
+      if (!$("prGroup").value.trim()) $("prGroup").value = a.group || "";
     });
   setupAutocomplete("prSection", "prSectionSuggest",
     q => filterList(Array.from(new Set((window.EMPLOYEES || []).map(e => e.section).filter(Boolean))), q, 100).map(v => ({ value: v })),
     it => esc(it.value), it => { $("prSection").value = it.value; });
+  // Tổ/Chuyền: gợi ý theo Bộ phận đang chọn (nếu có), lấy từ danh sách nhân viên + tài sản
+  setupAutocomplete("prGroup", "prGroupSuggest",
+    q => {
+      const sec = $("prSection").value.trim().toLowerCase();
+      const src = (window.EMPLOYEES || []).concat(assets || []).filter(e => e.group && (!sec || (e.section || "").trim().toLowerCase() === sec));
+      return filterList(Array.from(new Set(src.map(e => String(e.group).trim()))).sort(), q, 100).map(v => ({ value: v }));
+    },
+    it => esc(it.value), it => { $("prGroup").value = it.value; });
 
   $("prAddVendorLink").addEventListener("click", e => { e.preventDefault(); clearVendorForm(); goPage("vendorForm"); });
 
@@ -437,7 +446,7 @@
       code, ownership: $("prOwnership").value,
       brand: $("prBrand").value.trim(), model: $("prModel").value.trim(), serial: $("prSerial").value.trim(),
       type: $("prType").value, status: $("prStatus").value,
-      section: $("prSection").value.trim(), location: $("prLocation").value.trim(), ip: $("prIp").value.trim(),
+      section: $("prSection").value.trim(), group: $("prGroup").value.trim(), location: $("prLocation").value.trim(), ip: $("prIp").value.trim(),
       assetId: asset ? asset._id : "", assetCode: asset ? asset.code : $("prAssetCode").value.trim(),
       vendorId, vendorName: vendorId ? (vendorById(vendorId) || {}).name || "" : "",
       purchaseDate: rent ? "" : $("prPurchaseDate").value, purchasePrice: rent ? 0 : num($("prPurchasePrice").value),
@@ -791,7 +800,7 @@
     const printers = printerRecords.slice().sort((a, b) => (a.code || "").localeCompare(b.code || "", undefined, { numeric: true })).map(p => ({
       [lbl("pr.f.code")]: p.code, [lbl("pr.f.ownership")]: enumLabel("own", p.ownership), [lbl("pr.f.brand")]: p.brand || "", [lbl("pr.f.model")]: p.model || "",
       [lbl("pr.f.serial")]: p.serial || "", [lbl("pr.f.type")]: enumLabel("pt", p.type), [lbl("pr.f.status")]: enumLabel("st", p.status),
-      [lbl("pr.f.section")]: p.section || "", [lbl("pr.f.location")]: p.location || "", [lbl("pr.f.ip")]: p.ip || "",
+      [lbl("pr.f.section")]: p.section || "", [lbl("pr.f.group")]: p.group || "", [lbl("pr.f.location")]: p.location || "", [lbl("pr.f.ip")]: p.ip || "",
       [lbl("pr.f.vendor")]: vendorNameOf(p), [lbl("pr.f.contractNo")]: p.contractNo || "", [lbl("pr.f.rentStart")]: fmtDate(p.rentStart),
       [lbl("pr.f.rentEnd")]: fmtDate(p.rentEnd), [lbl("pr.f.monthlyFee")]: p.monthlyFee || 0, [lbl("pr.f.includedPages")]: p.includedPages || 0,
       [lbl("pr.f.extraPageFee")]: p.extraPageFee || 0, [lbl("pr.f.purchaseDate")]: fmtDate(p.purchaseDate), [lbl("pr.f.purchasePrice")]: p.purchasePrice || 0,
@@ -1005,6 +1014,7 @@
     if (!$("prSerial").value.trim()) $("prSerial").value = a.serial || "";
     if (!$("prIp").value.trim()) $("prIp").value = a.ip || "";
     if (!$("prSection").value.trim()) $("prSection").value = a.section || "";
+    if (!$("prGroup").value.trim()) $("prGroup").value = a.group || "";
   }
   window.prScanLinkAsset = function (id) {
     const a = assets.find(x => x._id === id);
