@@ -2,8 +2,16 @@
 window.PR_SEED_DNP = {
  "vendor": {
   "name": "DNP",
-  "role": "Cho thuê", "roles": ["Cho thuê", "Sửa chữa/bảo trì"],
-  "note": "Đối tác cho thuê & sửa chữa máy in (theo file theo dõi sửa máy in 18/09/2026)"
+  "role": "Cho thuê",
+  "roles": [
+   "Cho thuê",
+   "Sửa chữa/bảo trì"
+  ],
+  "note": "Đối tác cho thuê & sửa chữa máy in (theo file theo dõi sửa máy in 18/09/2026)",
+  "taxCode": "1301009248",
+  "receiverName": "CÔNG TY TNHH MỘT THÀNH VIÊN VI TÍNH - ĐIỆN TỬ D N P",
+  "bankAccount": "114000189658",
+  "bankName": "Ngân Hàng TMCP Công Thương Việt Nam - CN Bến Tre"
  },
  "printers": [
   {
@@ -58,7 +66,21 @@ window.PR_SEED_DNP = {
    "serial": "",
    "type": "Photocopy",
    "section": "HR",
-   "location": "HR"
+   "location": "HR",
+   "upgrade": {
+    "from": {
+     "model": "Photo HR",
+     "brand": ""
+    },
+    "set": {
+     "brand": "Toshiba",
+     "model": "4508A",
+     "monthlyFee": 925926,
+     "vatRate": 8,
+     "includedPages": 7000,
+     "extraPageFee": 92.59
+    }
+   }
   }
  ],
  "repairs": [
@@ -254,5 +276,6 @@ window.PR_SEED_DNP = {
    "resultStatus": "",
    "cost": 0
   }
- ]
+ ],
+ "rev": 2
 };

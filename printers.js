@@ -24,7 +24,7 @@
   const PRINTER_COLLECTION = "printers";
   const VENDOR_COLLECTION = "printer_vendors";
   const INVOICE_COLLECTION = "printer_invoices";
-  const PRINTER_PAGES = ["printers", "printerList", "printerForm", "printerVendors", "vendorForm", "printerDebts", "invoiceForm", "printerReport"];
+  const PRINTER_PAGES = ["printers", "printerList", "printerForm", "printerVendors", "vendorForm", "printerDebts", "invoiceForm", "printerReport", "printerPayReq"];
   const EXPIRING_DAYS = 60; // cảnh báo hợp đồng thuê còn <= N ngày
   const E = window.PR_ENUMS;
 
@@ -121,6 +121,7 @@
     renderVendorList();
     renderDebtPage();
     renderRepairReport();
+    if (window.renderPayReq) window.renderPayReq();
   }
   window.renderPrinterAll = renderPrinterAll;
 
@@ -247,7 +248,7 @@
     ["ip", tr("pr.f.ip")], ["assetCode", tr("pr.f.asset")], ["vendorName", tr("pr.f.vendor")],
     ["purchaseDate", tr("pr.f.purchaseDate")], ["purchasePrice", tr("pr.f.purchasePrice")], ["warrantyEnd", tr("pr.f.warrantyEnd")],
     ["contractNo", tr("pr.f.contractNo")], ["rentStart", tr("pr.f.rentStart")], ["rentEnd", tr("pr.f.rentEnd")],
-    ["monthlyFee", tr("pr.f.monthlyFee")], ["includedPages", tr("pr.f.includedPages")], ["extraPageFee", tr("pr.f.extraPageFee")],
+    ["monthlyFee", tr("pr.f.monthlyFee")], ["vatRate", tr("pr.f.vatRate")], ["includedPages", tr("pr.f.includedPages")], ["extraPageFee", tr("pr.f.extraPageFee")],
     ["note", tr("pr.f.note")]
   ].map(([k, l]) => [k, l.replace("*", "").replace(/（可选）| \(optional\)| \(không bắt buộc\)/, "")]);
 
@@ -390,7 +391,7 @@
     $("prPurchaseDate").value = p.purchaseDate || ""; $("prPurchasePrice").value = p.purchasePrice || "";
     $("prWarrantyEnd").value = p.warrantyEnd || "";
     $("prContractNo").value = p.contractNo || ""; $("prRentStart").value = p.rentStart || ""; $("prRentEnd").value = p.rentEnd || "";
-    $("prMonthlyFee").value = p.monthlyFee || ""; $("prIncludedPages").value = p.includedPages || ""; $("prExtraPageFee").value = p.extraPageFee || "";
+    $("prMonthlyFee").value = p.monthlyFee || ""; $("prVatRate").value = p.vatRate != null ? p.vatRate : ""; $("prIncludedPages").value = p.includedPages || ""; $("prExtraPageFee").value = p.extraPageFee || "";
     $("prNote").value = p.note || "";
     currentRepairs = Array.isArray(p.repairs) ? p.repairs.map(r => Object.assign({}, r)) : [];
     renderRepairList();
@@ -469,7 +470,7 @@
       purchaseDate: rent ? "" : $("prPurchaseDate").value, purchasePrice: rent ? 0 : num($("prPurchasePrice").value),
       warrantyEnd: rent ? "" : $("prWarrantyEnd").value,
       contractNo: rent ? $("prContractNo").value.trim() : "", rentStart: rent ? $("prRentStart").value : "", rentEnd: rent ? $("prRentEnd").value : "",
-      monthlyFee: rent ? num($("prMonthlyFee").value) : 0, includedPages: rent ? num($("prIncludedPages").value) : 0,
+      monthlyFee: rent ? num($("prMonthlyFee").value) : 0, vatRate: rent ? num($("prVatRate").value) : 0, includedPages: rent ? num($("prIncludedPages").value) : 0,
       extraPageFee: rent ? num($("prExtraPageFee").value) : 0,
       note: $("prNote").value.trim(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -583,7 +584,7 @@
     $("prVendorDocId").value = v._id;
     $("prVendorName").value = v.name || ""; renderVendorRoleBoxes(vendorRoles(v));
     $("prVendorContact").value = v.contact || ""; $("prVendorPhone").value = v.phone || ""; $("prVendorEmail").value = v.email || "";
-    $("prVendorAddress").value = v.address || ""; $("prVendorTax").value = v.taxCode || "";
+    $("prVendorAddress").value = v.address || ""; $("prVendorTax").value = v.taxCode || ""; $("prVendorReceiver").value = v.receiverName || ""; $("prVendorBankAcc").value = v.bankAccount || ""; $("prVendorBankName").value = v.bankName || ""; $("prVendorBankAddr").value = v.bankAddress || "";
     $("prVendorTerms").value = v.paymentTerms != null ? v.paymentTerms : 30;
     $("prVendorNote").value = v.note || "";
     $("prVendorFormTitle").textContent = tr("pr.v.editTitle", { name: v.name || "" });
@@ -613,6 +614,7 @@
     const data = {
       name, roles, role: roles[0], contact: $("prVendorContact").value.trim(), phone: $("prVendorPhone").value.trim(),
       email: $("prVendorEmail").value.trim(), address: $("prVendorAddress").value.trim(), taxCode: $("prVendorTax").value.trim(),
+      receiverName: $("prVendorReceiver").value.trim(), bankAccount: $("prVendorBankAcc").value.trim(), bankName: $("prVendorBankName").value.trim(), bankAddress: $("prVendorBankAddr").value.trim(),
       paymentTerms: isFinite(terms) && terms >= 0 ? terms : 30, note: $("prVendorNote").value.trim(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
@@ -666,10 +668,12 @@
           ${i.note ? `<div class="muted">${esc(i.note)}</div>` : ""}
           <span class="badge ${st === E.is[2] ? "ok" : st === E.is[1] ? "info" : "warn"}">${esc(enumLabel("is", st))}</span>
           ${invRemaining(i) > 0 ? `<span class="badge warn">${esc(tr("pr.d.remaining", { amount: money(invRemaining(i)) }))}</span>` : ""}
+          ${i.payReqDate ? `<span class="badge info">📝 ${esc(tr("pr.pq.requested", { date: fmtDate(i.payReqDate) }))}</span>` : ""}
           ${od ? `<span class="badge bad">⚠ ${esc(tr("pr.d.overdueBy", { days: daysDiff(i.dueDate, todayStr()) }))}</span>` : ""}
         </div>
         <div class="asset-actions">
           <button onclick="prOpenInvoice('${i._id}')">${isAdmin ? "💰 " + tr("action.edit") : "👁 " + tr("action.view")}</button>
+          ${isAdmin ? `<button class="secondary" onclick="prPayReqFromInvoice('${i._id}')">📝 ${tr("pr.pq.btn")}</button>` : ""}
           ${isAdmin ? `<button class="secondary" onclick="prDeleteInvoice('${i._id}')">🗑 ${tr("action.delete")}</button>` : ""}
         </div>
       </div>`;
@@ -802,7 +806,9 @@
           vendorId: p.vendorId, vendorName: v ? v.name : (p.vendorName || ""), printerId: p._id, printerCode: p.code,
           kind: E.ik[0], invoiceNo: "", invoiceDate: today, period,
           dueDate: addDays(today, v && v.paymentTerms != null ? Number(v.paymentTerms) : 30),
-          amount: Number(p.monthlyFee) || 0, note: tr("pr.i.rentNote", { code: p.code, period }), payments: [], source: "rent",
+          amount: Math.round((Number(p.monthlyFee) || 0) * (1 + (Number(p.vatRate) || 0) / 100)), amountExVat: Number(p.monthlyFee) || 0, vatRate: Number(p.vatRate) || 0,
+          vatAmount: Math.round((Number(p.monthlyFee) || 0) * (Number(p.vatRate) || 0) / 100),
+          note: tr("pr.i.rentNote", { code: p.code, period }), payments: [], source: "rent",
           createdBy: currentEmail || "?", createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -964,7 +970,9 @@
   $("prSeedBtn").addEventListener("click", () => {
     if (!isAdmin) { alert(tr("pr.msg.noPerm")); return; }
     const pl = planSeed();
-    if (!pl.newPrinters.length && !pl.newRepairs.length && pl.vendor) { alert(tr("pr.seed.nothing")); return; }
+    const nUp = pl.S.printers.filter(sp => sp.upgrade && pl.byKey[sp.seedKey] && pl.byKey[sp.seedKey].existing && (pl.byKey[sp.seedKey].existing.seedRev || 1) < pl.S.rev).length;
+    const vNeeds = pl.vendor && (["taxCode", "receiverName", "bankAccount", "bankName"].some(f => !pl.vendor[f] && pl.S.vendor[f]) || vendorRoles(pl.vendor).indexOf(E.vr[1]) === -1);
+    if (!pl.newPrinters.length && !pl.newRepairs.length && !nUp && pl.vendor && !vNeeds) { alert(tr("pr.seed.nothing")); return; }
     if (!confirm(tr("pr.seed.confirm", { np: pl.newPrinters.length, nr: pl.newRepairs.length, nv: pl.vendor ? "" : tr("pr.seed.newVendor") }))) return;
     const ts = firebase.firestore.FieldValue.serverTimestamp;
     const batch = db.batch();
@@ -977,21 +985,37 @@
     if (pl.vendor) { // NCC DNP đã có: bổ sung vai trò còn thiếu (cho thuê + sửa chữa)
       const roles = vendorRoles(pl.vendor).slice();
       [E.vr[0], E.vr[1]].forEach(r => { if (roles.indexOf(r) === -1) roles.push(r); });
-      if (roles.length !== vendorRoles(pl.vendor).length) batch.set(db.collection(VENDOR_COLLECTION).doc(vid), { roles, role: roles[0], updatedAt: ts() }, { merge: true });
+      const vp = {};
+      if (roles.length !== vendorRoles(pl.vendor).length) { vp.roles = roles; vp.role = roles[0]; }
+      ["taxCode", "receiverName", "bankAccount", "bankName"].forEach(f => { if (!pl.vendor[f] && pl.S.vendor[f]) vp[f] = pl.S.vendor[f]; });
+      if (Object.keys(vp).length) batch.set(db.collection(VENDOR_COLLECTION).doc(vid), Object.assign(vp, { updatedAt: ts() }), { merge: true });
     }
     const mkRepair = r => ({ id: r.id, at: Date.parse(r.date + "T00:00:00") || Date.now(), by: currentEmail || "import", date: r.date, kind: r.kind, description: r.description,
       issue: r.issue, resultStatus: r.resultStatus, result: r.result, next: r.next, cost: 0, vendorId: vid, vendorName: vname });
     const repsBy = {};
     pl.newRepairs.forEach(r => { (repsBy[r.printerKey] = repsBy[r.printerKey] || []).push(mkRepair(r)); });
+    // Máy đã nạp từ bản trước: cập nhật thông tin mới (chỉ khi ô còn giá trị mặc định cũ / còn trống)
+    Object.keys(pl.byKey).forEach(k => {
+      const t = pl.byKey[k]; if (!t.existing) return;
+      const sp = pl.S.printers.find(x => x.seedKey === k), old = t.existing, up = sp && sp.upgrade;
+      if (!up || (old.seedRev || 1) >= pl.S.rev) return;
+      const patch = { seedRev: pl.S.rev, updatedAt: ts() };
+      Object.keys(up.set).forEach(f => {
+        const cur = old[f], oldDefault = up.from && up.from[f];
+        if (cur === undefined || cur === "" || cur === 0 || cur === null || cur === oldDefault) patch[f] = up.set[f];
+      });
+      batch.set(db.collection(PRINTER_COLLECTION).doc(old._id), patch, { merge: true });
+    });
     pl.newPrinters.forEach(t => {
       const sp = t.sp, id = sanitizeId(t.code);
-      batch.set(db.collection(PRINTER_COLLECTION).doc(id), {
+      batch.set(db.collection(PRINTER_COLLECTION).doc(id), Object.assign({
         code: t.code, seedKey: sp.seedKey, ownership: E.own[0], brand: sp.brand, model: sp.model, serial: sp.serial, type: sp.type, status: E.st[0],
         section: sp.section, group: "", location: sp.location, ip: "", assetId: "", assetCode: "", vendorId: vid, vendorName: vname,
         purchaseDate: "", purchasePrice: 0, warrantyEnd: "", contractNo: "", rentStart: "", rentEnd: "", monthlyFee: 0, includedPages: 0, extraPageFee: 0,
+        seedRev: pl.S.rev, vatRate: 0,
         note: "Nhập từ file theo dõi sửa máy in DNP 18/09/2026 — cần bổ sung hợp đồng/giá thuê.",
         repairs: repsBy[sp.seedKey] || [], history: [historyEntry("create", [])], createdAt: ts(), updatedAt: ts()
-      });
+      }, sp.upgrade ? sp.upgrade.set : {}));
     });
     Object.keys(repsBy).forEach(k => {
       const t = pl.byKey[k]; if (!t.existing) return;
@@ -1000,6 +1024,12 @@
     batch.commit().then(() => alert(tr("pr.seed.done", { np: pl.newPrinters.length, nr: pl.newRepairs.length })))
       .catch(err => alert(tr("pr.msg.errSave", { err: err.message }) + "\n\n" + tr("msg.errSyncServerHint")));
   });
+
+  window.PrCore = {
+    get printers() { return printerRecords; }, get vendors() { return vendorRecords; }, get invoices() { return invoiceRecords; },
+    E, esc, money, fmtDate, todayStr, addDays, enumLabel, vendorNameOf, vendorById, printerById, canSee, vendorRoles,
+    VENDOR_COLLECTION, INVOICE_COLLECTION, PRINTER_COLLECTION
+  };
 
   /* ---------- Quét QR / barcode trên máy in để điền form ----------
      Dùng html5-qrcode (đã nạp sẵn cho trang Quét QR của app) với instance

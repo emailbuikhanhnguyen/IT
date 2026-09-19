@@ -613,6 +613,10 @@
       <span class="module-nav-icon">📈</span>
       <span class="module-nav-text"><b data-i18n="pr.nav.report">Báo cáo sửa chữa</b><small data-i18n="pr.nav.report.desc">Lọc theo NCC, máy, thời gian</small></span>
     </button>
+    <button class="module-nav-item" data-page="printerPayReq">
+      <span class="module-nav-icon">📝</span>
+      <span class="module-nav-text"><b data-i18n="pr.nav.payreq">Đề nghị thanh toán</b><small data-i18n="pr.nav.payreq.desc">Tải hóa đơn PDF → xuất Excel trình ký</small></span>
+    </button>
     <button class="module-nav-item" data-page="printerDebts">
       <span class="module-nav-icon">💳</span>
       <span class="module-nav-text"><b data-i18n="pr.nav.debts">Công nợ &amp; thanh toán</b><small data-i18n="pr.nav.debts.desc">Hóa đơn phải trả, đã thanh toán, quá hạn</small></span>
@@ -621,6 +625,54 @@
   <div class="quick" style="margin-top:12px">
     <button type="button" id="prSeedBtn" class="secondary admin-only" data-i18n="pr.seed.btn">⬇ Nạp dữ liệu máy in DNP (từ file)</button>
     <button type="button" id="prExportBtn" class="secondary" data-i18n="pr.export">📊 Xuất Excel máy in &amp; công nợ</button>
+  </div>
+</section>
+
+<section id="printerPayReq" class="page">
+  <div class="section-head"><h2 data-i18n="pr.pq.title">📝 Đề nghị thanh toán</h2><button data-page="printers">←</button></div>
+  <p class="hint" data-i18n="pr.pq.hint">Tải hóa đơn điện tử PDF của NCC: app tự đọc số hóa đơn, ngày, nội dung, tiền/VAT, thông tin ngân hàng, kiểm tra rồi xuất file Excel “Giấy đề nghị thanh toán” theo mẫu để in trình ký.</p>
+  <div class="card admin-only">
+    <label><span data-i18n="pr.pq.pickPdf">Chọn hóa đơn PDF</span><input id="prPqFile" type="file" accept="application/pdf,.pdf"></label>
+    <div class="quick"><button type="button" id="prPqManualBtn" class="secondary" data-i18n="pr.pq.manualBtn">✍ Nhập tay (không có PDF)</button></div>
+    <div id="prPqStatus" class="muted"></div>
+  </div>
+  <div id="prPqForm" class="hidden admin-only">
+    <div id="prPqWarn" class="hidden"></div>
+    <div class="card">
+      <h3 data-i18n="pr.pq.invoice">🧾 Hóa đơn</h3>
+      <div class="muted" id="prPqSellerInfo"></div>
+      <label><span data-i18n="pr.i.vendor">NCC*</span><select id="prPqVendor"></select></label>
+      <label><span data-i18n="pr.pq.serial">Ký hiệu</span><input id="prPqSerial"></label>
+      <label><span data-i18n="pr.i.no">Số hóa đơn</span><input id="prPqNo"></label>
+      <label><span data-i18n="pr.i.date">Ngày hóa đơn</span><input id="prPqDate" type="date"></label>
+      <label><span data-i18n="pr.pq.desc">Nội dung hàng hóa/dịch vụ</span><textarea id="prPqDesc" rows="2"></textarea></label>
+      <div class="muted"><span data-i18n="pr.i.kind">Loại</span>: <b id="prPqKindTag"></b></div>
+      <label><span data-i18n="pr.pq.ex">Tiền trước thuế (VNĐ)</span><input id="prPqEx" type="number" min="0" step="1"></label>
+      <label><span data-i18n="pr.pq.vatRate">Thuế suất VAT (%)</span><input id="prPqVatRate" type="number" min="0" step="0.5"></label>
+      <label><span data-i18n="pr.pq.vat">Tiền thuế GTGT (VNĐ)</span><input id="prPqVat" type="number" min="0" step="1"></label>
+      <label><span data-i18n="pr.pq.total">Tổng tiền thanh toán (VNĐ)</span><input id="prPqTotal" type="number" min="0" step="1"></label>
+      <label><span data-i18n="pr.pq.printer">Máy in liên quan</span><select id="prPqPrinter"></select></label>
+    </div>
+    <div class="card">
+      <h3 data-i18n="pr.pq.request">📝 Giấy đề nghị</h3>
+      <label><span data-i18n="pr.pq.method">Hình thức thanh toán</span><select id="prPqMethod"></select></label>
+      <div class="filter-dates">
+        <label class="filter-date"><span data-i18n="pr.pq.from">Từ ngày</span><input id="prPqFrom" type="date"></label>
+        <label class="filter-date"><span data-i18n="pr.pq.due">Hạn chót</span><input id="prPqDue" type="date"></label>
+      </div>
+      <label><span data-i18n="pr.pq.reason">Lý do (Content)</span><textarea id="prPqReason" rows="2"></textarea></label>
+      <label><span data-i18n="pr.pq.code">Mã số (Code)</span><input id="prPqCode"></label>
+      <label><span data-i18n="pr.pq.requester">Người đề nghị</span><input id="prPqRequester"></label>
+      <label><span data-i18n="pr.pq.dept">Phòng ban</span><input id="prPqDept"></label>
+      <label><span data-i18n="pr.pq.head">Trưởng bộ phận</span><input id="prPqHead"></label>
+      <label><span data-i18n="pr.pq.finance">Quản lý tài chính</span><input id="prPqFinance"></label>
+      <p class="hint" data-i18n="pr.pq.settingsHint">Thông tin người ký được nhớ trên máy này cho lần sau.</p>
+    </div>
+    <div class="quick">
+      <button type="button" id="prPqXlsxBtn" data-i18n="pr.pq.xlsx">📄 Lưu công nợ &amp; tạo file Excel đề nghị thanh toán</button>
+      <button type="button" id="prPqSaveBtn" class="secondary" data-i18n="pr.pq.save">💾 Chỉ lưu vào công nợ</button>
+      <button type="button" id="prPqResetBtn" class="secondary" data-i18n="pr.pq.reset">↺ Làm lại</button>
+    </div>
   </div>
 </section>
 
@@ -719,6 +771,7 @@
         <label class="filter-date"><span data-i18n="pr.f.rentEnd">Ngày hết hạn hợp đồng</span><input id="prRentEnd" type="date"></label>
       </div>
       <label style="margin-top:11px"><span data-i18n="pr.f.monthlyFee">Tiền thuê / tháng (VNĐ)</span><input id="prMonthlyFee" type="number" min="0" step="1000"></label>
+      <label><span data-i18n="pr.f.vatRate">VAT (%) — tiền thuê ở trên là giá chưa VAT</span><input id="prVatRate" type="number" min="0" max="100" step="0.5"></label>
       <label><span data-i18n="pr.f.includedPages">Số trang miễn phí / tháng</span><input id="prIncludedPages" type="number" min="0" step="1"></label>
       <label><span data-i18n="pr.f.extraPageFee">Đơn giá trang vượt (VNĐ/trang)</span><input id="prExtraPageFee" type="number" min="0" step="1"></label>
     </div>
@@ -778,6 +831,10 @@
     <label><span data-i18n="pr.v.email">Email</span><input id="prVendorEmail" type="email"></label>
     <label><span data-i18n="pr.v.address">Địa chỉ</span><input id="prVendorAddress"></label>
     <label><span data-i18n="pr.v.taxCode">Mã số thuế</span><input id="prVendorTax"></label>
+    <label><span data-i18n="pr.v.receiver">Tên đơn vị nhận tiền (theo hóa đơn/ngân hàng)</span><input id="prVendorReceiver"></label>
+    <label><span data-i18n="pr.v.bankAccount">Số tài khoản ngân hàng</span><input id="prVendorBankAcc" inputmode="numeric"></label>
+    <label><span data-i18n="pr.v.bankName">Ngân hàng</span><input id="prVendorBankName"></label>
+    <label><span data-i18n="pr.v.bankAddress">Địa chỉ ngân hàng (nếu có)</span><input id="prVendorBankAddr"></label>
     <label><span data-i18n="pr.v.terms">Thời hạn thanh toán (ngày)</span><input id="prVendorTerms" type="number" min="0" step="1" value="30">
       <span class="hint" data-i18n="pr.v.terms.hint">Dùng để tự tính Hạn thanh toán.</span></label>
     <label><span data-i18n="pr.f.note">Ghi chú</span><textarea id="prVendorNote" rows="2"></textarea></label>
@@ -796,6 +853,7 @@
     <h3 data-i18n="pr.d.byVendor">Công nợ theo NCC</h3>
     <div id="prDebtByVendor"></div>
   </div>
+  <div class="quick admin-only"><button type="button" class="secondary" data-page="printerPayReq" data-i18n="pr.pq.open">📝 Lập đề nghị thanh toán từ hóa đơn PDF</button></div>
   <div class="card admin-only">
     <p class="hint" data-i18n="pr.d.genRent.hint">Tự tạo hóa đơn tiền thuê.</p>
     <button type="button" id="prGenRentBtn" data-i18n="pr.d.genRent">⚙ Tạo tiền thuê tháng này</button>
@@ -1055,5 +1113,6 @@
 <script src="app.js"></script>
 <script src="printers-seed.js"></script>
 <script src="printers.js"></script>
+<script src="printers-payreq.js"></script>
 </body>
 </html>

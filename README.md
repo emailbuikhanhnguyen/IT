@@ -292,3 +292,10 @@ trang, để dễ gửi Zalo/in/lưu thay vì gửi nguyên file Word.
 - **Máy in → Báo cáo sửa chữa**: lọc theo NCC / máy / loại / kết quả / khoảng ngày, thống kê theo NCC, xuất Excel (2 sheet: chi tiết + tổng hợp NCC).
 - Mỗi lần sửa chữa có thêm: Tình trạng, Xử lý, Kết quả (🟩 Thành công / 🟨 Đang theo dõi / 🟥 Chưa thành công), Đề xuất tiếp theo.
 - Nút **Nạp dữ liệu máy in DNP** (admin) ở trang Máy in: tạo NCC DNP, 6 máy in và 16 lần sửa từ file theo dõi 18/09/2026 (dữ liệu trong `printers-seed.js`); bấm lại không bị trùng.
+
+### Máy in — Đề nghị thanh toán từ hóa đơn PDF
+- **Máy in → Đề nghị thanh toán** (hoặc nút 📝 trên từng hóa đơn ở trang Công nợ): tải hóa đơn điện tử PDF của NCC → app đọc số/ký hiệu/ngày, NCC (khớp theo MST/tên), nội dung, tiền trước thuế/VAT/tổng, STK ngân hàng → kiểm tra & chỉnh → **Lưu công nợ & tạo file Excel** “Giấy đề nghị thanh toán” theo mẫu `pay-template.xlsx` (logo, checkbox Tiền mặt/Chuyển khoản, khổ in giữ nguyên; số tiền bằng chữ VN/EN tự điền).
+- Hóa đơn trùng số của cùng NCC chỉ cập nhật, không tạo trùng. Thông tin ngân hàng/MST còn trống của NCC được bổ sung tự động từ hóa đơn.
+- Máy thuê có thêm **VAT (%)** (tiền thuê khai báo là giá chưa VAT); công nợ tiền thuê tính cả VAT. NCC có thêm số tài khoản/ngân hàng.
+- Người ký (người đề nghị, trưởng bộ phận, quản lý tài chính, mã số) được nhớ trên trình duyệt. Cần Internet lần đầu để tải pdf.js/JSZip.
+- Muốn đổi mẫu in: thay file `pay-template.xlsx` (giữ nguyên vị trí các ô: F1, C2–C8, C10–C13, D14, G14, A19–G19, G20, A28/B28/D28).
