@@ -80,7 +80,7 @@
     return parseInt(noDec.replace(/[.,]/g, ""), 10) || 0;
   };
   const digits = s => String(s || "").replace(/\D/g, "");
-  const UNIT_RE = /^(lần|lầ\s?n|cái|chiếc|bảng|tháng|máy|bộ|gói|hộp|cuộn|kg|m|dịch vụ|lượt|trang|tờ)$/i;
+  const UNIT_RE = /^(lần|lầ\s?n|cái|chiếc|bảng|bản|tháng|máy|bộ|gói|hộp|cuộn|cây|chai|thùng|ram|lít|kg|m|dịch vụ|lượt|trang|tờ|tấm|quyển|giờ|ngày|năm)$/i;
 
   function parseInvoiceText(raw) {
     const text = String(raw || "").normalize("NFC").replace(/[\u00a0\u200b]/g, " ");
