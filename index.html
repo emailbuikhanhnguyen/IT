@@ -759,7 +759,7 @@
 
 <section id="printerVendors" class="page">
   <div class="section-head"><h2 data-i18n="pr.v.title">🏢 Nhà cung cấp (NCC)</h2><button id="prVendorAddBtn" class="admin-only" data-page="vendorForm" data-i18n="pr.add">＋ Thêm</button></div>
-  <div class="filters"><input id="prVendorSearch" data-i18n-placeholder="pr.v.search" placeholder="Tìm tên NCC, người liên hệ, SĐT..."></div>
+  <div class="filters"><input id="prVendorSearch" data-i18n-placeholder="pr.v.search" placeholder="Tìm tên NCC, người liên hệ, SĐT..."><select id="prVendorRoleFilter"></select></div>
   <div id="prVendorListBox"></div>
   <button data-page="printers" class="secondary" style="margin-top:8px;width:100%">←</button>
 </section>
@@ -770,7 +770,9 @@
     <div id="prVendorLockedNotice" class="locked-notice hidden" data-i18n="pr.form.locked">🔒 Bạn chỉ có quyền xem.</div>
     <input type="hidden" id="prVendorDocId">
     <label><span data-i18n="pr.v.name">Tên NCC*</span><input id="prVendorName" required></label>
-    <label><span data-i18n="pr.v.role">Vai trò</span><select id="prVendorRole"></select></label>
+    <div class="pr-roles"><span data-i18n="pr.v.roles">Vai trò (chọn một hoặc nhiều)</span>
+      <div id="prVendorRoles"></div>
+      <span class="hint" data-i18n="pr.v.rolesHint">Một NCC có thể vừa cho thuê máy vừa sửa chữa cả máy công ty tự mua.</span></div>
     <label><span data-i18n="pr.v.contact">Người liên hệ</span><input id="prVendorContact"></label>
     <label><span data-i18n="pr.v.phone">Số điện thoại</span><input id="prVendorPhone" inputmode="tel"></label>
     <label><span data-i18n="pr.v.email">Email</span><input id="prVendorEmail" type="email"></label>

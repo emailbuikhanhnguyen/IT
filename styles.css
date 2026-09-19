@@ -191,3 +191,5 @@ html.dark .ticket-latest.ticket-latest-empty{background:#101827;border-color:#26
 html.dark .pr-summary{background:#132339;border-color:#1e3a5f;color:#93c5fd}
 html.dark .pr-alert.warn{background:#78350f;color:#fde68a}html.dark .pr-alert.bad{background:#7f1d1d;color:#fecaca}
 html.dark .pr-vrow{border-bottom-color:#263349}html.dark .pr-vrow:hover,html.dark .pr-vrow.active{background:#1e3a5f}
+.pr-roles{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.pr-roles>span:first-child{font-size:13px;opacity:.85}

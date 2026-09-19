@@ -124,13 +124,22 @@
   }
   window.renderPrinterAll = renderPrinterAll;
 
+  // Vai trò NCC: nhiều lựa chọn (roles[]); dữ liệu cũ chỉ có role đơn.
+  const vendorRoles = v => Array.isArray(v && v.roles) && v.roles.length ? v.roles : (v && v.role ? [v.role] : []);
+  const roleBadge = r => `<span class="badge ${r === E.vr[0] ? "ok" : r === E.vr[1] ? "warn" : ""}">${esc(enumLabel("vr", r))}</span>`;
+  function renderVendorRoleBoxes(checked) {
+    const box = $("prVendorRoles"); if (!box) return;
+    const cur = checked || Array.from(box.querySelectorAll("input:checked")).map(i => i.value);
+    box.innerHTML = E.vr.map((v, i) => `<label class="checkbox-label"><input type="checkbox" value="${esc(v)}"${cur.indexOf(v) !== -1 ? " checked" : ""}> <span>${esc(enumLabel("vr", v))}</span></label>`).join("");
+  }
   function populateStaticSelects() {
     setOptions($("prOwnership"), enumItems("own"));
     setOptions($("prType"), enumItems("pt"));
     setOptions($("prStatus"), enumItems("st"));
     setOptions($("prRepairKind"), enumItems("rk"));
     setOptions($("prRepairResultSt"), [{ value: "", label: tr("pr.rs.none") }].concat(enumItems("rs")));
-    setOptions($("prVendorRole"), enumItems("vr"));
+    renderVendorRoleBoxes();
+    setOptions($("prVendorRoleFilter"), [{ value: "", label: tr("pr.v.allRoles") }].concat(enumItems("vr")));
     setOptions($("prInvKind"), enumItems("ik"));
     setOptions($("prFilterOwn"), [{ value: "", label: tr("pr.filter.allOwn") }].concat(enumItems("own")));
     setOptions($("prFilterStatus"), [{ value: "", label: tr("pr.filter.allStatus") }].concat(enumItems("st")));
@@ -512,16 +521,21 @@
     if (!box) return;
     const q = ($("prVendorSearch").value || "").trim().toLowerCase();
     let list = vendorRecords.slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "vi"));
+    const rf = $("prVendorRoleFilter").value;
+    if (rf) list = list.filter(v => vendorRoles(v).indexOf(rf) !== -1);
     if (q) list = list.filter(v => [v.name, v.contact, v.phone, v.email, v.taxCode].some(x => (x || "").toLowerCase().includes(q)));
     if (!list.length) { box.innerHTML = `<div class="empty">${tr("pr.v.none")}</div>`; return; }
     box.innerHTML = list.map(v => {
       const debt = vendorDebt(v._id);
       const pc = printerRecords.filter(p => p.vendorId === v._id).length;
+      let rn = 0, ro = 0;
+      printerRecords.forEach(p => (p.repairs || []).forEach(r => { if (r.vendorId === v._id) { rn++; if (!ownIsRent(p.ownership)) ro++; } }));
       return `<div class="asset">
         <div>
           <h3>${esc(v.name)}</h3>
-          <div class="muted">${esc(enumLabel("vr", v.role))}${v.contact ? " · 👤 " + esc(v.contact) : ""}${v.phone ? " · 📞 " + esc(v.phone) : ""}</div>
-          <div class="muted">🖨 ${esc(tr("pr.v.printers", { count: pc }))}</div>
+          <div>${vendorRoles(v).map(roleBadge).join(" ")}</div>
+          <div class="muted">${v.contact ? "👤 " + esc(v.contact) : ""}${v.phone ? (v.contact ? " · " : "") + "📞 " + esc(v.phone) : ""}</div>
+          <div class="muted">🖨 ${esc(tr("pr.v.leased", { count: pc }))}${rn ? " · 🔧 " + esc(tr("pr.v.repairsLine", { n: rn, own: ro })) : ""}</div>
           <span class="badge ${debt > 0 ? "warn" : "ok"}">${esc(tr("pr.v.debt", { amount: money(debt) }))}</span>
         </div>
         <div class="asset-actions">
@@ -532,6 +546,7 @@
     }).join("");
   }
   $("prVendorSearch").addEventListener("input", renderVendorList);
+  $("prVendorRoleFilter").addEventListener("change", renderVendorList);
 
   function renderVendorRelated(v) {
     const box = $("prVendorRelated");
@@ -553,6 +568,7 @@
     $("prVendorDocId").value = "";
     populateStaticSelects();
     $("prVendorTerms").value = 30;
+    renderVendorRoleBoxes([]);
     $("prVendorFormTitle").textContent = tr("pr.v.createTitle");
     renderVendorRelated(null);
     setFormLocked("prVendorFormEl", "prVendorLockedNotice", false);
@@ -565,7 +581,7 @@
     if (!v) return;
     populateStaticSelects();
     $("prVendorDocId").value = v._id;
-    $("prVendorName").value = v.name || ""; $("prVendorRole").value = v.role || E.vr[0];
+    $("prVendorName").value = v.name || ""; renderVendorRoleBoxes(vendorRoles(v));
     $("prVendorContact").value = v.contact || ""; $("prVendorPhone").value = v.phone || ""; $("prVendorEmail").value = v.email || "";
     $("prVendorAddress").value = v.address || ""; $("prVendorTax").value = v.taxCode || "";
     $("prVendorTerms").value = v.paymentTerms != null ? v.paymentTerms : 30;
@@ -592,8 +608,10 @@
     if (!name) { alert(tr("pr.v.needName")); return; }
     const id = $("prVendorDocId").value || db.collection(VENDOR_COLLECTION).doc().id;
     const terms = parseInt($("prVendorTerms").value, 10);
+    const roles = Array.from($("prVendorRoles").querySelectorAll("input:checked")).map(i => i.value);
+    if (!roles.length) { alert(tr("pr.v.needRole")); return; }
     const data = {
-      name, role: $("prVendorRole").value, contact: $("prVendorContact").value.trim(), phone: $("prVendorPhone").value.trim(),
+      name, roles, role: roles[0], contact: $("prVendorContact").value.trim(), phone: $("prVendorPhone").value.trim(),
       email: $("prVendorEmail").value.trim(), address: $("prVendorAddress").value.trim(), taxCode: $("prVendorTax").value.trim(),
       paymentTerms: isFinite(terms) && terms >= 0 ? terms : 30, note: $("prVendorNote").value.trim(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -818,7 +836,7 @@
     XLSX.utils.book_append_sheet(wb, sheetFrom(printers, [12, 10, 12, 20, 18, 16, 14, 16, 22, 15, 22, 16, 13, 13, 14, 12, 14, 13, 14, 13, 10, 16, 30]), tr("pr.x.sheetPrinters"));
 
     const vendors = vendorRecords.slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "vi")).map(v => ({
-      [lbl("pr.v.name")]: v.name, [lbl("pr.v.role")]: enumLabel("vr", v.role), [lbl("pr.v.contact")]: v.contact || "", [lbl("pr.v.phone")]: v.phone || "",
+      [lbl("pr.v.name")]: v.name, [lbl("pr.v.role")]: vendorRoles(v).map(r => enumLabel("vr", r)).join(", "), [lbl("pr.v.contact")]: v.contact || "", [lbl("pr.v.phone")]: v.phone || "",
       [lbl("pr.v.email")]: v.email || "", [lbl("pr.v.address")]: v.address || "", [lbl("pr.v.taxCode")]: v.taxCode || "",
       [lbl("pr.v.terms")]: v.paymentTerms != null ? v.paymentTerms : "", [lbl("pr.x.debt")]: vendorDebt(v._id), [lbl("pr.f.note")]: v.note || ""
     }));
@@ -928,7 +946,7 @@
   /* ---------- Nạp dữ liệu máy in DNP từ file (idempotent) ---------- */
   function planSeed() {
     const S = window.PR_SEED_DNP;
-    const vendor = vendorRecords.find(v => (v.name || "").trim().toLowerCase() === S.vendor.name.toLowerCase());
+    const vendor = vendorRecords.find(v => new RegExp("(^|[^a-z0-9])" + S.vendor.name.toLowerCase() + "([^a-z0-9]|$)").test((v.name || "").toLowerCase()));
     let max = 0;
     printerRecords.forEach(p => { const m = /^MI-(\d+)$/i.exec(p.code || ""); if (m) max = Math.max(max, parseInt(m[1], 10)); });
     const byKey = {}; const newPrinters = []; let n = max;
@@ -953,9 +971,14 @@
     let vid = pl.vendor && pl.vendor._id;
     if (!vid) {
       const ref = db.collection(VENDOR_COLLECTION).doc(); vid = ref.id;
-      batch.set(ref, Object.assign({ contact: "", phone: "", email: "", address: "", taxCode: "", paymentTerms: 30, createdAt: ts(), updatedAt: ts() }, pl.S.vendor));
+      batch.set(ref, Object.assign({ contact: "", phone: "", email: "", address: "", taxCode: "", paymentTerms: 30, createdAt: ts(), updatedAt: ts() }, pl.S.vendor, { roles: [E.vr[0], E.vr[1]] }));
     }
     const vname = pl.vendor ? pl.vendor.name : pl.S.vendor.name;
+    if (pl.vendor) { // NCC DNP đã có: bổ sung vai trò còn thiếu (cho thuê + sửa chữa)
+      const roles = vendorRoles(pl.vendor).slice();
+      [E.vr[0], E.vr[1]].forEach(r => { if (roles.indexOf(r) === -1) roles.push(r); });
+      if (roles.length !== vendorRoles(pl.vendor).length) batch.set(db.collection(VENDOR_COLLECTION).doc(vid), { roles, role: roles[0], updatedAt: ts() }, { merge: true });
+    }
     const mkRepair = r => ({ id: r.id, at: Date.parse(r.date + "T00:00:00") || Date.now(), by: currentEmail || "import", date: r.date, kind: r.kind, description: r.description,
       issue: r.issue, resultStatus: r.resultStatus, result: r.result, next: r.next, cost: 0, vendorId: vid, vendorName: vname });
     const repsBy = {};

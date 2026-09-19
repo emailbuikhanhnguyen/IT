@@ -2,7 +2,7 @@
 window.PR_SEED_DNP = {
  "vendor": {
   "name": "DNP",
-  "role": "Cho thuê",
+  "role": "Cho thuê", "roles": ["Cho thuê", "Sửa chữa/bảo trì"],
   "note": "Đối tác cho thuê & sửa chữa máy in (theo file theo dõi sửa máy in 18/09/2026)"
  },
  "printers": [
