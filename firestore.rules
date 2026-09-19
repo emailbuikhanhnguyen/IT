@@ -141,6 +141,25 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---------- Module Máy in (printers.js) ----------
+    // Chỉ Admin GHI. ĐỌC: Admin + Viewer (Ban giám đốc). Collector CỐ Ý không
+    // được đọc vì các collection này chứa giá thuê/giá mua/công nợ với NCC.
+    // - printers/{mã máy in}       : máy thuê & tự mua (+ mảng repairs, history)
+    // - printer_vendors/{autoId}   : nhà cung cấp
+    // - printer_invoices/{autoId}  : hóa đơn phải trả NCC (+ mảng payments)
+    match /printers/{printerId} {
+      allow read: if isAdmin() || isViewer();
+      allow write: if isAdmin();
+    }
+    match /printer_vendors/{vendorId} {
+      allow read: if isAdmin() || isViewer();
+      allow write: if isAdmin();
+    }
+    match /printer_invoices/{invoiceId} {
+      allow read: if isAdmin() || isViewer();
+      allow write: if isAdmin();
+    }
+
     // ---------- meta/{docId} — các "cờ trạng thái" nhỏ dùng nội bộ app,
     // hiện chỉ có `homeLaptopExport` (chữ ký danh sách mang laptop về nhà
     // ở lần xuất báo cáo gần nhất, để phát hiện thay đổi và cảnh báo cần

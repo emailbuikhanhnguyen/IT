@@ -19,7 +19,7 @@
    Khi đổi APP_SHELL (thêm/bớt file) hoặc muốn ép người dùng nhận bản mới
    ngay, chỉ cần đổi CACHE_VERSION bên dưới. */
 
-const CACHE_VERSION = "v14";
+const CACHE_VERSION = "v15";
 const APP_SHELL_CACHE = `ita-app-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `ita-runtime-${CACHE_VERSION}`;
 
@@ -29,6 +29,8 @@ const APP_SHELL_FILES = [
   "styles.css",
   "app.js",
   "i18n.js",
+  "printers-i18n.js",
+  "printers.js",
   "employees.js",
   "logo.png",
   "manifest.webmanifest"

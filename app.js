@@ -6,7 +6,7 @@
    Cập nhật thủ công mỗi lần deploy để bạn biết bản mới đã lên chưa (hiển thị
    ở màn hình đăng nhập và cuối trang Dữ liệu). Định dạng: YYYY.MM.DD.N —
    N là số thứ tự bản deploy trong ngày (bắt đầu từ 1). */
-const APP_VERSION = "2026.09.10.1";
+const APP_VERSION = "2026.09.19.1";
 document.querySelectorAll("#appVersionText, #appVersionText2").forEach(el => { el.textContent = APP_VERSION; });
 
 /* ---------- Mật khẩu xác nhận cho thao tác nguy hiểm (Xóa toàn bộ...) ----------
@@ -272,6 +272,8 @@ function goPage(name) {
   // kéo thẳng về lại trang Chuyển đổi báo cáo.
   if (isReportOnly) name = "reportConvert";
   if (name === "settings" && !isAdmin) name = "dashboard"; // settings/backup/import are admin-only
+  // Module Máy in (printers.js): chỉ Admin/Viewer được vào — Collector bị đưa về Tổng quan.
+  if (typeof printerPageBlocked === "function" && printerPageBlocked(name)) name = "dashboard";
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = $(name);
   if (target) target.classList.add("active");
@@ -283,6 +285,7 @@ function goPage(name) {
   if (name === "bulkPrintLabels") renderBulkPrintList();
   if (name === "employees") renderEmployeeList();
   if (name === "camera") renderCameraPage();
+  if (typeof onPrinterPage === "function") onPrinterPage(name);
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
   btn.addEventListener("click", () => goPage(btn.getAttribute("data-page")));
@@ -734,6 +737,7 @@ function renderAll() {
   renderTicketList();
   renderProjectList();
   renderCameraPage();
+  if (typeof renderPrinterAll === "function") renderPrinterAll(); // module Máy in (printers.js)
 }
 
 /* ---------- Dashboard ---------- */
@@ -4650,6 +4654,8 @@ async function loadRole(user) {
   // role-viewer: ẩn thêm mọi thứ .creator-only — Viewer xem được toàn bộ
   // nhưng không tạo mới được tài sản/ticket (khớp Firestore Rules).
   document.body.classList.toggle("role-viewer", isViewer);
+  // role-collector: ẩn mục Máy in (.no-collector) — module này có giá thuê/công nợ nên chỉ Admin/Viewer thấy.
+  document.body.classList.toggle("role-collector", isCollector);
   // role-reportonly: ẩn toàn bộ dashboard/menu/bottomnav — tài khoản này
   // chỉ được thấy đúng 1 trang Chuyển đổi báo cáo (xem CSS + goPage()).
   document.body.classList.toggle("role-reportonly", isReportOnly);
@@ -4893,6 +4899,7 @@ auth.onAuthStateChanged(async user => {
       initSync();
       initTicketSync();
       initProjectSync();
+      if (typeof initPrinterSync === "function") initPrinterSync(); // Máy in: chỉ Admin/Viewer (tự kiểm tra bên trong)
       initEmployeesSync();
       if (isAdmin) { initUsersSync(); initHomeLaptopExportMetaSync(); } // chỉ Admin đọc toàn bộ users + cần thấy cảnh báo xuất lại báo cáo mang laptop
       goPage("dashboard");
@@ -4902,6 +4909,7 @@ auth.onAuthStateChanged(async user => {
     stopSync();
     stopTicketSync();
     stopProjectSync();
+    if (typeof stopPrinterSync === "function") stopPrinterSync();
     stopEmployeesSync();
     stopUsersSync();
     stopHomeLaptopExportMetaSync();

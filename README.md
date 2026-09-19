@@ -242,6 +242,17 @@ file đánh số tay), app tự thêm hậu tố (VD: "IT-20260817-001-2") cho d
 trùng để không mất dữ liệu; sau khi import nên vào sửa lại Mã cho gọn nếu
 muốn.
 
+## Máy in (🛠 Vận hành & Hỗ trợ IT → 🖨 Máy in)
+Theo dõi máy in **thuê** và **tự mua**, nhà cung cấp (NCC), công nợ và lịch sử sửa chữa. Code ở `printers.js` (+ chuỗi VI/EN/ZH ở `printers-i18n.js`).
+
+- **Danh sách máy in**: mã `MI-0001` tự gợi ý; hãng/model/serial/loại, bộ phận, vị trí, IP, tình trạng; có thể liên kết với tài sản đã kiểm kê. Máy thuê: số HĐ, ngày bắt đầu/hết hạn, tiền thuê/tháng, số trang miễn phí, đơn giá trang vượt. Máy tự mua: ngày mua, giá, bảo hành.
+- **Lịch sử sửa chữa/bảo trì**: từng lần (ngày, loại, nội dung, chi phí, NCC). Tick "Ghi nhận công nợ" để khi Lưu máy in tự tạo hóa đơn phải trả cho NCC. Form còn hiện các Ticket liên quan (qua Mã tài sản hoặc mã máy in ghi ở ô Thiết bị).
+- **NCC**: bên cho thuê / sửa chữa / mực & vật tư / bán máy, liên hệ, MST, thời hạn thanh toán (dùng tự tính hạn thanh toán hóa đơn).
+- **Công nợ**: hóa đơn theo NCC, ghi nhận nhiều lần thanh toán (trả một phần được); số còn nợ, trạng thái, quá hạn đều **tự tính**. Nút "Tạo tiền thuê tháng này" sinh hóa đơn thuê cho mọi máy thuê đang trong hợp đồng (không tạo trùng).
+- **Cảnh báo** ở trang tổng quan: hợp đồng thuê còn ≤ 60 ngày/đã hết hạn, hóa đơn quá hạn. **Xuất Excel** 4 sheet: Máy in, Nhà cung cấp, Công nợ, Sửa chữa.
+- **Phân quyền**: Admin toàn quyền; Viewer (Ban giám đốc) chỉ xem; **Collector không thấy** mục này (có giá thuê/công nợ).
+- **Bắt buộc publish lại `firestore.rules`** (thêm 3 collection `printers`, `printer_vendors`, `printer_invoices`), nếu không module sẽ báo permission-denied.
+
 ## Chuyển đổi báo cáo (Word → JPG)
 Mục **🖨️ Chuyển đổi báo cáo** trong **🛠 Vận hành & Hỗ trợ IT** cho phép tải
 lên 1 file Word (**chỉ .docx** — Word mới) và xuất ra ảnh JPG cho từng

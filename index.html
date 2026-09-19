@@ -288,6 +288,10 @@
       <span class="module-nav-icon">🖨️</span>
       <span class="module-nav-text"><b data-i18n="nav.reportConvert">Chuyển đổi báo cáo</b><small data-i18n="nav.reportConvert.desc">Word (.docx) → ảnh JPG từng trang</small></span>
     </button>
+    <button class="module-nav-item no-collector" data-page="printers">
+      <span class="module-nav-icon">🖨</span>
+      <span class="module-nav-text"><b data-i18n="nav.printers">Máy in</b><small data-i18n="nav.printers.desc">Máy thuê &amp; tự mua, NCC, công nợ, lịch sử sửa chữa</small></span>
+    </button>
     <button class="module-nav-item" data-page="network">
       <span class="module-nav-icon">🌐</span>
       <span class="module-nav-text"><b data-i18n="nav.network">Network</b><small data-i18n="nav.network.desc">Sơ đồ mạng, IP, switch/port, wifi</small></span>
@@ -578,6 +582,217 @@
   </div>
 </section>
 
+<!-- ==================== MÁY IN (printers.js) ==================== -->
+<section id="printers" class="page">
+  <div class="section-head"><h2 data-i18n="pr.title">🖨 Quản lý máy in</h2><button data-page="ops">←</button></div>
+  <p class="hint" data-i18n="pr.hint">Theo dõi toàn bộ máy in của công ty.</p>
+  <div class="stats">
+    <div class="stat"><b id="prStatTotal">0</b><span data-i18n="pr.stat.total">Tổng máy in</span></div>
+    <div class="stat"><b id="prStatRent">0</b><span data-i18n="pr.stat.rent">Máy thuê</span></div>
+    <div class="stat"><b id="prStatOwn">0</b><span data-i18n="pr.stat.own">Tự mua</span></div>
+    <div class="stat"><b id="prStatExpiring">0</b><span data-i18n="pr.stat.expiring">HĐ thuê sắp hết hạn</span></div>
+  </div>
+  <div class="stats stats-2">
+    <div class="stat"><b id="prStatDebt">0</b><span data-i18n="pr.stat.debt">Công nợ còn phải trả</span></div>
+    <div class="stat"><b id="prStatOverdue">0</b><span data-i18n="pr.stat.overdue">Quá hạn thanh toán</span></div>
+  </div>
+  <div class="card">
+    <h3 data-i18n="pr.alerts.title">⚠ Cần chú ý</h3>
+    <div id="prAlerts"></div>
+  </div>
+  <div class="module-nav">
+    <button class="module-nav-item" data-page="printerList">
+      <span class="module-nav-icon">🖨</span>
+      <span class="module-nav-text"><b data-i18n="pr.nav.list">Danh sách máy in</b><small data-i18n="pr.nav.list.desc">Máy thuê &amp; tự mua</small></span>
+    </button>
+    <button class="module-nav-item" data-page="printerVendors">
+      <span class="module-nav-icon">🏢</span>
+      <span class="module-nav-text"><b data-i18n="pr.nav.vendors">Nhà cung cấp (NCC)</b><small data-i18n="pr.nav.vendors.desc">Bên cho thuê, sửa chữa, mực &amp; vật tư</small></span>
+    </button>
+    <button class="module-nav-item" data-page="printerDebts">
+      <span class="module-nav-icon">💳</span>
+      <span class="module-nav-text"><b data-i18n="pr.nav.debts">Công nợ &amp; thanh toán</b><small data-i18n="pr.nav.debts.desc">Hóa đơn phải trả, đã thanh toán, quá hạn</small></span>
+    </button>
+  </div>
+  <div class="quick" style="margin-top:12px">
+    <button type="button" id="prExportBtn" class="secondary" data-i18n="pr.export">📊 Xuất Excel máy in &amp; công nợ</button>
+  </div>
+</section>
+
+<section id="printerList" class="page">
+  <div class="section-head"><h2 data-i18n="pr.list.title">🖨 Danh sách máy in</h2><button id="prAddBtn" class="admin-only" data-page="printerForm" data-i18n="pr.add">＋ Thêm</button></div>
+  <div class="filters">
+    <input id="prSearch" data-i18n-placeholder="pr.search" placeholder="Tìm mã, model, serial, vị trí, NCC...">
+    <select id="prFilterOwn"></select>
+    <select id="prFilterStatus"></select>
+    <select id="prFilterVendor"></select>
+  </div>
+  <div id="prListBox"></div>
+  <button data-page="printers" class="secondary" style="margin-top:8px;width:100%">←</button>
+</section>
+
+<section id="printerForm" class="page">
+  <div class="section-head"><h2 id="prFormTitle" data-i18n="pr.form.create">Thêm máy in</h2><button data-page="printerList">←</button></div>
+  <form id="prFormEl" class="card">
+    <div id="prLockedNotice" class="locked-notice hidden" data-i18n="pr.form.locked">🔒 Bạn chỉ có quyền xem.</div>
+    <input type="hidden" id="prDocId">
+    <input type="hidden" id="prAssetId">
+    <label><span data-i18n="pr.f.code">Mã máy in*</span>
+      <input id="prCode" required data-i18n-placeholder="pr.f.code.ph" placeholder="MI-0001">
+      <span class="hint" data-i18n="pr.f.code.hint">Không đổi được mã sau khi đã lưu.</span>
+    </label>
+    <label><span data-i18n="pr.f.ownership">Hình thức sở hữu*</span><select id="prOwnership"></select></label>
+    <label><span data-i18n="pr.f.brand">Hãng</span><input id="prBrand" placeholder="HP / Canon / Ricoh / Brother..."></label>
+    <label><span data-i18n="pr.f.model">Model</span><input id="prModel" placeholder="LaserJet Pro M404dn"></label>
+    <label><span data-i18n="pr.f.serial">Serial Number</span><input id="prSerial"></label>
+    <label><span data-i18n="pr.f.type">Loại máy in</span><select id="prType"></select></label>
+    <label><span data-i18n="pr.f.status">Tình trạng</span><select id="prStatus"></select></label>
+    <label class="autocomplete-field"><span data-i18n="pr.f.section">Bộ phận sử dụng</span>
+      <input id="prSection" autocomplete="off">
+      <div id="prSectionSuggest" class="suggest-list hidden"></div>
+    </label>
+    <label><span data-i18n="pr.f.location">Vị trí đặt máy</span><input id="prLocation" data-i18n-placeholder="pr.f.location.ph" placeholder="VD: Xưởng 2, tầng 1"></label>
+    <label><span data-i18n="pr.f.ip">Địa chỉ IP</span><input id="prIp" inputmode="decimal"></label>
+    <label class="autocomplete-field"><span data-i18n="pr.f.asset">Liên kết tài sản kiểm kê (không bắt buộc)</span>
+      <input id="prAssetCode" autocomplete="off" data-i18n-placeholder="pr.f.asset.ph" placeholder="Gõ mã tài sản / model / serial để tìm">
+      <div id="prAssetSuggest" class="suggest-list hidden"></div>
+    </label>
+    <label><span data-i18n="pr.f.vendor">NCC (bên cho thuê / bán máy)</span><select id="prVendor"></select></label>
+    <p class="hint" style="margin-top:-6px"><a href="#" id="prAddVendorLink" class="admin-only" data-i18n="pr.f.addVendorLink">＋ Thêm NCC mới</a></p>
+
+    <div class="psbox pr-own-only">
+      <h3 data-i18n="pr.sec.own">💰 Thông tin mua máy</h3>
+      <label><span data-i18n="pr.f.purchaseDate">Ngày mua</span><input id="prPurchaseDate" type="date"></label>
+      <label><span data-i18n="pr.f.purchasePrice">Giá mua (VNĐ)</span><input id="prPurchasePrice" type="number" min="0" step="1000"></label>
+      <label><span data-i18n="pr.f.warrantyEnd">Bảo hành đến</span><input id="prWarrantyEnd" type="date"></label>
+    </div>
+    <div class="psbox pr-rent-only">
+      <h3 data-i18n="pr.sec.rent">📄 Thông tin hợp đồng thuê</h3>
+      <label><span data-i18n="pr.f.contractNo">Số hợp đồng thuê</span><input id="prContractNo"></label>
+      <div class="filter-dates">
+        <label class="filter-date"><span data-i18n="pr.f.rentStart">Ngày bắt đầu thuê</span><input id="prRentStart" type="date"></label>
+        <label class="filter-date"><span data-i18n="pr.f.rentEnd">Ngày hết hạn hợp đồng</span><input id="prRentEnd" type="date"></label>
+      </div>
+      <label style="margin-top:11px"><span data-i18n="pr.f.monthlyFee">Tiền thuê / tháng (VNĐ)</span><input id="prMonthlyFee" type="number" min="0" step="1000"></label>
+      <label><span data-i18n="pr.f.includedPages">Số trang miễn phí / tháng</span><input id="prIncludedPages" type="number" min="0" step="1"></label>
+      <label><span data-i18n="pr.f.extraPageFee">Đơn giá trang vượt (VNĐ/trang)</span><input id="prExtraPageFee" type="number" min="0" step="1"></label>
+    </div>
+    <label><span data-i18n="pr.f.note">Ghi chú</span><textarea id="prNote" rows="2"></textarea></label>
+
+    <div class="psbox">
+      <h3 data-i18n="pr.rp.title">🔧 Lịch sử sửa chữa / bảo trì</h3>
+      <p class="hint" data-i18n="pr.rp.hint">Ghi từng lần sửa chữa.</p>
+      <div id="prRepairList" class="history-box"></div>
+      <div id="prRepairAdd" class="admin-only">
+        <label><span data-i18n="pr.rp.date">Ngày</span><input id="prRepairDate" type="date"></label>
+        <label><span data-i18n="pr.rp.kind">Loại</span><select id="prRepairKind"></select></label>
+        <label><span data-i18n="pr.rp.desc">Nội dung / nguyên nhân*</span><textarea id="prRepairDesc" rows="2"></textarea></label>
+        <label><span data-i18n="pr.rp.cost">Chi phí (VNĐ)</span><input id="prRepairCost" type="number" min="0" step="1000"></label>
+        <label><span data-i18n="pr.rp.vendor">NCC thực hiện</span><select id="prRepairVendor"></select></label>
+        <label class="checkbox-label"><input id="prRepairMakeInvoice" type="checkbox"> <span data-i18n="pr.rp.makeInvoice">Ghi nhận công nợ với NCC này</span></label>
+        <button type="button" id="prRepairAddBtn" data-i18n="pr.rp.add" style="margin-top:8px">➕ Thêm lần sửa chữa</button>
+      </div>
+    </div>
+
+    <div class="psbox">
+      <h3 data-i18n="pr.tk.title">🎫 Ticket liên quan</h3>
+      <div id="prTicketList"></div>
+    </div>
+
+    <div id="prHistoryBox" class="card history-box hidden">
+      <h3 data-i18n="history.title">🕘 Lịch sử thay đổi</h3>
+      <div id="prHistoryList"></div>
+    </div>
+
+    <div class="form-actions admin-only"><button type="submit" id="prSubmitBtn" data-i18n="pr.form.save">Lưu máy in</button><button type="button" class="secondary" id="prResetBtn" data-i18n="formActions.reset">Xóa form</button></div>
+  </form>
+</section>
+
+<section id="printerVendors" class="page">
+  <div class="section-head"><h2 data-i18n="pr.v.title">🏢 Nhà cung cấp (NCC)</h2><button id="prVendorAddBtn" class="admin-only" data-page="vendorForm" data-i18n="pr.add">＋ Thêm</button></div>
+  <div class="filters"><input id="prVendorSearch" data-i18n-placeholder="pr.v.search" placeholder="Tìm tên NCC, người liên hệ, SĐT..."></div>
+  <div id="prVendorListBox"></div>
+  <button data-page="printers" class="secondary" style="margin-top:8px;width:100%">←</button>
+</section>
+
+<section id="vendorForm" class="page">
+  <div class="section-head"><h2 id="prVendorFormTitle" data-i18n="pr.v.createTitle">Thêm NCC</h2><button data-page="printerVendors">←</button></div>
+  <form id="prVendorFormEl" class="card">
+    <div id="prVendorLockedNotice" class="locked-notice hidden" data-i18n="pr.form.locked">🔒 Bạn chỉ có quyền xem.</div>
+    <input type="hidden" id="prVendorDocId">
+    <label><span data-i18n="pr.v.name">Tên NCC*</span><input id="prVendorName" required></label>
+    <label><span data-i18n="pr.v.role">Vai trò</span><select id="prVendorRole"></select></label>
+    <label><span data-i18n="pr.v.contact">Người liên hệ</span><input id="prVendorContact"></label>
+    <label><span data-i18n="pr.v.phone">Số điện thoại</span><input id="prVendorPhone" inputmode="tel"></label>
+    <label><span data-i18n="pr.v.email">Email</span><input id="prVendorEmail" type="email"></label>
+    <label><span data-i18n="pr.v.address">Địa chỉ</span><input id="prVendorAddress"></label>
+    <label><span data-i18n="pr.v.taxCode">Mã số thuế</span><input id="prVendorTax"></label>
+    <label><span data-i18n="pr.v.terms">Thời hạn thanh toán (ngày)</span><input id="prVendorTerms" type="number" min="0" step="1" value="30">
+      <span class="hint" data-i18n="pr.v.terms.hint">Dùng để tự tính Hạn thanh toán.</span></label>
+    <label><span data-i18n="pr.f.note">Ghi chú</span><textarea id="prVendorNote" rows="2"></textarea></label>
+    <div id="prVendorRelated"></div>
+    <div class="form-actions admin-only"><button type="submit" id="prVendorSubmitBtn" data-i18n="pr.v.save">Lưu NCC</button><button type="button" class="secondary" id="prVendorResetBtn" data-i18n="formActions.reset">Xóa form</button></div>
+  </form>
+</section>
+
+<section id="printerDebts" class="page">
+  <div class="section-head"><h2 data-i18n="pr.d.title">💳 Công nợ &amp; thanh toán</h2><button id="prInvoiceAddBtn" class="admin-only" data-page="invoiceForm" data-i18n="pr.d.add">＋ Thêm hóa đơn</button></div>
+  <div class="stats stats-2">
+    <div class="stat"><b id="prDebtTotal">0</b><span data-i18n="pr.d.summary.total">Tổng còn phải trả</span></div>
+    <div class="stat"><b id="prDebtOverdue">0</b><span data-i18n="pr.d.summary.overdue">Trong đó quá hạn</span></div>
+  </div>
+  <div class="card">
+    <h3 data-i18n="pr.d.byVendor">Công nợ theo NCC</h3>
+    <div id="prDebtByVendor"></div>
+  </div>
+  <div class="card admin-only">
+    <p class="hint" data-i18n="pr.d.genRent.hint">Tự tạo hóa đơn tiền thuê.</p>
+    <button type="button" id="prGenRentBtn" data-i18n="pr.d.genRent">⚙ Tạo tiền thuê tháng này</button>
+  </div>
+  <div class="filters">
+    <input id="prInvSearch" data-i18n-placeholder="pr.d.search" placeholder="Tìm số hóa đơn, NCC, máy in...">
+    <select id="prInvFilterVendor"></select>
+    <select id="prInvFilterStatus"></select>
+  </div>
+  <div id="prInvoiceListBox"></div>
+  <button data-page="printers" class="secondary" style="margin-top:8px;width:100%">←</button>
+</section>
+
+<section id="invoiceForm" class="page">
+  <div class="section-head"><h2 id="prInvoiceFormTitle" data-i18n="pr.i.createTitle">Thêm hóa đơn / công nợ</h2><button data-page="printerDebts">←</button></div>
+  <form id="prInvoiceFormEl" class="card">
+    <div id="prInvoiceLockedNotice" class="locked-notice hidden" data-i18n="pr.form.locked">🔒 Bạn chỉ có quyền xem.</div>
+    <input type="hidden" id="prInvoiceDocId">
+    <label><span data-i18n="pr.i.vendor">NCC*</span><select id="prInvVendor"></select></label>
+    <label><span data-i18n="pr.i.printer">Máy in liên quan (không bắt buộc)</span><select id="prInvPrinter"></select></label>
+    <label><span data-i18n="pr.i.kind">Loại khoản phải trả</span><select id="prInvKind"></select></label>
+    <label><span data-i18n="pr.i.no">Số hóa đơn / chứng từ</span><input id="prInvNo"></label>
+    <div class="filter-dates">
+      <label class="filter-date"><span data-i18n="pr.i.date">Ngày hóa đơn</span><input id="prInvDate" type="date"></label>
+      <label class="filter-date"><span data-i18n="pr.i.due">Hạn thanh toán</span><input id="prInvDue" type="date"></label>
+    </div>
+    <label style="margin-top:11px"><span data-i18n="pr.i.period">Kỳ (tháng)</span><input id="prInvPeriod" type="month"></label>
+    <label><span data-i18n="pr.i.amount">Số tiền (VNĐ)*</span><input id="prInvAmount" type="number" min="0" step="1000" required></label>
+    <label><span data-i18n="pr.i.note">Ghi chú</span><textarea id="prInvNote" rows="2"></textarea></label>
+
+    <div class="psbox">
+      <h3 data-i18n="pr.i.pay.title">💰 Các lần thanh toán</h3>
+      <p class="hint" data-i18n="pr.i.pay.hint">Ghi từng lần trả tiền cho NCC.</p>
+      <div id="prInvSummary" class="pr-summary"></div>
+      <div id="prPaymentList" class="history-box"></div>
+      <div id="prPaymentAdd" class="admin-only">
+        <label><span data-i18n="pr.i.pay.date">Ngày trả</span><input id="prPayDate" type="date"></label>
+        <label><span data-i18n="pr.i.pay.amount">Số tiền trả (VNĐ)</span><input id="prPayAmount" type="number" min="0" step="1000"></label>
+        <label><span data-i18n="pr.i.pay.note">Ghi chú</span><input id="prPayNote"></label>
+        <button type="button" id="prPayAddBtn" data-i18n="pr.i.pay.add">➕ Ghi nhận thanh toán</button>
+      </div>
+    </div>
+
+    <div class="form-actions admin-only"><button type="submit" id="prInvoiceSubmitBtn" data-i18n="pr.i.save">Lưu hóa đơn</button><button type="button" class="secondary" id="prInvoiceResetBtn" data-i18n="formActions.reset">Xóa form</button></div>
+  </form>
+</section>
+<!-- ==================== /MÁY IN ==================== -->
+
 <section id="employees" class="page">
   <div class="section-head"><h2 data-i18n="employees.title">👥 Danh bạ nhân viên</h2><button data-page="dashboard">←</button></div>
   <div class="filters">
@@ -785,6 +1000,8 @@
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
 <script src="i18n.js"></script>
+<script src="printers-i18n.js"></script>
 <script src="app.js"></script>
+<script src="printers.js"></script>
 </body>
 </html>
