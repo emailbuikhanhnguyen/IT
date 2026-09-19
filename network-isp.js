@@ -134,7 +134,7 @@
     "nw.q.finance": ["Quản lý tài chính", "Finance manager", "财务经理"],
     "nw.q.selTotal": ["Tổng đã chọn", "Selected total", "已选合计"],
     "nw.q.xlsx": ["📄 Tạo file Excel đề nghị thanh toán", "📄 Create payment-request Excel", "📄 生成付款申请Excel"],
-    "nw.q.needSel": ["Hãy tick ít nhất 1 hóa đơn.", "Tick at least one bill.", "请至少勾选一张账单。"],
+    "nw.q.needSel": ["Chưa có hóa đơn nào được chọn. Hãy tải PDF lên (Bước 1) hoặc tick hóa đơn trong danh sách “Chọn hóa đơn đưa vào giấy đề nghị” của đúng NCC.", "No bill selected. Upload PDFs (Step 1) or tick bills in the list for the right provider.", "未选择账单。请先上传PDF（第1步），或在对应供应商的列表中勾选账单。"],
     "nw.q.noBank": ["NCC chưa có số tài khoản/ngân hàng — vẫn tạo file? (bổ sung ở “Đường truyền & NCC”)", "Provider has no bank account/bank — create anyway? (add it under “Lines & providers”)", "供应商缺少银行账号/银行 — 仍要生成吗？（可在“线路与供应商”补充）"],
     "nw.q.done": ["Đã tạo file Excel ({{n}} chứng từ, {{sum}}).", "Excel created ({{n}} documents, {{sum}}).", "已生成Excel（{{n}} 份凭证，{{sum}}）。"],
     "nw.q.errBuild": ["Không tạo được file Excel: {{err}}", "Could not build Excel: {{err}}", "无法生成Excel：{{err}}"],
@@ -599,26 +599,31 @@
     rows.splice(+b.dataset.rm, 1); renderReview();
   });
 
-  $("nwPqSaveRows").addEventListener("click", async () => {
-    if (!isAdmin) return alert(tr("nw.noperm"));
-    if (!rows.length) return;
-    if (rows.some(r => !r.providerId || !r.no.trim() || !r.date || rowTotal(r) <= 0)) return alert(tr("nw.q.needFields"));
-    const ts = firebase.firestore.FieldValue.serverTimestamp, batch = db.batch();
+  // Lưu các dòng đang kiểm tra vào công nợ. Trả về {ids, providerId} hoặc null nếu bị chặn/lỗi.
+  async function saveRows() {
+    if (!isAdmin) { alert(tr("nw.noperm")); return null; }
+    if (!rows.length) return { ids: [], providerId: "" };
+    if (rows.some(r => !r.providerId || !r.no.trim() || !r.date || rowTotal(r) <= 0)) { alert(tr("nw.q.needFields")); return null; }
+    const ts = firebase.firestore.FieldValue.serverTimestamp, batch = db.batch(), ids = [];
     rows.forEach(r => {
       const prov = provById(r.providerId), line = r.lineId ? lineById(r.lineId) : null;
       const ex = bills.find(b => b.providerId === r.providerId && (b.invoiceNo || "") === r.no.trim());
       const ref = ex ? db.collection(B_COL).doc(ex._id) : db.collection(B_COL).doc();
+      ids.push(ref.id);
       const data = { providerId: r.providerId, providerName: prov ? prov.name : "", lineId: line ? line._id : "", lineName: line ? line.name : "", docType: r.docType,
         invoiceNo: r.no.trim(), invoiceSerial: r.serial || "", invoiceDate: r.date, period: r.period || r.date.slice(0, 7), dueDate: r.due || dueFor(prov, r.date),
         amount: rowTotal(r), amountExVat: Number(r.ex) || 0, vatRate: Number(r.rate) || 0, vatAmount: Number(r.vat) || 0, desc: r.desc || "", updatedAt: ts() };
       if (!ex) Object.assign(data, { payments: [], source: r.src, createdBy: currentEmail || "?", createdAt: ts() });
       batch.set(ref, data, { merge: true });
     });
+    const providerId = rows[0].providerId, n = rows.length;
     try {
-      const n = rows.length; await batch.commit(); rows = []; renderReview();
+      await batch.commit(); rows = []; renderReview();
       $("nwPqStatus").textContent = tr("nw.q.saved", { n });
-    } catch (e) { alert(tr("nw.errSave", { err: e.message })); }
-  });
+      return { ids, providerId };
+    } catch (e) { alert(tr("nw.errSave", { err: e.message })); return null; }
+  }
+  $("nwPqSaveRows").addEventListener("click", saveRows);
 
   function pendingBills(pid) {
     return bills.filter(b => b.providerId === pid && remaining(b) > 0)
@@ -664,6 +669,13 @@
 
   $("nwPqXlsxBtn").addEventListener("click", async () => {
     if (!isAdmin) return alert(tr("nw.noperm"));
+    if (rows.length) { // còn chứng từ vừa tải lên chưa lưu -> tự lưu và tự tick để khỏi phải làm 2 lần
+      const r = await saveRows(); if (!r) return;
+      checked = {}; r.ids.forEach(id => { checked[id] = true; });
+      $("nwPqProv").value = r.providerId; $("nwPqDue").dataset.touched = ""; $("nwPqReason").dataset.touched = "";
+      for (let i = 0; i < 30 && !pendingBills(r.providerId).some(b => b._id === r.ids[0]); i++) await new Promise(res => setTimeout(res, 100));
+      renderPending();
+    }
     const prov = provById($("nwPqProv").value), sel = selectedBills();
     if (!prov || !sel.length) return alert(tr("nw.q.needSel"));
     if ((!prov.bankAccount || !prov.bankName) && $("nwPqMethod").value === "transfer" && !confirm(tr("nw.q.noBank"))) return;
