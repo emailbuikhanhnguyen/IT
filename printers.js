@@ -856,29 +856,87 @@
   }
   function startPrinterScanner() {
     if (prScanning) return;
-    prScanner = new Html5Qrcode("prReader", scannerConfig());
     prScanning = true;
-    prScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 280, height: 160 } },
-      text => { stopPrinterScanner(); applyScan(text); }, () => {})
+    // Khung quét rộng + ngang (barcode 1 chiều cần vùng rộng), ưu tiên độ phân giải cao.
+    const base = { fps: 12, qrbox: (w, h) => ({ width: Math.floor(w * 0.9), height: Math.floor(Math.min(h * 0.6, 220)) }) };
+    const attempt = cfg => {
+      prScanner = new Html5Qrcode("prReader", scannerConfig());
+      return prScanner.start({ facingMode: "environment" }, cfg,
+        text => { stopPrinterScanner(); applyScan(text); }, () => {});
+    };
+    attempt(Object.assign({ videoConstraints: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } }, base))
+      .catch(() => attempt(base)) // máy không hỗ trợ ràng buộc độ phân giải -> thử lại cấu hình cơ bản
       .catch(err => { prScanning = false; alert(tr("msg.cameraError", { err })); });
   }
   $("prScanStart").addEventListener("click", startPrinterScanner);
   $("prScanStop").addEventListener("click", stopPrinterScanner);
-  $("prScanFile").addEventListener("change", async e => {
+  ["prScanFile", "prScanCam"].forEach(id => $(id).addEventListener("change", async e => {
     const file = e.target.files[0];
     e.target.value = "";
-    if (!file) return;
+    if (file) handleImage(file);
+  }));
+
+  /* ---- Ảnh chụp: (1) đọc mọi QR/barcode, (2) đọc chữ trên tem (OCR) ---- */
+  function loadBitmap(file) { return typeof createImageBitmap === "function" ? createImageBitmap(file) : Promise.reject(new Error("no bitmap")); }
+  async function scaledBlob(bmp, maxDim, type) {
+    const k = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    return new Promise(res => c.toBlob(b => res(b), type || "image/png"));
+  }
+  async function decodeImageCodes(file) {
+    const found = [];
+    let bmp = null;
+    try { bmp = await loadBitmap(file); } catch (e) { /* HEIC... -> bỏ qua BarcodeDetector */ }
+    // 1) BarcodeDetector gốc của trình duyệt (Chrome/Android): nhanh, đọc tốt barcode 1 chiều.
+    if (window.BarcodeDetector) {
+      try { (await new window.BarcodeDetector().detect(bmp || file)).forEach(r => r.rawValue && found.push(r.rawValue)); } catch (e) { /* bỏ qua */ }
+    }
+    // 2) html5-qrcode trên ảnh gốc rồi ảnh thu nhỏ (ảnh điện thoại quá lớn đôi khi đọc hỏng).
+    if (!found.length && window.Html5Qrcode) {
+      const tries = [file];
+      if (bmp) { for (const d of [1600, 1000]) { const b = await scaledBlob(bmp, d, "image/png"); if (b) tries.push(new File([b], "s.png", { type: "image/png" })); } }
+      for (const f of tries) {
+        const sc = new Html5Qrcode("prReader", scannerConfig());
+        try { found.push(await sc.scanFile(f, false)); break; } catch (e) { /* thử kích thước khác */ } finally { try { sc.clear(); } catch (x) { /* bỏ qua */ } }
+      }
+    }
+    return Array.from(new Set(found.filter(Boolean)));
+  }
+  function loadTesseract() {
+    if (window.Tesseract) return Promise.resolve();
+    return new Promise((ok, ko) => {
+      const el = document.createElement("script");
+      el.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+      el.onload = ok; el.onerror = () => ko(new Error("Không tải được bộ đọc chữ"));
+      document.head.appendChild(el);
+    });
+  }
+  async function ocrImage(file) {
+    await loadTesseract();
+    let src = file;
+    try { const bmp = await loadBitmap(file); src = (await scaledBlob(bmp, 1800, "image/png")) || file; } catch (e) { /* dùng ảnh gốc */ }
+    const r = await window.Tesseract.recognize(src, "eng");
+    return (r && r.data && r.data.text) || "";
+  }
+  async function handleImage(file) {
     stopPrinterScanner();
-    try {
-      const sc = new Html5Qrcode("prReader", scannerConfig());
-      const text = await sc.scanFile(file, false);
-      try { sc.clear(); } catch (x) { /* bỏ qua */ }
-      applyScan(text);
-    } catch (err) { alert(tr("pr.sc.notRead")); }
-  });
+    const box = $("prScanResult");
+    box.classList.remove("hidden");
+    box.innerHTML = `<div class="hint">${tr("pr.sc.reading")}</div>`;
+    let codes = [];
+    try { codes = await decodeImageCodes(file); } catch (e) { codes = []; }
+    codes.forEach((c, i) => applyScan(c, i > 0));
+    let text = "";
+    try { text = await ocrImage(file); } catch (e) { text = null; }
+    if (!codes.length) box.innerHTML = `<div class="scan-row">ℹ ${esc(tr("pr.sc.noCode"))}</div>`;
+    if (text === null) { box.insertAdjacentHTML("beforeend", `<div class="scan-row">⚠ ${esc(tr("pr.sc.ocrFail"))}</div>`); return; }
+    applyOcr(text);
+  }
 
   // Phân tích nội dung mã -> { fields:{serial,model,ip,brand,deviceName}, assetCode }
-  function parseScanText(raw) {
+  function parseScanText(raw, ocr) {
     const text = (raw || "").trim();
     const out = { fields: {}, assetCode: "" };
     if (/^DEVINFO:/i.test(text)) {
@@ -919,12 +977,22 @@
     const hay = (text + " " + host).toLowerCase();
     const brand = BRANDS.find(b => new RegExp("(^|[^a-z0-9])" + b.toLowerCase() + "([^a-z0-9]|$)").test(hay));
     if (brand) out.fields.brand = brand;
+    if (ocr) {
+      const up = text.toUpperCase();
+      if (!out.fields.model) {
+        const m = /\bMODEL(?:\s*(?:NO\.?|NAME|NUMBER))?\s*[:.]?\s*([A-Z0-9][A-Z0-9\-\/]{2,24})/.exec(up)
+          || /\b((?:HL|MFC|DCP|DS|ADS|LBP|MF|IR|IMAGERUNNER|MP|IM|SP|FS|ECOSYS|ET|WF|XP|L\d|M\d|P\d|B\d|C\d|WC)[-\s]?[A-Z]?\d{2,5}[A-Z]{0,5})\b/.exec(up);
+        if (m) out.fields.model = m[1].trim();
+      }
+      if (/COLOU?R|BERWARNA|彩色|MÀU|\bMFC-?J|\bMFC-?L\d{4}C|CDW\b|\bCW\b/.test(up)) out.fields.type = "Laser màu";
+      else if (/\bMFC\b|MULTI-?FUNCTION|ALL-IN-ONE|\bMFP\b/.test(up)) out.fields.type = "Đa năng (MFP)";
+    }
     // Barcode trơn (Code128/39...): coi cả chuỗi là Serial.
     if (!out.fields.serial && /^[A-Za-z0-9][A-Za-z0-9\-_.\/+]{4,39}$/.test(text)) out.fields.serial = text;
     return out;
   }
 
-  const SCAN_TARGETS = { serial: "prSerial", model: "prModel", brand: "prBrand", ip: "prIp" };
+  const SCAN_TARGETS = { serial: "prSerial", model: "prModel", brand: "prBrand", ip: "prIp", type: "prType" };
   function linkAssetToForm(a) {
     $("prAssetCode").value = a.code; $("prAssetId").value = a._id;
     if (!$("prModel").value.trim()) $("prModel").value = a.model || "";
@@ -945,7 +1013,7 @@
     $("prScanResult").insertAdjacentHTML("beforeend", `<div class="scan-row">✅ ${esc(tr(field === "code" ? "pr.f.code" : field === "note" ? "pr.f.note" : "pr.f." + field).replace("*", ""))}</div>`);
   };
 
-  function applyScan(raw) {
+  function applyScan(raw, keep) {
     lastScanRaw = (raw || "").trim();
     const box = $("prScanResult");
     box.classList.remove("hidden");
@@ -984,7 +1052,25 @@
         <button type="button" class="secondary" onclick="prScanAssign('code')">${esc(tr("pr.f.code").replace("*", ""))}</button>
         <button type="button" class="secondary" onclick="prScanAssign('note')">${esc(tr("pr.f.note"))}</button>
       </div></div>`;
-    box.innerHTML = `<div class="muted">${tr("pr.sc.raw")}:</div><div style="word-break:break-all;margin-bottom:6px"><b>${esc(lastScanRaw.slice(0, 300))}</b></div>` +
+    const html = `<div class="muted">${tr("pr.sc.raw")}:</div><div style="word-break:break-all;margin-bottom:6px"><b>${esc(lastScanRaw.slice(0, 300))}</b></div>` +
       lines.map(l => `<div class="scan-row">${l.indexOf("<button") === -1 ? esc(l) : l}</div>`).join("") + assign;
+    box.innerHTML = keep ? box.innerHTML + "<hr>" + html : html;
+  }
+
+  // Kết quả OCR: chỉ điền ô đang trống (không đè dữ liệu đã gõ); loại máy chỉ đổi khi còn mặc định.
+  function applyOcr(text) {
+    const box = $("prScanResult");
+    const p = parseScanText(text, true);
+    const filled = [];
+    Object.keys(p.fields).forEach(k => {
+      const el = $(SCAN_TARGETS[k]);
+      if (!el || !p.fields[k]) return;
+      const empty = k === "type" ? el.selectedIndex === 0 : !el.value.trim();
+      if (empty) { el.value = p.fields[k]; if (el.value === p.fields[k]) filled.push(tr("pr.f." + k)); }
+    });
+    lastScanRaw = (text || "").trim();
+    const shown = lastScanRaw.split(/\r?\n/).map(x => x.trim()).filter(Boolean).join(" · ").slice(0, 400);
+    box.insertAdjacentHTML("beforeend", `<hr><div class="muted">${tr("pr.sc.ocrText")}:</div><div style="word-break:break-word;margin-bottom:6px">${esc(shown)}</div>` +
+      (filled.length ? `<div class="scan-row">✅ ${esc(tr("pr.sc.filled", { fields: filled.join(", ") }))}</div>` : `<div class="scan-row">❔ ${esc(tr("pr.sc.ocrNone"))}</div>`));
   }
 })();
