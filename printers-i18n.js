@@ -106,6 +106,7 @@
     "pr.sc.dupPrinter": ["⚠ Serial này đã có ở máy in {{code}}.", "⚠ This serial already exists on printer {{code}}.", "⚠ 该序列号已存在于打印机 {{code}}。"],
     "pr.sc.matchAsset": ["Serial khớp tài sản kiểm kê {{code}}.", "Serial matches inventory asset {{code}}.", "序列号匹配盘点资产 {{code}}。"],
     "pr.sc.linkAsset": ["Liên kết", "Link", "关联"],
+    "pr.sc.serialReplaced": ["Serial trên nhãn (SER.NO.) là {now}; đã thay giá trị cũ ({old}) vì mã vạch phụ thường chỉ là mã nhãn.", "Label serial (SER.NO.) is {now}; replaced previous value ({old}) since the barcode is often just a label code.", "标签序列号(SER.NO.)为 {now}；已替换原值({old})，因条码通常只是标签代码。"],
     "pr.tk.title": ["🎫 Ticket liên quan", "🎫 Related tickets", "🎫 相关工单"],
     "pr.tk.none": ["Chưa có ticket nào liên kết với máy in này (liên kết qua Mã tài sản, hoặc ghi mã máy in vào ô Thiết bị của ticket).", "No tickets linked to this printer (link via asset code, or put the printer code in the ticket's Device field).", "暂无与此打印机关联的工单（通过资产编号关联，或在工单“设备”栏填写打印机编号）。"],
     "pr.tk.open": ["Mở", "Open", "打开"],

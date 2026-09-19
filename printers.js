@@ -937,7 +937,8 @@
 
   // Phân tích nội dung mã -> { fields:{serial,model,ip,brand,deviceName}, assetCode }
   function parseScanText(raw, ocr) {
-    const text = (raw || "").trim();
+    let text = (raw || "").trim();
+    if (/^\*[A-Za-z0-9\-. $\/+%]{3,}\*$/.test(text)) text = text.slice(1, -1); // Code39: bỏ dấu * bao quanh
     const out = { fields: {}, assetCode: "" };
     if (/^DEVINFO:/i.test(text)) {
       try {
@@ -964,6 +965,11 @@
       if (sn) out.fields.serial = sn;
       if (md) out.fields.model = md;
     } catch (e) { /* không phải URL */ }
+    if (!out.fields.serial && ocr) {
+      // Nhãn Brother/Canon...: "SER.NO. E81703J3N219227", "SER NO", "S/N", "SERIAL NO" (OCR hay lẫn O/0 nên chỉ nhận chuỗi >= 8 ký tự)
+      const m = /\bSER(?:IAL)?[.\s]*(?:NO|NUMBER|NR|#)?[.:\s#]*([A-Z0-9][A-Z0-9\-]{7,24})\b/.exec(text.toUpperCase());
+      if (m) { out.fields.serial = m[1]; out.labelSerial = true; }
+    }
     if (!out.fields.serial) {
       const m = /(?:serial(?:\s*(?:number|no\.?|#))?|s\/n|\bsn)\s*[:=#]?\s*([A-Za-z0-9][A-Za-z0-9\-_.\/]{3,39})/i.exec(text);
       if (m) out.fields.serial = m[1];
@@ -988,7 +994,7 @@
       else if (/\bMFC\b|MULTI-?FUNCTION|ALL-IN-ONE|\bMFP\b/.test(up)) out.fields.type = "Đa năng (MFP)";
     }
     // Barcode trơn (Code128/39...): coi cả chuỗi là Serial.
-    if (!out.fields.serial && /^[A-Za-z0-9][A-Za-z0-9\-_.\/+]{4,39}$/.test(text)) out.fields.serial = text;
+    if (!out.fields.serial && !ocr && /^[A-Za-z0-9][A-Za-z0-9\-_.\/+]{4,39}$/.test(text)) out.fields.serial = text;
     return out;
   }
 
@@ -1062,15 +1068,20 @@
     const box = $("prScanResult");
     const p = parseScanText(text, true);
     const filled = [];
+    let extraNote = "";
     Object.keys(p.fields).forEach(k => {
       const el = $(SCAN_TARGETS[k]);
       if (!el || !p.fields[k]) return;
       const empty = k === "type" ? el.selectedIndex === 0 : !el.value.trim();
-      if (empty) { el.value = p.fields[k]; if (el.value === p.fields[k]) filled.push(tr("pr.f." + k)); }
+      // Serial in trên nhãn ("SER.NO.") đáng tin hơn mã vạch phụ (vd D02DSZ001) -> ghi đè.
+      const override = k === "serial" && p.labelSerial && el.value.trim() !== p.fields[k];
+      if (override) { extraNote = tr("pr.sc.serialReplaced", { old: el.value.trim() || "—", now: p.fields[k] }); }
+      if (empty || override) { el.value = p.fields[k]; if (el.value === p.fields[k]) filled.push(tr("pr.f." + k)); }
     });
     lastScanRaw = (text || "").trim();
     const shown = lastScanRaw.split(/\r?\n/).map(x => x.trim()).filter(Boolean).join(" · ").slice(0, 400);
     box.insertAdjacentHTML("beforeend", `<hr><div class="muted">${tr("pr.sc.ocrText")}:</div><div style="word-break:break-word;margin-bottom:6px">${esc(shown)}</div>` +
-      (filled.length ? `<div class="scan-row">✅ ${esc(tr("pr.sc.filled", { fields: filled.join(", ") }))}</div>` : `<div class="scan-row">❔ ${esc(tr("pr.sc.ocrNone"))}</div>`));
+      (filled.length ? `<div class="scan-row">✅ ${esc(tr("pr.sc.filled", { fields: filled.join(", ") }))}</div>` : `<div class="scan-row">❔ ${esc(tr("pr.sc.ocrNone"))}</div>`) +
+      (extraNote ? `<div class="scan-row">ℹ ${esc(extraNote)}</div>` : ""));
   }
 })();
