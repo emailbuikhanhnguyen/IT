@@ -253,6 +253,7 @@
     const sigRow = 28 + k;
     x = setStr(x, "A" + sigRow, titleCase(d.requester || ""));
     x = setStr(x, "B" + sigRow, d.head || "");
+    x = setStr(x, "C" + sigRow, d.chief || "HỒ THANH TÂM");
     x = setStr(x, "D" + sigRow, d.finance || "");
     zip.file(sp, x);
 
