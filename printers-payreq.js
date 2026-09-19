@@ -194,6 +194,7 @@
   }
   const dmy = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? `${m[3]}/${m[2]}/${m[1]}` : ""; };
 
+  const up = t => String(t || "").toLocaleUpperCase("vi");
   const titleCase = t => String(t).toLowerCase().replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase());
 
   // Mở rộng bảng chứng từ: nhân bản dòng 19 thêm k dòng, đẩy các dòng phía dưới xuống k dòng.
@@ -251,10 +252,10 @@
     });
     x = setFormula(x, "G" + totRow, `SUM(G19:G${last})`, total);
     const sigRow = 28 + k;
-    x = setStr(x, "A" + sigRow, titleCase(d.requester || ""));
-    x = setStr(x, "B" + sigRow, d.head || "");
-    x = setStr(x, "C" + sigRow, d.chief || "HỒ THANH TÂM");
-    x = setStr(x, "D" + sigRow, d.finance || "");
+    x = setStr(x, "A" + sigRow, up(d.requester));
+    x = setStr(x, "B" + sigRow, up(d.head));
+    x = setStr(x, "C" + sigRow, up(d.chief || "HỒ THANH TÂM"));
+    x = setStr(x, "D" + sigRow, up(d.finance));
     zip.file(sp, x);
 
     // Checkbox Tiền mặt (Check Box 1 / ctrlProp5) và Chuyển khoản (Check Box 2 / ctrlProp6)
