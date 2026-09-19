@@ -160,6 +160,24 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---------- Network › cước Internet (network-isp.js) ----------
+    // Cùng quy tắc với Máy in: Admin ghi; Admin + Viewer đọc; Collector không thấy.
+    // - net_providers/{autoId} : NCC dịch vụ mạng (VNPT, Viettel...) + tài khoản nhận tiền
+    // - net_lines/{autoId}     : từng đường truyền / dịch vụ
+    // - net_invoices/{autoId}  : hóa đơn / thông báo cước hằng tháng (+ mảng payments)
+    match /net_providers/{id} {
+      allow read: if isAdmin() || isViewer();
+      allow write: if isAdmin();
+    }
+    match /net_lines/{id} {
+      allow read: if isAdmin() || isViewer();
+      allow write: if isAdmin();
+    }
+    match /net_invoices/{id} {
+      allow read: if isAdmin() || isViewer();
+      allow write: if isAdmin();
+    }
+
     // ---------- meta/{docId} — các "cờ trạng thái" nhỏ dùng nội bộ app,
     // hiện chỉ có `homeLaptopExport` (chữ ký danh sách mang laptop về nhà
     // ở lần xuất báo cáo gần nhất, để phát hiện thay đổi và cảnh báo cần

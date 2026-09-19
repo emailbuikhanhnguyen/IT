@@ -196,16 +196,42 @@
 
   const titleCase = t => String(t).toLowerCase().replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase());
 
+  // Mở rộng bảng chứng từ: nhân bản dòng 19 thêm k dòng, đẩy các dòng phía dưới xuống k dòng.
+  function expandRows(xml, k) {
+    const from = 20;
+    const bump = n => (n >= from ? n + k : n);
+    const i0 = xml.indexOf("<sheetData>"), i1 = xml.indexOf("</sheetData>");
+    let head = xml.slice(0, i0), sd = xml.slice(i0, i1), rest = xml.slice(i1);
+    sd = sd.replace(/<row r="(\d+)"/g, (m, n) => `<row r="${bump(+n)}"`).replace(/<c r="([A-Z]+)(\d+)"/g, (m, c, n) => `<c r="${c}${bump(+n)}"`);
+    rest = rest.replace(/<mergeCell ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"\/>/g, (m, a, b, c, d) => `<mergeCell ref="${a}${bump(+b)}:${c}${bump(+d)}"/>`);
+    const rm = /<row r="19"[\s\S]*?<\/row>/.exec(sd);
+    if (!rm) throw new Error("Mẫu Excel thiếu dòng chứng từ");
+    let clones = "", merges = "";
+    for (let i = 1; i <= k; i++) {
+      const n = 19 + i;
+      clones += rm[0].replace(/<row r="19"/, `<row r="${n}"`).replace(/<c r="([A-Z]+)19"/g, (m, c) => `<c r="${c}${n}"`).replace(/<f>[^<]*<\/f>/g, "").replace(/<v>[^<]*<\/v>/g, "");
+      merges += `<mergeCell ref="B${n}:C${n}"/>`;
+    }
+    sd = sd.replace(rm[0], rm[0] + clones);
+    rest = rest.replace(/<mergeCells count="(\d+)">/, (m, c) => `<mergeCells count="${+c + k}">`).replace("</mergeCells>", merges + "</mergeCells>");
+    head = head.replace(/<dimension ref="A1:H(\d+)"\/>/, (m, n) => `<dimension ref="A1:H${+n + k}"/>`);
+    return head + sd + rest;
+  }
+
   async function buildPaymentXlsx(templateBytes, d) {
     const zip = await JSZip.loadAsync(templateBytes);
     const sp = "xl/worksheets/sheet3.xml";
     let x = await zip.file(sp).async("string");
-    const total = Number(d.total) || 0;
+    const docs = d.docs && d.docs.length ? d.docs : [{ no: d.docNo, desc: d.docDesc, date: d.docDate, ex: d.exVat, vat: d.vat }];
+    const k = docs.length - 1;
+    if (k > 0) x = expandRows(x, k);
+    const last = 19 + k, totRow = 20 + k;
+    const total = docs.reduce((sum, r) => sum + (Number(r.ex) || 0) + (Number(r.vat) || 0), 0);
     x = setStr(x, "F1", `Mã số/ Code: ${d.code || "ACC-001"}\nNgày/ Date: ${dmy(d.dateReq) || ""}`);
     x = setStr(x, "C2", d.requester || "");
     x = setStr(x, "C3", d.dept || "");
     x = setStr(x, "C4", d.reason || "");
-    x = setFormula(x, "C6", "G20", total);
+    x = setFormula(x, "C6", "G" + totRow, total);
     x = setStr(x, "C7", viWords(total));
     x = setStr(x, "C8", enWords(total));
     x = setStr(x, "C10", d.receiver || "");
@@ -214,16 +240,20 @@
     if (d.bankAddress) x = setStr(x, "C13", d.bankAddress);
     x = setNum(x, "D14", excelSerial(d.from));
     x = setNum(x, "G14", excelSerial(d.due));
-    x = setStr(x, "A19", d.docNo || "");
-    x = setStr(x, "B19", d.docDesc || "");
-    x = setStr(x, "D19", dmy(d.docDate));
-    x = setNum(x, "E19", d.exVat);
-    x = setNum(x, "F19", d.vat);
-    x = setFormula(x, "G19", "E19+F19", (Number(d.exVat) || 0) + (Number(d.vat) || 0));
-    x = setFormula(x, "G20", "G19", (Number(d.exVat) || 0) + (Number(d.vat) || 0));
-    x = setStr(x, "A28", titleCase(d.requester || ""));
-    x = setStr(x, "B28", d.head || "");
-    x = setStr(x, "D28", d.finance || "");
+    docs.forEach((r, i) => {
+      const n = 19 + i, ex = Number(r.ex) || 0, vat = Number(r.vat) || 0;
+      x = setStr(x, "A" + n, r.no || "");
+      x = setStr(x, "B" + n, r.desc || "");
+      x = setStr(x, "D" + n, dmy(r.date));
+      x = setNum(x, "E" + n, ex);
+      x = setNum(x, "F" + n, vat);
+      x = setFormula(x, "G" + n, `E${n}+F${n}`, ex + vat);
+    });
+    x = setFormula(x, "G" + totRow, `SUM(G19:G${last})`, total);
+    const sigRow = 28 + k;
+    x = setStr(x, "A" + sigRow, titleCase(d.requester || ""));
+    x = setStr(x, "B" + sigRow, d.head || "");
+    x = setStr(x, "D" + sigRow, d.finance || "");
     zip.file(sp, x);
 
     // Checkbox Tiền mặt (Check Box 1 / ctrlProp5) và Chuyển khoản (Check Box 2 / ctrlProp6)

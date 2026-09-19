@@ -6,7 +6,7 @@
    Cập nhật thủ công mỗi lần deploy để bạn biết bản mới đã lên chưa (hiển thị
    ở màn hình đăng nhập và cuối trang Dữ liệu). Định dạng: YYYY.MM.DD.N —
    N là số thứ tự bản deploy trong ngày (bắt đầu từ 1). */
-const APP_VERSION = "2026.09.19.9";
+const APP_VERSION = "2026.09.19.10";
 document.querySelectorAll("#appVersionText, #appVersionText2").forEach(el => { el.textContent = APP_VERSION; });
 
 /* ---------- Mật khẩu xác nhận cho thao tác nguy hiểm (Xóa toàn bộ...) ----------
@@ -274,6 +274,7 @@ function goPage(name) {
   if (name === "settings" && !isAdmin) name = "dashboard"; // settings/backup/import are admin-only
   // Module Máy in (printers.js): chỉ Admin/Viewer được vào — Collector bị đưa về Tổng quan.
   if (typeof printerPageBlocked === "function" && printerPageBlocked(name)) name = "dashboard";
+  if (typeof netPageBlocked === "function" && netPageBlocked(name)) name = "dashboard"; // Network › cước Internet (network-isp.js)
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = $(name);
   if (target) target.classList.add("active");
@@ -286,6 +287,7 @@ function goPage(name) {
   if (name === "employees") renderEmployeeList();
   if (name === "camera") renderCameraPage();
   if (typeof onPrinterPage === "function") onPrinterPage(name);
+  if (typeof onNetPage === "function") onNetPage(name);
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
   btn.addEventListener("click", () => goPage(btn.getAttribute("data-page")));
@@ -738,6 +740,7 @@ function renderAll() {
   renderProjectList();
   renderCameraPage();
   if (typeof renderPrinterAll === "function") renderPrinterAll(); // module Máy in (printers.js)
+  if (typeof renderNetAll === "function") renderNetAll(); // Network › cước Internet (network-isp.js)
 }
 
 /* ---------- Dashboard ---------- */
@@ -4900,6 +4903,7 @@ auth.onAuthStateChanged(async user => {
       initTicketSync();
       initProjectSync();
       if (typeof initPrinterSync === "function") initPrinterSync(); // Máy in: chỉ Admin/Viewer (tự kiểm tra bên trong)
+      if (typeof initNetSync === "function") initNetSync(); // Network › cước Internet: chỉ Admin/Viewer
       initEmployeesSync();
       if (isAdmin) { initUsersSync(); initHomeLaptopExportMetaSync(); } // chỉ Admin đọc toàn bộ users + cần thấy cảnh báo xuất lại báo cáo mang laptop
       goPage("dashboard");
@@ -4910,6 +4914,7 @@ auth.onAuthStateChanged(async user => {
     stopTicketSync();
     stopProjectSync();
     if (typeof stopPrinterSync === "function") stopPrinterSync();
+    if (typeof stopNetSync === "function") stopNetSync();
     stopEmployeesSync();
     stopUsersSync();
     stopHomeLaptopExportMetaSync();

@@ -299,3 +299,12 @@ trang, để dễ gửi Zalo/in/lưu thay vì gửi nguyên file Word.
 - Máy thuê có thêm **VAT (%)** (tiền thuê khai báo là giá chưa VAT); công nợ tiền thuê tính cả VAT. NCC có thêm số tài khoản/ngân hàng.
 - Người ký (người đề nghị, trưởng bộ phận, quản lý tài chính, mã số) được nhớ trên trình duyệt. Cần Internet lần đầu để tải pdf.js/JSZip.
 - Muốn đổi mẫu in: thay file `pay-template.xlsx` (giữ nguyên vị trí các ô: F1, C2–C8, C10–C13, D14, G14, A19–G19, G20, A28/B28/D28).
+
+## Network › Thanh toán cước Internet (network-isp.js)
+
+Vào **Vận hành & Hỗ trợ IT → Network**. Chỉ Admin/Viewer thấy (Collector thì không).
+
+- **Đường truyền & NCC**: bấm “Nạp NCC & đường truyền VNPT/Viettel” để tạo sẵn 2 NCC (kèm tài khoản nhận tiền) và 6 đường truyền. Sửa/thêm tùy ý.
+- **Đề nghị thanh toán cước**: (1) chọn nhiều PDF cùng lúc (hóa đơn VNPT, hóa đơn FTTH Viettel, Thông báo cước Viettel) → app tự nhận dạng, khớp đường truyền theo mã KH/số hợp đồng → kiểm tra → *Lưu vào công nợ*; (2) chọn NCC, tick các hóa đơn → *Tạo file Excel* (mỗi NCC 1 giấy, nhiều dòng chứng từ, cùng mẫu với module Máy in).
+- **Công nợ cước Internet**: hóa đơn từng tháng, ghi nhận thanh toán, quá hạn.
+- Firestore: `net_providers`, `net_lines`, `net_invoices` — **nhớ Publish lại `firestore.rules`**.

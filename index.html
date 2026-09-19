@@ -295,7 +295,6 @@
     <button class="module-nav-item" data-page="network">
       <span class="module-nav-icon">🌐</span>
       <span class="module-nav-text"><b data-i18n="nav.network">Network</b><small data-i18n="nav.network.desc">Sơ đồ mạng, IP, switch/port, wifi</small></span>
-      <span class="module-nav-soon" data-i18n="common.soon">Sắp có</span>
     </button>
     <button class="module-nav-item" data-page="camera">
       <span class="module-nav-icon">📹</span>
@@ -548,11 +547,130 @@
 
 <section id="network" class="page">
   <div class="section-head"><h2 data-i18n="network.title">🌐 Network</h2><button data-page="ops">←</button></div>
+  <div class="card no-collector">
+    <h3 data-i18n="nw.hub.title">💳 Thanh toán cước Internet</h3>
+    <p class="hint" data-i18n="nw.hub.hint">Hàng tháng: tải hóa đơn PDF của VNPT/Viettel lên, kiểm tra rồi xuất Excel “Giấy đề nghị thanh toán” để in trình ký.</p>
+    <div class="module-nav">
+      <button class="module-nav-item" data-page="netPayReq">
+        <span class="module-nav-icon">📝</span>
+        <span class="module-nav-text"><b data-i18n="nw.hub.payreq">Đề nghị thanh toán cước</b><small data-i18n="nw.hub.payreq.desc">Tải hóa đơn PDF → xuất Excel trình ký</small></span>
+      </button>
+      <button class="module-nav-item" data-page="netBills">
+        <span class="module-nav-icon">💳</span>
+        <span class="module-nav-text"><b data-i18n="nw.hub.bills">Công nợ cước Internet</b><small data-i18n="nw.hub.bills.desc">Hóa đơn hằng tháng, đã trả, còn nợ, quá hạn</small></span>
+      </button>
+      <button class="module-nav-item" data-page="netLines">
+        <span class="module-nav-icon">📡</span>
+        <span class="module-nav-text"><b data-i18n="nw.hub.lines">Đường truyền &amp; NCC</b><small data-i18n="nw.hub.lines.desc">Danh sách đường truyền Internet, mã KH, hợp đồng, NCC</small></span>
+      </button>
+    </div>
+  </div>
   <div class="card empty">
     <p data-i18n="common.building">🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
     <p class="muted" data-i18n="network.desc">Dự kiến: sơ đồ mạng, bảng IP, thông tin switch/port, wifi.</p>
   </div>
 </section>
+
+<!-- ==================== NETWORK: CƯỚC INTERNET ==================== -->
+<section id="netLines" class="page">
+  <div class="section-head"><h2 data-i18n="nw.l.title">📡 Đường truyền &amp; NCC</h2><button data-page="network">←</button></div>
+  <div class="stats stats-2">
+    <div class="stat"><b id="nwLStatCount">0</b><span data-i18n="nw.l.count">Số đường truyền</span></div>
+    <div class="stat"><b id="nwLStatFee" class="pr-money-stat">0</b><span data-i18n="nw.l.monthly">Cước ước tính/tháng</span></div>
+  </div>
+  <div class="quick admin-only">
+    <button type="button" id="nwLineAddBtn" data-i18n="nw.l.add">＋ Thêm đường truyền</button>
+    <button type="button" id="nwProvAddBtn" class="secondary" data-i18n="nw.p.add">＋ Thêm NCC</button>
+  </div>
+  <div class="quick admin-only" style="margin-top:9px"><button type="button" id="nwSeedBtn" class="secondary" data-i18n="nw.seed.btn">⬇ Nạp NCC &amp; đường truyền VNPT/Viettel</button></div>
+  <div id="nwLineList" style="margin-top:12px"></div>
+</section>
+
+<section id="netLineForm" class="page">
+  <div class="section-head"><h2 id="nwLineFormTitle" data-i18n="nw.l.form.create">Thêm đường truyền</h2><button data-page="netLines">←</button></div>
+  <form id="nwLineFormEl" class="card">
+    <input type="hidden" id="nwLineDocId">
+    <label><span data-i18n="nw.l.provider">Nhà cung cấp*</span><select id="nwLineProvider"></select></label>
+    <label><span data-i18n="nw.l.name">Tên đường truyền*</span><input id="nwLineName"></label>
+    <label><span data-i18n="nw.l.type">Loại dịch vụ</span><select id="nwLineType"></select></label>
+    <label><span data-i18n="nw.l.custCode">Mã khách hàng (VNPT)</span><input id="nwLineCustCode"></label>
+    <label><span data-i18n="nw.l.contract">Số hợp đồng</span><input id="nwLineContract"></label>
+    <label><span data-i18n="nw.l.account">Tên thuê bao / tài khoản (Viettel)</span><input id="nwLineAccount"></label>
+    <label><span data-i18n="nw.l.location">Vị trí lắp đặt</span><input id="nwLineLocation"></label>
+    <label><span data-i18n="nw.l.speed">Tốc độ / băng thông</span><input id="nwLineSpeed"></label>
+    <label><span data-i18n="nw.l.fee">Cước ước tính/tháng (VNĐ, gồm VAT)</span><input id="nwLineFee" type="number" min="0" step="1000"></label>
+    <label><span data-i18n="nw.l.note">Ghi chú</span><textarea id="nwLineNote" rows="2"></textarea></label>
+    <div class="form-actions admin-only"><button type="submit" data-i18n="nw.l.save">Lưu đường truyền</button></div>
+  </form>
+</section>
+
+<section id="netProviderForm" class="page">
+  <div class="section-head"><h2 id="nwProvFormTitle" data-i18n="nw.p.form.create">Thêm NCC dịch vụ mạng</h2><button data-page="netLines">←</button></div>
+  <form id="nwProvFormEl" class="card">
+    <input type="hidden" id="nwProvDocId">
+    <label><span data-i18n="nw.p.name">Tên NCC*</span><input id="nwProvName"></label>
+    <label><span data-i18n="nw.p.tax">Mã số thuế</span><input id="nwProvTax"></label>
+    <label><span data-i18n="nw.p.receiver">Đơn vị nhận tiền</span><input id="nwProvReceiver"></label>
+    <label><span data-i18n="nw.p.account">Số tài khoản</span><input id="nwProvAccount"></label>
+    <label><span data-i18n="nw.p.bank">Tại ngân hàng</span><input id="nwProvBank"></label>
+    <label><span data-i18n="nw.p.bankAddr">Địa chỉ ngân hàng</span><input id="nwProvBankAddr"></label>
+    <label><span data-i18n="nw.p.dueDay">Hạn thanh toán: ngày … hằng tháng</span><input id="nwProvDueDay" type="number" min="1" max="28"></label>
+    <label><span data-i18n="nw.p.terms">Hoặc số ngày kể từ ngày hóa đơn</span><input id="nwProvTerms" type="number" min="0"></label>
+    <div class="form-actions admin-only"><button type="submit" data-i18n="nw.p.save">Lưu NCC</button></div>
+  </form>
+</section>
+
+<section id="netBills" class="page">
+  <div class="section-head"><h2 data-i18n="nw.b.title">💳 Công nợ cước Internet</h2><button data-page="network">←</button></div>
+  <div class="stats stats-2">
+    <div class="stat"><b id="nwBDebt" class="pr-money-stat">0</b><span data-i18n="nw.b.total">Tổng còn phải trả</span></div>
+    <div class="stat"><b id="nwBOver" class="pr-money-stat">0</b><span data-i18n="nw.b.overdue">Trong đó quá hạn</span></div>
+  </div>
+  <div class="card"><h3 data-i18n="nw.b.byProvider">Công nợ theo NCC</h3><div id="nwBByProv"></div></div>
+  <div class="quick admin-only"><button type="button" id="nwBOpenReq" class="secondary" data-i18n="nw.b.openReq">📝 Lập đề nghị thanh toán</button></div>
+  <div class="filters" style="margin-top:12px">
+    <input id="nwBSearch" data-i18n-placeholder="nw.b.search" placeholder="Tìm số hóa đơn, NCC, đường truyền...">
+    <select id="nwBProv"></select>
+    <select id="nwBStatus"></select>
+  </div>
+  <div id="nwBList"></div>
+</section>
+
+<section id="netPayReq" class="page">
+  <div class="section-head"><h2 data-i18n="nw.q.title">📝 Đề nghị thanh toán cước</h2><button data-page="network">←</button></div>
+  <p class="hint" data-i18n="nw.q.hint">Bước 1: chọn các hóa đơn PDF của tháng → kiểm tra → Lưu vào công nợ. Bước 2: chọn NCC, tick hóa đơn → Tạo file Excel.</p>
+  <div id="nwPqNoProv" class="pr-alert warn hidden" data-i18n="nw.q.noProviders">Chưa có NCC nào.</div>
+  <div class="card admin-only">
+    <label><span data-i18n="nw.q.pick">Chọn các file PDF (chọn được nhiều file)</span><input id="nwPqFile" type="file" accept="application/pdf,.pdf" multiple></label>
+    <div class="quick"><button type="button" id="nwPqManualBtn" class="secondary" data-i18n="nw.q.addManual">✍ Thêm dòng nhập tay</button></div>
+    <div id="nwPqStatus" class="muted"></div>
+  </div>
+  <div id="nwPqReviewWrap" class="hidden admin-only">
+    <div id="nwPqReview"></div>
+    <div class="quick"><button type="button" id="nwPqSaveRows" data-i18n="nw.q.saveRows">💾 Lưu vào công nợ</button></div>
+  </div>
+  <div class="card admin-only" style="margin-top:12px">
+    <h3 data-i18n="nw.q.step2">Bước 2 — Tạo giấy đề nghị thanh toán</h3>
+    <label><span data-i18n="nw.q.provider">NCC</span><select id="nwPqProv"></select></label>
+    <div class="muted" data-i18n="nw.q.pickBills">Chọn hóa đơn đưa vào giấy đề nghị</div>
+    <div id="nwPqPending" style="margin:8px 0"></div>
+    <div class="pr-summary"><span data-i18n="nw.q.selTotal">Tổng đã chọn</span>: <span id="nwPqSelTotal">0</span></div>
+    <label><span data-i18n="nw.q.method">Hình thức thanh toán</span><select id="nwPqMethod"></select></label>
+    <div class="filter-dates">
+      <label class="filter-date"><span data-i18n="nw.q.from">Từ ngày</span><input id="nwPqFrom" type="date"></label>
+      <label class="filter-date"><span data-i18n="nw.q.dueAll">Hạn chót</span><input id="nwPqDue" type="date"></label>
+    </div>
+    <label style="margin-top:11px"><span data-i18n="nw.q.reason">Lý do (Content)</span><textarea id="nwPqReason" rows="3"></textarea></label>
+    <label><span data-i18n="nw.q.code">Mã số (Code)</span><input id="nwPqCode"></label>
+    <label><span data-i18n="nw.q.requester">Người đề nghị</span><input id="nwPqRequester"></label>
+    <label><span data-i18n="nw.q.dept">Phòng ban</span><input id="nwPqDept"></label>
+    <label><span data-i18n="nw.q.head">Trưởng bộ phận</span><input id="nwPqHead"></label>
+    <label><span data-i18n="nw.q.finance">Quản lý tài chính</span><input id="nwPqFinance"></label>
+    <p class="hint" data-i18n="nw.q.settingsHint">Thông tin người ký được nhớ trên máy này cho lần sau.</p>
+    <div class="quick"><button type="button" id="nwPqXlsxBtn" data-i18n="nw.q.xlsx">📄 Tạo file Excel đề nghị thanh toán</button></div>
+  </div>
+</section>
+<!-- ==================== /NETWORK ==================== -->
 
 <section id="camera" class="page">
   <div class="section-head"><h2 data-i18n="camera.title">📹 Camera</h2><button data-page="ops">←</button></div>
@@ -1114,5 +1232,6 @@
 <script src="printers-seed.js"></script>
 <script src="printers.js"></script>
 <script src="printers-payreq.js"></script>
+<script src="network-isp.js"></script>
 </body>
 </html>
