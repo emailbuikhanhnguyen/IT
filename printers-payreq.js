@@ -219,6 +219,28 @@
     return head + sd + rest;
   }
 
+  // Nhân bản style của ô `ref` nhưng dùng định dạng số dd/mm/yyyy; trả về chỉ số style mới (ghi lại styles.xml trong zip).
+  async function addDateStyle(zip, sheetXml, ref) {
+    let st = await zip.file("xl/styles.xml").async("string");
+    const cm = /<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/.exec(st);
+    const sm = new RegExp(`<c r="${ref}"[^>]*\\ss="(\\d+)"`).exec(sheetXml);
+    if (!cm || !sm) return sm ? +sm[1] : 0;
+    const xfs = cm[2].match(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g) || [];
+    const base = xfs[+sm[1]];
+    if (!base) return +sm[1];
+    const FMT_ID = 190;
+    if (!/numFmtId="190"/.test(st)) {
+      const fmt = `<numFmt numFmtId="${FMT_ID}" formatCode="dd\\/mm\\/yyyy"/>`;
+      if (/<numFmts count="(\d+)">/.test(st)) st = st.replace(/<numFmts count="(\d+)">/, (m, c) => `<numFmts count="${+c + 1}">`).replace("</numFmts>", fmt + "</numFmts>");
+      else st = st.replace(/(<styleSheet[^>]*>)/, `$1<numFmts count="1">${fmt}</numFmts>`);
+    }
+    let nx = base.replace(/numFmtId="\d+"/, `numFmtId="${FMT_ID}"`);
+    if (!/applyNumberFormat=/.test(nx)) nx = nx.replace(/^<xf/, '<xf applyNumberFormat="1"');
+    st = st.replace(/<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/, (m, c, body) => `<cellXfs count="${+c + 1}">${body}${nx}</cellXfs>`);
+    zip.file("xl/styles.xml", st);
+    return xfs.length;
+  }
+
   async function buildPaymentXlsx(templateBytes, d) {
     const zip = await JSZip.loadAsync(templateBytes);
     const sp = "xl/worksheets/sheet3.xml";
@@ -239,8 +261,10 @@
     x = setStr(x, "C11", d.account || "");
     x = setStr(x, "C12", d.bank || "");
     if (d.bankAddress) x = setStr(x, "C13", d.bankAddress);
-    x = setNum(x, "D14", excelSerial(d.from));
-    x = setNum(x, "G14", excelSerial(d.due));
+    // Ngày "Từ ngày/Hạn chót": ép định dạng dd/mm/yyyy (mẫu dùng định dạng ngày theo máy -> hiện m/d/yyyy trên Excel US).
+    const dateStyle = await addDateStyle(zip, x, "D14");
+    x = putCell(x, "D14", ref => `<c r="${ref}" s="${dateStyle}"><v>${excelSerial(d.from)}</v></c>`);
+    x = putCell(x, "G14", ref => `<c r="${ref}" s="${dateStyle}"><v>${excelSerial(d.due)}</v></c>`);
     docs.forEach((r, i) => {
       const n = 19 + i, ex = Number(r.ex) || 0, vat = Number(r.vat) || 0;
       x = setStr(x, "A" + n, r.no || "");
