@@ -676,6 +676,8 @@
   <div class="section-head"><h2 data-i18n="camera.title">📹 Camera</h2><button data-page="ops">←</button></div>
   <div class="card">
     <p class="hint" data-i18n="camera.hint">Mỗi đầu ghi (NVR) có 1 nút mở thẳng trang quản lý (portal) của nó trong tab mới — cần đăng nhập bằng tài khoản NVR khi mở. Ngoài ra, hệ thống tự gửi email báo cáo tình trạng camera (online/offline, dung lượng ổ đĩa) mỗi ngày lúc 7h sáng.</p>
+    <p class="hint" data-i18n="camera.reportHint">Cần báo cáo ngay, không đợi tới 7h sáng? Bấm nút dưới — trang GitHub Actions sẽ mở ra, bấm tiếp "Run workflow" ở đó (cần đăng nhập GitHub, đúng tài khoản có quyền vào repo báo cáo).</p>
+    <a class="button" id="cameraRunReportBtn" href="https://github.com/emailbuikhanhnguyen/camera-nvr-report/actions/workflows/camera-report.yml" target="_blank" rel="noopener">▶️ <span data-i18n="camera.runReportNow">Report ngay</span></a>
   </div>
   <div id="cameraNvrList"></div>
   <div class="card empty">
