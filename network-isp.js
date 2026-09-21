@@ -300,7 +300,7 @@
     ]
   };
 
-  window.NetIsp = { parseNetDoc, matchLine, matchProvider, dueFor, reasonFor, buildRequestData, vnd, SEED, LINE_TYPES };
+  window.NetIsp = { parseNetDoc, matchLine, matchProvider, dueFor, reasonFor, buildRequestData, vnd, SEED, LINE_TYPES, state: () => ({ providers, lines, bills }) };
 
   /* ================= UI ================= */
   const $ = id => document.getElementById(id);

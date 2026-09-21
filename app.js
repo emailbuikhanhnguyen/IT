@@ -108,9 +108,10 @@ let isAdmin = false;
 let isCollector = false;
 let isViewer = false;
 // reportonly: tài khoản chỉ dùng để vào thẳng và chỉ thấy đúng 1 trang
-// "Chuyển đổi báo cáo" (Word -> JPG) — không thấy dashboard/menu/trang nào
-// khác, không đọc/ghi bất kỳ collection Firestore nào (tài sản, ticket,
-// nhân viên...) vì tính năng này chạy 100% trên thiết bị.
+// "Đề nghị thanh toán" (PDF hóa đơn NCC -> Excel) — không thấy dashboard/menu/
+// trang nào khác, không đọc/ghi bất kỳ collection Firestore nào (tài sản,
+// ticket, nhân viên...) vì tính năng này chạy 100% trên thiết bị.
+// (Tên vai trò "reportonly" giữ nguyên để các tài khoản cũ vẫn hoạt động.)
 let isReportOnly = false;
 let currentEmail = "";
 let currentUid = "";
@@ -269,12 +270,13 @@ function toast(msg) {
 function goPage(name) {
   // Tài khoản "reportonly" chỉ được phép ở đúng 1 trang duy nhất — mọi
   // điều hướng khác (kể cả bấm nhầm nút ẩn, nút "←", hay link cũ) đều bị
-  // kéo thẳng về lại trang Chuyển đổi báo cáo.
-  if (isReportOnly) name = "reportConvert";
+  // kéo thẳng về lại trang Đề nghị thanh toán.
+  if (isReportOnly) name = "payReq";
   if (name === "settings" && !isAdmin) name = "dashboard"; // settings/backup/import are admin-only
   // Module Máy in (printers.js): chỉ Admin/Viewer được vào — Collector bị đưa về Tổng quan.
   if (typeof printerPageBlocked === "function" && printerPageBlocked(name)) name = "dashboard";
   if (typeof netPageBlocked === "function" && netPageBlocked(name)) name = "dashboard"; // Network › cước Internet (network-isp.js)
+  if (typeof payReqPageBlocked === "function" && payReqPageBlocked(name)) name = "dashboard"; // Đề nghị thanh toán (payreq.js): Collector không thấy
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = $(name);
   if (target) target.classList.add("active");
@@ -288,6 +290,7 @@ function goPage(name) {
   if (name === "camera") renderCameraPage();
   if (typeof onPrinterPage === "function") onPrinterPage(name);
   if (typeof onNetPage === "function") onNetPage(name);
+  if (typeof onPayReqPage === "function") onPayReqPage(name);
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
   btn.addEventListener("click", () => goPage(btn.getAttribute("data-page")));
@@ -614,7 +617,7 @@ function stopUsersSync() {
   if (unsubscribeUsersSync) { unsubscribeUsersSync(); unsubscribeUsersSync = null; }
   userAccounts = [];
 }
-const ROLE_LABELS_VI = { admin: "Quản trị (Admin)", collector: "Thu thập dữ liệu", viewer: "Chỉ xem", reportonly: "Chuyển đổi báo cáo (chỉ 1 trang)" };
+const ROLE_LABELS_VI = { admin: "Quản trị (Admin)", collector: "Thu thập dữ liệu", viewer: "Chỉ xem", reportonly: "Đề nghị thanh toán (chỉ 1 trang)" };
 function roleLabel(role) { return tr("role.label." + role) || ROLE_LABELS_VI[role] || role; }
 function renderUserList() {
   const box = $("userList");
@@ -4660,7 +4663,7 @@ async function loadRole(user) {
   // role-collector: ẩn mục Máy in (.no-collector) — module này có giá thuê/công nợ nên chỉ Admin/Viewer thấy.
   document.body.classList.toggle("role-collector", isCollector);
   // role-reportonly: ẩn toàn bộ dashboard/menu/bottomnav — tài khoản này
-  // chỉ được thấy đúng 1 trang Chuyển đổi báo cáo (xem CSS + goPage()).
+  // chỉ được thấy đúng 1 trang Đề nghị thanh toán (xem CSS + goPage()).
   document.body.classList.toggle("role-reportonly", isReportOnly);
   updateRoleBadge();
   return isAdmin || isCollector || isViewer || isReportOnly;
@@ -4695,191 +4698,6 @@ function openPendingScanCodeAsset() {
   tryOpen();
 }
 
-/* ---------- Chuyển đổi báo cáo Word (.docx) -> ảnh JPG ----------
-   Hoàn toàn chạy trên thiết bị (không upload file lên server nào):
-   mammoth.js đọc nội dung .docx thành HTML, dựng lại trong 1 khung ẩn
-   có bề rộng cố định theo khổ giấy, html2canvas chụp thành 1 canvas dài,
-   rồi cắt thành từng "trang" theo ranh giới các khối nội dung (không cắt
-   ngang 1 ảnh/bảng) để xuất JPG.
-   Lưu ý: đây là ngắt trang ước lượng (không phải công cụ dàn trang chuẩn
-   của Word — số trang JPG có thể không khớp 100% số trang gốc, nhất là
-   với văn bản nhiều chữ chảy liên tục) — chỉ hỗ trợ .docx (không đọc
-   được .doc cũ vì đó là định dạng nhị phân khác, cần Save As sang .docx
-   trước). */
-const REPORT_PAGE_SIZES = {
-  a4: { w: 794, h: 1123 },
-  letter: { w: 816, h: 1056 }
-};
-let reportPages = [];       // [{ dataUrl, index }]
-let reportSourceName = "report";
-
-async function convertReportFile(file) {
-  if (!file) return;
-  const lower = file.name.toLowerCase();
-  if (lower.endsWith(".doc") && !lower.endsWith(".docx")) {
-    alert(tr("report.oldDocError"));
-    return;
-  }
-  if (typeof mammoth === "undefined") {
-    alert(tr("report.libMissing"));
-    return;
-  }
-  const btnLabel = $("reportFile").closest("label");
-  const statusEl = $("reportStatus");
-  if (btnLabel) btnLabel.classList.add("hidden");
-  statusEl.classList.remove("hidden");
-  statusEl.textContent = tr("report.converting");
-
-  let container = null;
-  try {
-    reportSourceName = file.name.replace(/\.[^.]+$/, "");
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.convertToHtml(
-      { arrayBuffer },
-      { convertImage: mammoth.images.imgElement(img =>
-          img.read("base64").then(b64 => ({ src: "data:" + img.contentType + ";base64," + b64 }))
-        )
-      }
-    );
-
-    const sizeKey = $("reportPageSize").value || "a4";
-    const size = REPORT_PAGE_SIZES[sizeKey] || REPORT_PAGE_SIZES.a4;
-    const quality = (parseInt($("reportQuality").value, 10) || 85) / 100;
-    const scale = 2; // độ nét ảnh xuất ra (@2x)
-
-    container = document.createElement("div");
-    container.className = "report-render-box";
-    container.style.position = "fixed";
-    container.style.left = "-99999px";
-    container.style.top = "0";
-    container.style.width = size.w + "px";
-    container.style.padding = "40px";
-    container.style.fontFamily = "'Times New Roman', serif";
-    container.style.fontSize = "14px";
-    container.style.lineHeight = "1.5";
-    container.innerHTML = result.value;
-    document.body.appendChild(container);
-
-    // Chờ ảnh nhúng trong file (nếu có) load xong trước khi chụp
-    const imgs = Array.from(container.querySelectorAll("img"));
-    await Promise.all(imgs.map(img => img.complete
-      ? Promise.resolve()
-      : new Promise(res => { img.onload = img.onerror = res; })));
-
-    // Tính điểm ngắt trang theo ranh giới các khối nội dung cấp 1 (thẻ
-    // <p>/<table>/... con trực tiếp của container) — KHÔNG cắt cứng theo
-    // pixel, để tránh cắt ngang 1 ảnh hoặc 1 bảng làm đôi. Nếu 1 khối tự
-    // nó đã cao hơn 1 trang (vd 1 ảnh rất lớn) thì đành để nguyên khối đó
-    // thành 1 "trang" dài hơn khổ giấy chuẩn — không còn cách nào khác nếu
-    // không được phép cắt ngang khối.
-    const pageHeightCss = size.h;
-    const children = Array.from(container.children);
-    const breakPointsCss = [0];
-    let pageStartCss = 0;
-    children.forEach(el => {
-      const top = el.offsetTop;
-      const bottom = top + el.offsetHeight;
-      if (bottom - pageStartCss > pageHeightCss && top > pageStartCss) {
-        breakPointsCss.push(top);
-        pageStartCss = top;
-      }
-    });
-    breakPointsCss.push(container.scrollHeight);
-
-    const fullCanvas = await html2canvas(container, {
-      scale, useCORS: true, backgroundColor: "#ffffff"
-    });
-
-    reportPages = [];
-    for (let i = 0; i < breakPointsCss.length - 1; i++) {
-      const yStart = Math.round(breakPointsCss[i] * scale);
-      const yEnd = Math.round(Math.min(breakPointsCss[i + 1] * scale, fullCanvas.height));
-      const h = yEnd - yStart;
-      if (h <= 0) continue;
-      const pageCanvas = document.createElement("canvas");
-      pageCanvas.width = fullCanvas.width;
-      pageCanvas.height = h;
-      const ctx = pageCanvas.getContext("2d");
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, pageCanvas.width, h);
-      ctx.drawImage(fullCanvas, 0, yStart, fullCanvas.width, h, 0, 0, fullCanvas.width, h);
-      reportPages.push({ dataUrl: pageCanvas.toDataURL("image/jpeg", quality), canvas: pageCanvas, index: reportPages.length + 1 });
-    }
-    if (reportPages.length === 0) {
-      reportPages.push({ dataUrl: fullCanvas.toDataURL("image/jpeg", quality), canvas: fullCanvas, index: 1 });
-    }
-    renderReportPages();
-    toast(tr("report.done", { n: reportPages.length }));
-  } catch (e) {
-    console.error(e);
-    alert(tr("report.convertError") + (e && e.message ? (": " + e.message) : ""));
-  } finally {
-    if (container && container.parentNode) container.parentNode.removeChild(container);
-    statusEl.classList.add("hidden");
-    if (btnLabel) btnLabel.classList.remove("hidden");
-    $("reportFile").value = "";
-  }
-}
-
-function renderReportPages() {
-  const grid = $("reportPagesGrid");
-  grid.innerHTML = "";
-  reportPages.forEach(p => {
-    const card = document.createElement("div");
-    card.className = "report-page-card";
-    const img = document.createElement("img");
-    img.className = "report-page-thumb";
-    img.src = p.dataUrl;
-    img.alt = tr("reportConvert.pageLabel", { n: p.index });
-    const link = document.createElement("a");
-    link.className = "button secondary";
-    link.href = p.dataUrl;
-    link.download = `${reportSourceName}-trang${String(p.index).padStart(2, "0")}.jpg`;
-    link.textContent = tr("reportConvert.downloadPage", { n: p.index });
-    card.appendChild(img);
-    card.appendChild(link);
-    grid.appendChild(card);
-  });
-  $("reportPagesSection").classList.toggle("hidden", reportPages.length === 0);
-  $("reportDownloadAllBtn").classList.toggle("hidden", reportPages.length === 0);
-}
-
-if ($("reportFile")) {
-  $("reportFile").addEventListener("change", e => convertReportFile(e.target.files[0]));
-}
-if ($("reportDownloadAllBtn")) {
-  $("reportDownloadAllBtn").addEventListener("click", () => {
-    if (!reportPages.length) return;
-    // Ghép toàn bộ các trang thành 1 ảnh JPG duy nhất (xếp dọc, có vạch
-    // xám mảnh phân cách giữa các trang cho dễ nhìn ranh giới) thay vì
-    // tải nhiều file riêng — tránh bị trình duyệt chặn bớt khi tải
-    // nhiều file cùng lúc, và tiện gửi/lưu như 1 ảnh duy nhất.
-    const gap = 24;
-    const maxWidth = Math.max(...reportPages.map(p => p.canvas.width));
-    const totalHeight = reportPages.reduce((sum, p) => sum + p.canvas.height, 0)
-      + gap * (reportPages.length - 1);
-    const combined = document.createElement("canvas");
-    combined.width = maxWidth;
-    combined.height = totalHeight;
-    const ctx = combined.getContext("2d");
-    ctx.fillStyle = "#cbd5e1";
-    ctx.fillRect(0, 0, maxWidth, totalHeight);
-    let y = 0;
-    reportPages.forEach(p => {
-      ctx.drawImage(p.canvas, 0, y);
-      y += p.canvas.height + gap;
-    });
-    const quality = (parseInt($("reportQuality").value, 10) || 85) / 100;
-    const dataUrl = combined.toDataURL("image/jpeg", quality);
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `${reportSourceName}-full.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  });
-}
-
 auth.onAuthStateChanged(async user => {
   if (user) {
     $("loginScreen").classList.add("hidden");
@@ -4892,18 +4710,19 @@ auth.onAuthStateChanged(async user => {
       return;
     }
     if (isReportOnly) {
-      // Tài khoản chỉ dùng để chuyển đổi Word -> JPG: tính năng này chạy
-      // hoàn toàn trên thiết bị, không cần đọc bất kỳ collection nào
-      // (assets/tickets/employees/users) — bỏ qua các sync đó để tránh
-      // gọi Firestore thừa (và tránh lỗi permission-denied vì Rules
-      // không cấp quyền đọc các collection này cho vai trò này).
-      goPage("reportConvert");
+      // Tài khoản chỉ dùng trang Đề nghị thanh toán: tính năng này chạy
+      // hoàn toàn trên thiết bị (đọc PDF -> tạo Excel), không cần đọc bất kỳ
+      // collection nào (assets/tickets/employees/users) — bỏ qua các sync
+      // đó để tránh gọi Firestore thừa (và tránh lỗi permission-denied vì
+      // Rules không cấp quyền đọc các collection này cho vai trò này).
+      goPage("payReq");
     } else {
       initSync();
       initTicketSync();
       initProjectSync();
       if (typeof initPrinterSync === "function") initPrinterSync(); // Máy in: chỉ Admin/Viewer (tự kiểm tra bên trong)
       if (typeof initNetSync === "function") initNetSync(); // Network › cước Internet: chỉ Admin/Viewer
+      if (typeof initPayReqSync === "function") initPayReqSync(); // Đề nghị thanh toán: lịch sử đề nghị, chỉ Admin/Viewer
       initEmployeesSync();
       if (isAdmin) { initUsersSync(); initHomeLaptopExportMetaSync(); } // chỉ Admin đọc toàn bộ users + cần thấy cảnh báo xuất lại báo cáo mang laptop
       goPage("dashboard");
@@ -4915,6 +4734,7 @@ auth.onAuthStateChanged(async user => {
     stopProjectSync();
     if (typeof stopPrinterSync === "function") stopPrinterSync();
     if (typeof stopNetSync === "function") stopNetSync();
+    if (typeof stopPayReqSync === "function") stopPayReqSync();
     stopEmployeesSync();
     stopUsersSync();
     stopHomeLaptopExportMetaSync();

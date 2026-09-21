@@ -7,7 +7,7 @@
    - App shell (index.html, css, js nội bộ, logo, manifest): cache-first,
      precache ngay khi cài đặt -> mở app không mạng vẫn chạy được.
    - Thư viện CDN (xlsx, html5-qrcode, qrcodejs, chart.js, jspdf,
-     html2canvas, mammoth, firebase compat...): "network-first, cache
+     html2canvas, firebase compat...): "network-first, cache
      làm dự phòng" khi cài đặt lần đầu, rồi cache lại (stale-while-
      revalidate) mỗi lần tải thành công -> đúng như mô tả trong README
      ("lần đầu cần Internet để tải thư viện, sau đó SW cache lại").
@@ -19,7 +19,7 @@
    Khi đổi APP_SHELL (thêm/bớt file) hoặc muốn ép người dùng nhận bản mới
    ngay, chỉ cần đổi CACHE_VERSION bên dưới. */
 
-const CACHE_VERSION = "v27";
+const CACHE_VERSION = "v28";
 const APP_SHELL_CACHE = `ita-app-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `ita-runtime-${CACHE_VERSION}`;
 
@@ -34,6 +34,7 @@ const APP_SHELL_FILES = [
   "printers.js",
   "printers-payreq.js",
   "network-isp.js",
+  "payreq.js",
   "pay-template.xlsx",
   "employees.js",
   "logo.png",

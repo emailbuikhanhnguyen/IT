@@ -284,9 +284,9 @@
       <span class="module-nav-text"><b data-i18n="nav.guides">Hướng dẫn kỹ thuật</b><small data-i18n="nav.guides.desc">Tài liệu, cách xử lý sự cố thường gặp</small></span>
       <span class="module-nav-soon" data-i18n="common.soon">Sắp có</span>
     </button>
-    <button class="module-nav-item" data-page="reportConvert">
-      <span class="module-nav-icon">🖨️</span>
-      <span class="module-nav-text"><b data-i18n="nav.reportConvert">Chuyển đổi báo cáo</b><small data-i18n="nav.reportConvert.desc">Word (.docx) → ảnh JPG từng trang</small></span>
+    <button class="module-nav-item no-collector" data-page="payReq">
+      <span class="module-nav-icon">📝</span>
+      <span class="module-nav-text"><b data-i18n="nav.payReq">Đề nghị thanh toán</b><small data-i18n="nav.payReq.desc">Hóa đơn NCC (mạng, máy in, ...) → Giấy đề nghị thanh toán Excel</small></span>
     </button>
     <button class="module-nav-item no-collector" data-page="printers">
       <span class="module-nav-icon">🖨</span>
@@ -315,30 +315,41 @@
   <p class="hint" style="margin-top:12px" data-i18n="ops.footerHint">💡 Định hướng: mọi yêu cầu công việc đều tạo thành 1 Ticket — sau này Ticket sẽ liên kết trực tiếp tới Nhân viên, PO và Quy trình (SOP) liên quan để tra cứu nhanh hơn.</p>
 </section>
 
-<section id="reportConvert" class="page">
-  <div class="section-head"><h2 data-i18n="reportConvert.title">🖨️ Chuyển đổi báo cáo (Word → JPG)</h2><button data-page="ops">←</button></div>
-  <p class="hint" data-i18n="reportConvert.hint">Tải lên file Word (.docx) — hệ thống dựng lại nội dung ngay trên điện thoại/máy tính (không cần mạng, không gửi file lên server) và xuất ra ảnh JPG cho từng trang để dễ gửi Zalo/in/lưu. Chỉ đọc được file .docx (Word mới). Với file .doc cũ (như báo cáo QA scan/test report), mở lại bằng Microsoft Word rồi "Save As" sang .docx trước khi tải lên.</p>
+<section id="payReq" class="page">
+  <div class="section-head"><h2 data-i18n="pq.title">📝 Đề nghị thanh toán</h2><button data-page="ops">←</button></div>
+  <p class="hint" data-i18n="pq.hint">Chọn hóa đơn/chứng từ PDF của NCC (mạng, máy in, mực, dịch vụ khác…) → kiểm tra → mỗi NCC 1 Giấy đề nghị thanh toán (Excel).</p>
   <div class="card">
-    <label><span data-i18n="reportConvert.pageSize">Khổ giấy</span>
-      <select id="reportPageSize">
-        <option value="a4" data-i18n="reportConvert.a4">A4</option>
-        <option value="letter" data-i18n="reportConvert.letter">Letter</option>
-      </select>
-    </label>
-    <label><span data-i18n="reportConvert.quality">Chất lượng ảnh JPG</span>
-      <select id="reportQuality">
-        <option value="70">70%</option>
-        <option value="85" selected>85%</option>
-        <option value="95">95%</option>
-      </select>
-    </label>
-    <label class="button secondary"><span data-i18n="reportConvert.choose">📄 Chọn file Word (.docx)</span><input id="reportFile" type="file" accept=".docx" hidden></label>
-    <p id="reportStatus" class="hint hidden" data-i18n="report.converting">⏳ Đang chuyển đổi…</p>
+    <label><span data-i18n="pq.pick">Chọn hóa đơn / chứng từ PDF (chọn được nhiều file)</span><input id="pqFile" type="file" accept="application/pdf,.pdf" multiple></label>
+    <div class="quick">
+      <button type="button" id="pqManualBtn" class="secondary" data-i18n="pq.addManual">✍ Thêm dòng nhập tay</button>
+      <button type="button" id="pqClearBtn" class="ghost" data-i18n="pq.clear">🗑 Xóa hết</button>
+    </div>
+    <div id="pqStatus" class="muted" style="margin-top:8px"></div>
   </div>
-  <div id="reportPagesSection" class="card hidden">
-    <h3 data-i18n="reportConvert.resultTitle">Kết quả</h3>
-    <button id="reportDownloadAllBtn" class="hidden" data-i18n="reportConvert.downloadAll">⬇ Tải tất cả các trang</button>
-    <div id="reportPagesGrid" class="report-pages-grid"></div>
+  <div id="pqRowsWrap" class="hidden">
+    <h3 data-i18n="pq.step2">Bước 2 — Kiểm tra chứng từ</h3>
+    <div id="pqRows"></div>
+  </div>
+  <div id="pqGroupsWrap" class="hidden">
+    <h3 data-i18n="pq.step3">Bước 3 — Giấy đề nghị theo từng NCC</h3>
+    <div id="pqGroups"></div>
+    <div class="card">
+      <h4 data-i18n="pq.s.title" style="margin-top:0">Thông tin người ký (nhớ trên máy này)</h4>
+      <div class="pq-grid">
+        <label><span data-i18n="pq.s.code">Mã số (Code)</span><input id="pqCode"></label>
+        <label><span data-i18n="pq.s.dept">Phòng ban</span><input id="pqDept"></label>
+        <label class="full"><span data-i18n="pq.s.requester">Người đề nghị</span><input id="pqRequester"></label>
+        <label><span data-i18n="pq.s.head">Trưởng bộ phận</span><input id="pqHead"></label>
+        <label><span data-i18n="pq.s.chief">Kế toán trưởng</span><input id="pqChief"></label>
+        <label class="full"><span data-i18n="pq.s.finance">Quản lý tài chính</span><input id="pqFinance"></label>
+      </div>
+      <label id="pqSaveHistWrap" class="checkbox-label admin-only"><input id="pqSaveHist" type="checkbox" checked><span data-i18n="pq.s.save">Lưu lịch sử đề nghị (để cảnh báo trùng hóa đơn)</span></label>
+      <div class="quick"><button type="button" id="pqMakeAll" data-i18n="pq.makeOne">📄 Tạo file Excel đề nghị thanh toán</button></div>
+    </div>
+  </div>
+  <div id="pqHistoryWrap" class="card hidden">
+    <h3 data-i18n="pq.h.title" style="margin-top:0">🕘 Lịch sử đề nghị đã lập</h3>
+    <div id="pqHistory"></div>
   </div>
 </section>
 
@@ -1076,7 +1087,7 @@
           <option value="collector" selected data-i18n="role.collector">Collector (thu thập dữ liệu)</option>
           <option value="viewer" data-i18n="role.viewer">Viewer (chỉ xem — Ban giám đốc)</option>
           <option value="admin" data-i18n="role.admin">Admin (IT)</option>
-          <option value="reportonly" data-i18n="role.reportonly">Chuyển đổi báo cáo (chỉ 1 trang, không thấy gì khác)</option>
+          <option value="reportonly" data-i18n="role.reportonly">Đề nghị thanh toán (chỉ 1 trang, không thấy gì khác)</option>
         </select>
       </label>
       <div class="quick">
@@ -1224,7 +1235,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
@@ -1235,5 +1245,6 @@
 <script src="printers.js"></script>
 <script src="printers-payreq.js"></script>
 <script src="network-isp.js"></script>
+<script src="payreq.js"></script>
 </body>
 </html>

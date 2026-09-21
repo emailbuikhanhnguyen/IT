@@ -255,27 +255,20 @@ Theo dõi máy in **thuê** và **tự mua**, nhà cung cấp (NCC), công nợ 
 - **Phân quyền**: Admin toàn quyền; Viewer (Ban giám đốc) chỉ xem; **Collector không thấy** mục này (có giá thuê/công nợ).
 - **Bắt buộc publish lại `firestore.rules`** (thêm 3 collection `printers`, `printer_vendors`, `printer_invoices`), nếu không module sẽ báo permission-denied.
 
-## Chuyển đổi báo cáo (Word → JPG)
-Mục **🖨️ Chuyển đổi báo cáo** trong **🛠 Vận hành & Hỗ trợ IT** cho phép tải
-lên 1 file Word (**chỉ .docx** — Word mới) và xuất ra ảnh JPG cho từng
-trang, để dễ gửi Zalo/in/lưu thay vì gửi nguyên file Word.
+## Đề nghị thanh toán (🛠 Vận hành & Hỗ trợ IT → 📝 Đề nghị thanh toán)
+Trang chung để lập **Giấy đề nghị thanh toán** từ hóa đơn/chứng từ PDF của **mọi NCC** (Internet/viễn thông, máy in – máy photo, mực & vật tư, dịch vụ khác). Thay cho trang "Chuyển đổi báo cáo (Word → JPG)" cũ. Code ở `payreq.js`.
 
-- Chạy **hoàn toàn trên thiết bị** (điện thoại/máy tính): không upload
-  file lên server nào, không cần tài khoản, không cần mạng sau lần đầu
-  tải thư viện (dùng `mammoth.js` để đọc nội dung .docx + `html2canvas`
-  có sẵn trong app để chụp thành ảnh).
-- Có thể chọn khổ giấy (A4/Letter) và chất lượng ảnh JPG trước khi
-  chuyển đổi.
-- **Giới hạn quan trọng — chỉ đọc được `.docx`, không đọc được `.doc` cũ**
-  (định dạng nhị phân đời cũ, ví dụ nhiều báo cáo QA/test report export
-  từ hệ thống cũ hay ở dạng này). Nếu có file `.doc`, mở bằng Microsoft
-  Word rồi **"Save As" → "Word Document (.docx)"** trước khi tải lên app.
-- Việc ngắt trang là **ước lượng theo chiều cao pixel** (dựng nội dung
-  thành 1 khối dài rồi cắt theo đúng chiều cao khổ giấy đã chọn), không
-  phải công cụ dàn trang chuẩn của Word — với file có bảng biểu/ảnh phức
-  tạp (như test report), mép cắt giữa 2 trang có thể không đẹp như file
-  gốc. Với báo cáo cần đúng y hệt bản gốc (có chữ ký, con dấu ở vị trí cố
-  định...), vẫn nên ưu tiên in/scan trực tiếp từ Word hoặc PDF.
+1. **Chọn file PDF** (nhiều file, nhiều NCC cùng lúc). App đọc chữ trong PDF ngay trên thiết bị (pdf.js — không upload lên server) và tự nhận dạng: hóa đơn VNPT, hóa đơn FTTH Viettel, Thông báo cước Viettel, và hóa đơn điện tử VN dạng chuẩn của các NCC khác (DNP, Việt Bảo...). Bảng báo giá và bảng kê đính kèm được tự bỏ qua.
+2. **Kiểm tra từng chứng từ**: NCC/MST, số, ký hiệu, ngày, nội dung, trước thuế/VAT/tổng — sửa được tất cả, thêm dòng nhập tay được. Cảnh báo: thiếu số liệu, tổng lệch, MST người mua khác công ty, trùng trong cùng lượt, **đã có trong lịch sử đề nghị** (tránh trả 2 lần), đã có trong công nợ Máy in/Network.
+3. **Mỗi NCC = 1 giấy đề nghị** (Excel theo mẫu `pay-template.xlsx`, nhiều dòng chứng từ, số tiền bằng chữ VN/EN tự điền). STK/ngân hàng/hạn thanh toán tự điền từ hóa đơn hoặc danh bạ NCC (VNPT/Viettel nạp sẵn; NCC từ Máy in/Network; NCC đã từng lập trên máy này). Nhiều NCC → tải từng file hoặc **tải tất cả (.zip)**.
+4. **Lịch sử** (Admin ghi, Viewer xem): mỗi lần tạo lưu 1 bản ghi vào `pay_requests` — dùng để cảnh báo trùng và **tạo lại file Excel** bất cứ lúc nào.
+
+- PDF dạng ảnh (scan) không có chữ: nhập tay hoặc bấm **Thử đọc bằng OCR** (Tesseract.js tải từ CDN, lần đầu cần mạng; kết quả OCR phải kiểm tra kỹ).
+- Người ký (người đề nghị, trưởng bộ phận, kế toán trưởng, quản lý tài chính, mã số) được nhớ trên trình duyệt, dùng chung với trang Đề nghị thanh toán trong Máy in/Network.
+- Vai trò `reportonly` (cũ: "Chuyển đổi báo cáo") giờ chỉ thấy đúng trang này; không cần đọc Firestore nên không thấy lịch sử.
+- Collector không thấy trang này (có số tiền/tài khoản NCC).
+- **Bắt buộc publish lại `firestore.rules`** (thêm collection `pay_requests`) nếu muốn lưu/xem lịch sử; nếu chưa publish, phần tạo Excel vẫn chạy bình thường, chỉ báo lỗi khi lưu lịch sử.
+- Trang "Đề nghị thanh toán" riêng của Máy in và Network vẫn giữ nguyên (các trang đó còn ghi vào công nợ của từng module).
 
 ## Quy trình thực tế
 1. Import danh sách Lab nếu đã có.
