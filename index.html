@@ -1038,8 +1038,15 @@
   <div class="filters">
     <input id="employeeSearch" data-i18n-placeholder="employees.searchPh" placeholder="Tìm theo tên hoặc mã nhân viên...">
     <select id="employeeFilterSection"><option value="" data-i18n="filter.allSections">Tất cả khu vực</option></select>
+    <select id="employeeSortBy">
+      <option value="name" data-i18n="employees.sortName">Sắp xếp: Tên (A-Z)</option>
+      <option value="assetsDesc" data-i18n="employees.sortAssetsDesc">🖥 Tài sản nhiều nhất</option>
+      <option value="ticketsDesc" data-i18n="employees.sortTicketsDesc">🎫 Ticket nhiều nhất</option>
+    </select>
     <label class="checkbox-inline"><input type="checkbox" id="employeeFilterActiveOnly" checked><span data-i18n="employees.activeOnly">Chỉ đang làm việc</span></label>
     <label class="checkbox-inline"><input type="checkbox" id="employeeFilterHomeLaptop"><span data-i18n="employees.filterHomeLaptop">🏠 Chỉ người được mang laptop về nhà</span></label>
+    <label class="checkbox-inline"><input type="checkbox" id="employeeFilterHasAsset"><span data-i18n="employees.filterHasAsset">🖥 Chỉ người đang giữ tài sản</span></label>
+    <label class="checkbox-inline"><input type="checkbox" id="employeeFilterHasTicket"><span data-i18n="employees.filterHasTicket">🎫 Chỉ người có ticket</span></label>
   </div>
   <div id="homeLaptopChangeBanner" class="card admin-only hidden" style="background:#fef3c7">
     <p style="margin:0 0 8px">⚠️ <span data-i18n="employees.homeLaptopChanged">Danh sách "Mang laptop về nhà" đã thay đổi kể từ lần xuất báo cáo gần nhất — cần xuất lại và gửi cho Bảo vệ.</span></p>

@@ -430,11 +430,21 @@ function renderEmployeeList() {
   const sectionF = $("employeeFilterSection").value;
   const activeOnly = $("employeeFilterActiveOnly").checked;
   const homeLaptopOnly = $("employeeFilterHomeLaptop").checked;
+  const hasAssetOnly = $("employeeFilterHasAsset") ? $("employeeFilterHasAsset").checked : false;
+  const hasTicketOnly = $("employeeFilterHasTicket") ? $("employeeFilterHasTicket").checked : false;
+  const sortBy = $("employeeSortBy") ? $("employeeSortBy").value : "name";
   let list = (window.EMPLOYEES || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "vi"));
   if (activeOnly) list = list.filter(e => e.active !== false);
   if (sectionF) list = list.filter(e => (e.section || "").trim() === sectionF);
   if (homeLaptopOnly) list = list.filter(e => e.takeLaptopHome === true);
+  if (hasAssetOnly) list = list.filter(e => employeeAssetCount(e.code) > 0);
+  if (hasTicketOnly) list = list.filter(e => employeeTicketCount(e.code) > 0);
   if (q) list = list.filter(e => [e.code, e.name].some(v => (v || "").toLowerCase().includes(q)));
+  // Sắp xếp theo số tài sản/ticket nhiều nhất -> ít nhất (giữ nguyên thứ tự
+  // tên A-Z làm tie-break khi bằng nhau, vì `list` đã sort theo tên ở trên
+  // và Array.sort của JS ổn định).
+  if (sortBy === "assetsDesc") list.sort((a, b) => employeeAssetCount(b.code) - employeeAssetCount(a.code));
+  else if (sortBy === "ticketsDesc") list.sort((a, b) => employeeTicketCount(b.code) - employeeTicketCount(a.code));
 
   if (!list.length) {
     $("employeeList").innerHTML = `<div class="empty">${tr("employees.noneFound")}</div>`;
@@ -463,6 +473,9 @@ $("employeeSearch").addEventListener("input", renderEmployeeList);
 $("employeeFilterSection").addEventListener("change", renderEmployeeList);
 $("employeeFilterActiveOnly").addEventListener("change", renderEmployeeList);
 $("employeeFilterHomeLaptop").addEventListener("change", renderEmployeeList);
+if ($("employeeFilterHasAsset")) $("employeeFilterHasAsset").addEventListener("change", renderEmployeeList);
+if ($("employeeFilterHasTicket")) $("employeeFilterHasTicket").addEventListener("change", renderEmployeeList);
+if ($("employeeSortBy")) $("employeeSortBy").addEventListener("change", renderEmployeeList);
 
 function renderEmployeeProfile(code) {
   const emp = (window.EMPLOYEES || []).find(e => e.code === code);
