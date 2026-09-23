@@ -301,3 +301,40 @@ Vào **Vận hành & Hỗ trợ IT → Network**. Chỉ Admin/Viewer thấy (Col
 - **Đề nghị thanh toán cước**: (1) chọn nhiều PDF cùng lúc (hóa đơn VNPT, hóa đơn FTTH Viettel, Thông báo cước Viettel) → app tự nhận dạng, khớp đường truyền theo mã KH/số hợp đồng → kiểm tra → *Lưu vào công nợ*; (2) chọn NCC, tick các hóa đơn → *Tạo file Excel* (mỗi NCC 1 giấy, nhiều dòng chứng từ, cùng mẫu với module Máy in).
 - **Công nợ cước Internet**: hóa đơn từng tháng, ghi nhận thanh toán, quá hạn.
 - Firestore: `net_providers`, `net_lines`, `net_invoices` — **nhớ Publish lại `firestore.rules`**.
+
+## 🤖 Trợ lý AI (ai.js + ai-worker/)
+
+Dùng Claude (Anthropic) cho 5 việc. **AI không bao giờ tự ghi Firestore**: mọi thay đổi đều đi qua form hoặc bảng duyệt, người dùng bấm Lưu/Áp dụng, rồi Firestore Rules kiểm tra như bình thường.
+
+| Chức năng | Ở đâu | Vai trò | Kỹ thuật |
+|---|---|---|---|
+| Đọc hóa đơn/chứng từ | Đề nghị thanh toán → nút **🤖 Đọc bằng AI** trên từng dòng | admin, viewer, reportonly | Structured outputs (JSON Schema), đọc thẳng PDF/scan |
+| Tạo ticket từ tin nhắn | Form ticket → khung 🤖 → **✨ Phân tích & điền form** | admin, collector | Structured outputs + few-shot, thang ưu tiên |
+| Gợi ý nguyên nhân / cách xử lý / ticket lặp lại | Form ticket → **💡 Gợi ý** | admin, collector, viewer | RAG đơn giản (app tự lọc ticket cũ tương tự) + hậu kiểm chống bịa mã ticket |
+| Hỏi đáp dữ liệu IT | Tổng quan → **🤖 Trợ lý AI** | admin, collector, viewer | Agent + tool calling (strict tools), tool chạy trên trình duyệt |
+| Tóm tắt điều hành | Trang Trợ lý AI | admin, viewer | App tự tính số liệu → AI chỉ diễn đạt |
+| Chuẩn hóa Model/Cấu hình + tìm trùng Serial/MAC/IP | Trang Trợ lý AI | admin | Structured outputs, duyệt từng thay đổi, có ghi lịch sử |
+
+### Kiến trúc
+```
+Trình duyệt ──Firebase ID token──▶ Cloudflare Worker ──API key──▶ Claude API
+   └─ tool của agent chạy ngay trên dữ liệu đã đồng bộ (assets, tickets, ...)
+```
+- **Worker** (`ai-worker/worker.js`) giữ API key, prompt, JSON Schema và danh sách tool. Worker xác minh chữ ký token Firebase, đọc `users/{uid}` để lấy vai trò, lọc tool theo vai trò (Collector không có tool công nợ/máy in) và giới hạn 20 request/phút cho mỗi tài khoản.
+- Sửa prompt chỉ cần deploy lại Worker, không cần bump phiên bản PWA.
+- Mô hình: `MODEL_FAST` (mặc định Haiku 4.5) cho trích xuất, `MODEL_SMART` (mặc định Sonnet 5) cho agent và tóm tắt. Đổi được trong biến môi trường của Worker.
+- Tool không bao giờ gửi ảnh base64 hay lịch sử dài lên AI. Kết quả lớn bị cắt và đánh dấu `truncated`.
+
+### Cài đặt (1 lần, khoảng 10 phút, miễn phí phía Cloudflare)
+1. Tạo API key tại console.anthropic.com (nạp credit).
+2. Tạo Worker theo **một trong hai cách**:
+   - **Dashboard:** dash.cloudflare.com → Workers & Pages → Create → Worker → dán nội dung `ai-worker/worker.js` → Deploy. Vào Settings → Variables and Secrets → thêm Secret `ANTHROPIC_API_KEY`. Nếu muốn thử ở máy local, thêm Text `ALLOWED_ORIGINS` = `https://emailbuikhanhnguyen.github.io,http://localhost:8080`.
+   - **CLI:** trong thư mục `ai-worker/` chạy `npx wrangler deploy`, rồi `npx wrangler secret put ANTHROPIC_API_KEY`.
+3. Đăng nhập app bằng Admin → **🤖 Trợ lý AI → Cấu hình AI** → dán URL Worker → **Lưu** (URL được lưu vào Firestore `meta/ai`, mọi máy dùng chung) → **Kiểm tra kết nối**.
+4. Tài khoản `reportonly` không đọc được `meta/ai`. Muốn họ dùng AI đọc hóa đơn thì điền URL vào hằng `AI_ENDPOINT_DEFAULT` đầu file `ai.js`.
+5. Không cần sửa `firestore.rules`: `meta/{docId}` đã cho Admin ghi và 3 vai trò đọc. Field `aiCleanedAt` trên tài sản do Admin ghi, cũng đã được phép.
+
+### Chi phí & quyền riêng tư
+- Chi phí ước tính: đọc 1 hóa đơn hoặc tạo 1 ticket khoảng vài chục đồng; 1 câu hỏi agent vài trăm đồng. Số token của phiên hiện tại hiển thị ở mục Cấu hình AI.
+- Khi bấm **🤖 Đọc bằng AI**, file PDF **được gửi** qua Worker tới Anthropic. Đây là thao tác chủ động; luồng đọc bằng pdf.js vẫn chạy 100% trên máy như trước.
+- Test: `node` chạy được các hàm thuần `window.AIX.pure` (tool, chọn ticket tương tự, tìm trùng, số liệu tóm tắt) và `handle()` của Worker với fetch giả.

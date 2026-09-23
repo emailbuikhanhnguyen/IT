@@ -59,6 +59,10 @@
       <span class="module-nav-icon">👥</span>
       <span class="module-nav-text"><b data-i18n="nav.employees">Danh bạ nhân viên</b><small data-i18n="nav.employees.desc">Hồ sơ nhân viên, tài sản &amp; ticket liên quan</small></span>
     </button>
+    <button class="module-nav-item ai-nav" data-page="aiAssistant">
+      <span class="module-nav-icon">🤖</span>
+      <span class="module-nav-text"><b data-i18n="nav.ai">Trợ lý AI</b><small data-i18n="nav.ai.desc">Hỏi đáp dữ liệu IT, tóm tắt điều hành, chuẩn hóa dữ liệu</small></span>
+    </button>
     <button class="module-nav-item admin-only" data-page="settings">
       <span class="module-nav-icon">⇅</span>
       <span class="module-nav-text"><b data-i18n="nav.settings">Quản trị dữ liệu</b><small data-i18n="nav.settings.desc">Excel, backup, nhân viên (HR)</small></span>
@@ -353,6 +357,66 @@
   </div>
 </section>
 
+<section id="aiAssistant" class="page">
+  <div class="section-head"><h2 data-i18n="ai.title">🤖 Trợ lý AI</h2><button data-page="dashboard">←</button></div>
+  <div id="aiOffNotice" class="pr-alert warn hidden" data-i18n="ai.off">Chức năng AI chưa được cấu hình. Admin vào mục Cấu hình bên dưới để nhập địa chỉ AI Worker.</div>
+
+  <div class="card ai-feature">
+    <h3 data-i18n="ai.chat.title">💬 Hỏi đáp dữ liệu IT</h3>
+    <p class="hint" data-i18n="ai.chat.hint">AI chỉ đọc dữ liệu bạn được phép xem, trả lời dựa trên số liệu thật trong app. AI không tự sửa/xóa dữ liệu.</p>
+    <div id="aiChatLog" class="ai-log"></div>
+    <div id="aiSamples" class="ai-samples"></div>
+    <form id="aiChatForm" class="ai-input">
+      <textarea id="aiChatInput" rows="2" data-i18n-placeholder="ai.chat.ph" placeholder="VD: Tổ Cắt có bao nhiêu laptop chưa kiểm?"></textarea>
+      <button type="submit" id="aiSendBtn" data-i18n="ai.chat.send">Gửi</button>
+    </form>
+    <button type="button" id="aiNewChat" class="ghost" style="margin-top:8px" data-i18n="ai.chat.new">🧹 Hội thoại mới</button>
+  </div>
+
+  <div class="card ai-feature no-collector">
+    <h3 data-i18n="ai.sum.title">📝 Tóm tắt điều hành</h3>
+    <p class="hint" data-i18n="ai.sum.hint">App tự tính số liệu → AI viết thành bản tóm tắt ngắn cho Ban giám đốc.</p>
+    <div class="quick">
+      <select id="aiSummaryPeriod">
+        <option value="last30" data-i18n="ai.sum.p.last30">30 ngày qua</option>
+        <option value="thisMonth" data-i18n="ai.sum.p.thisMonth">Tháng này</option>
+        <option value="lastMonth" data-i18n="ai.sum.p.lastMonth">Tháng trước</option>
+        <option value="last90" data-i18n="ai.sum.p.last90">90 ngày qua</option>
+      </select>
+      <button type="button" id="aiSummaryBtn" data-i18n="ai.sum.run">✨ Tạo tóm tắt</button>
+    </div>
+    <div id="aiSummaryOut"></div>
+    <button type="button" id="aiSummaryCopy" class="secondary hidden" data-i18n="ai.sum.copy">📋 Sao chép</button>
+  </div>
+
+  <div class="card admin-only">
+    <h3 data-i18n="ai.clean.title">🧹 Chuẩn hóa dữ liệu tài sản</h3>
+    <p class="hint" data-i18n="ai.clean.hint">(1) Tìm tài sản trùng Serial/MAC/IP. (2) AI chuẩn hóa Model/Cấu hình, bạn duyệt trước khi áp dụng.</p>
+    <button type="button" id="aiDupBtn" class="secondary" data-i18n="ai.clean.dup">🔎 Tìm trùng lặp</button>
+    <div id="aiDupOut"></div>
+    <div class="ai-feature" style="margin-top:12px">
+      <select id="aiCleanScope">
+        <option value="pending" data-i18n="ai.clean.scope.pending">PC/Laptop chưa chuẩn hóa</option>
+        <option value="all" data-i18n="ai.clean.scope.all">Tất cả tài sản có Model/Cấu hình</option>
+      </select>
+      <button type="button" id="aiCleanBtn" style="margin-top:8px;width:100%" data-i18n="ai.clean.run">✨ AI chuẩn hóa (tối đa 40 tài sản/lượt)</button>
+      <div id="aiCleanOut"></div>
+    </div>
+  </div>
+
+  <div class="card admin-only">
+    <h3 data-i18n="ai.cfg.title">⚙ Cấu hình AI</h3>
+    <p class="hint" data-i18n="ai.cfg.hint">Dán địa chỉ Cloudflare Worker. API key Claude chỉ nằm trong Worker.</p>
+    <label><span data-i18n="ai.cfg.endpoint">Địa chỉ AI Worker</span><input id="aiEndpointInput" type="url" placeholder="https://it-main-ai.xxx.workers.dev"></label>
+    <div class="quick">
+      <button type="button" id="aiCfgSave" data-i18n="ai.cfg.save">💾 Lưu</button>
+      <button type="button" id="aiCfgTest" class="secondary" data-i18n="ai.cfg.test">🔌 Kiểm tra kết nối</button>
+    </div>
+    <div id="aiCfgStatus" class="muted" style="margin-top:8px"></div>
+    <div id="aiUsage" class="muted" style="margin-top:4px"></div>
+  </div>
+</section>
+
 <section id="tickets" class="page">
   <div class="section-head"><h2 data-i18n="tickets.title">Ticket hỗ trợ IT</h2><button id="ticketsAddBtn" class="creator-only" data-page="ticketForm" data-i18n="tickets.add">＋ Thêm</button></div>
   <div class="filters">
@@ -372,6 +436,16 @@
   <div class="section-head"><h2 id="ticketFormTitle" data-i18n="ticketForm.createTitle">Tạo ticket</h2><button data-page="tickets">←</button></div>
   <form id="ticketFormEl" class="card">
     <div id="ticketLockedNotice" class="locked-notice hidden" data-i18n="ticketForm.lockedNotice">🔒 Bạn chỉ có quyền xem ticket này. Liên hệ quản trị viên (IT) nếu cần chỉnh sửa.</div>
+    <div class="psbox ai-feature" id="ticketAiBox">
+      <h3 data-i18n="ai.t.title">🤖 Trợ lý AI</h3>
+      <div class="creator-only">
+        <p class="hint" data-i18n="ai.t.hint">Dán tin nhắn Zalo / nội dung người dùng báo → AI điền sẵn form. Bạn vẫn kiểm tra rồi mới bấm Lưu.</p>
+        <textarea id="ticketAiText" rows="3" data-i18n-placeholder="ai.t.ph" placeholder="VD: chị Lan tổ may 3 báo máy in không in được, gấp"></textarea>
+        <button type="button" id="ticketAiParseBtn" data-i18n="ai.t.parse">✨ Phân tích &amp; điền form</button>
+      </div>
+      <button type="button" id="ticketAiSuggestBtn" class="secondary" style="margin-top:8px" data-i18n="ai.t.suggest">💡 Gợi ý nguyên nhân &amp; cách xử lý</button>
+      <div id="ticketAiOut"></div>
+    </div>
     <input type="hidden" id="ticketDocId">
     <input type="hidden" id="ticketAssetId">
     <label><span data-i18n="field.ticketId">Mã ticket*</span>
@@ -1253,5 +1327,6 @@
 <script src="printers-payreq.js"></script>
 <script src="network-isp.js"></script>
 <script src="payreq.js"></script>
+<script src="ai.js"></script>
 </body>
 </html>

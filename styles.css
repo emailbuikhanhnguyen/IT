@@ -207,3 +207,50 @@ html.dark .pr-vrow{border-bottom-color:#263349}html.dark .pr-vrow:hover,html.dar
 .role-reportonly #pqHistoryWrap{display:none!important}
 html.dark .pr-alert.info{background:#1e3a5f;color:#bfdbfe}
 html.dark .pq-doc,html.dark .pq-hist{border-color:#263349}
+
+/* ---------- Trợ lý AI (ai.js) ---------- */
+body:not(.ai-on) .ai-feature{display:none!important}
+body:not(.ai-on).role-staff .ai-nav{display:none!important}
+.ai-log{max-height:55vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.ai-log:empty{display:none}
+.ai-msg{padding:10px 12px;border-radius:12px;font-size:14px;line-height:1.5;max-width:100%;overflow-wrap:anywhere}
+.ai-msg p{margin:0 0 6px}.ai-msg p:last-child{margin-bottom:0}.ai-msg ul,.ai-msg ol,.ai-result ul,.ai-result ol{margin:4px 0 8px;padding-left:20px}
+.ai-msg h4{margin:6px 0 4px;font-size:14px}
+.ai-user{align-self:flex-end;background:#2563eb;color:#fff;max-width:85%}
+.ai-who{font-size:11px;opacity:.75;margin-bottom:2px}
+.ai-bot{background:#f1f5f9;align-self:stretch}
+.ai-wait{color:#64748b;font-style:italic}
+.ai-err{background:#fee2e2}
+.ai-tool{font-size:11px;color:#64748b;padding:2px 12px;background:transparent}
+.ai-msg a,.ai-result a,#aiDupOut a,#aiCleanOut a{color:#2563eb;font-weight:650;text-decoration:none}
+.ai-table-wrap{overflow-x:auto;margin:6px 0}
+.ai-table{border-collapse:collapse;font-size:12px;width:100%}
+.ai-table th,.ai-table td{border:1px solid #e2e8f0;padding:5px 7px;text-align:left;vertical-align:top}
+.ai-table th{background:#f8fafc}
+.ai-samples{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.ai-samples .chip{padding:6px 12px;cursor:pointer;border:0}
+.ai-input{display:flex;flex-direction:column;gap:8px}
+.ai-input textarea{margin:0;resize:vertical}
+.ai-result{margin-top:10px;font-size:13px;line-height:1.5}
+.ai-result .pq-mini,.ai-draft .pq-mini{width:auto;margin:0 0 8px}
+.ai-headline{font-weight:700;font-size:15px;margin:0 0 8px}
+.ai-pick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ai-pick .muted{width:100%}
+.ai-pick .chip{border:0;cursor:pointer;padding:6px 12px}
+.ai-rel{padding:4px 0;border-bottom:1px dashed #e2e8f0}
+.ai-rel .pq-mini{padding:3px 8px;font-size:11px}
+.ai-draft{display:flex;flex-direction:column;gap:4px}
+.ai-dup{font-size:12px;padding:6px 8px;border-radius:8px;background:#f8fafc;margin-bottom:5px}
+.ai-dup.warn{background:#fef3c7}
+.ai-from{color:#94a3b8;text-decoration:line-through;font-size:12px}
+.ai-to{color:#15803d;font-weight:650}
+#ticketAiBox .creator-only button{width:100%}
+html.dark .ai-bot{background:#1e293b}
+html.dark .ai-err{background:#450a0a}
+html.dark .ai-table th{background:#1e293b}
+html.dark .ai-table th,html.dark .ai-table td{border-color:#263349}
+html.dark .ai-dup{background:#101827}
+html.dark .ai-dup.warn{background:#422006}
+html.dark .ai-msg a,html.dark .ai-result a,html.dark #aiDupOut a,html.dark #aiCleanOut a{color:#93c5fd}
+.pr-alert.info{background:#dbeafe;color:#1e40af}html.dark .pr-alert.info{background:#1e3a5f;color:#bfdbfe}
+.ai-result>b{display:block;margin-top:8px}.ai-result .pq-mini{display:block}

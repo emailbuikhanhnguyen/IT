@@ -6,7 +6,7 @@
    Cập nhật thủ công mỗi lần deploy để bạn biết bản mới đã lên chưa (hiển thị
    ở màn hình đăng nhập và cuối trang Dữ liệu). Định dạng: YYYY.MM.DD.N —
    N là số thứ tự bản deploy trong ngày (bắt đầu từ 1). */
-const APP_VERSION = "2026.09.19.13";
+const APP_VERSION = "2026.09.23.1";
 document.querySelectorAll("#appVersionText, #appVersionText2").forEach(el => { el.textContent = APP_VERSION; });
 
 /* ---------- Mật khẩu xác nhận cho thao tác nguy hiểm (Xóa toàn bộ...) ----------
@@ -277,6 +277,7 @@ function goPage(name) {
   if (typeof printerPageBlocked === "function" && printerPageBlocked(name)) name = "dashboard";
   if (typeof netPageBlocked === "function" && netPageBlocked(name)) name = "dashboard"; // Network › cước Internet (network-isp.js)
   if (typeof payReqPageBlocked === "function" && payReqPageBlocked(name)) name = "dashboard"; // Đề nghị thanh toán (payreq.js): Collector không thấy
+  if (typeof aiPageBlocked === "function" && aiPageBlocked(name)) name = "dashboard"; // Trợ lý AI (ai.js): reportonly không vào
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const target = $(name);
   if (target) target.classList.add("active");
@@ -291,6 +292,7 @@ function goPage(name) {
   if (typeof onPrinterPage === "function") onPrinterPage(name);
   if (typeof onNetPage === "function") onNetPage(name);
   if (typeof onPayReqPage === "function") onPayReqPage(name);
+  if (typeof onAiPage === "function") onAiPage(name); // Trợ lý AI (ai.js)
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
   btn.addEventListener("click", () => goPage(btn.getAttribute("data-page")));

@@ -368,6 +368,10 @@
     if (r.pdfTotal && r.pdfTotal !== r.total) w.push({ t: "warn", m: tr("pq.w.totalDiff", { pdf: money(r.pdfTotal), now: money(r.total) }) });
     if (r.buyerTax && digits(r.buyerTax) !== BUYER_TAX) w.push({ t: "warn", m: tr("pq.w.buyer", { tax: r.buyerTax }) });
     if (r.ocr) w.push({ t: "warn", m: tr("pq.w.ocr") });
+    if (r.ai) {
+      w.push({ t: "warn", m: tr("pq.w.ai", { c: r.ai.confidence || "?" }) });
+      (r.ai.warnings || []).forEach(m => w.push({ t: "warn", m: tr("pq.w.aiNote", { m }) }));
+    }
     const k = groupKey(r);
     const dup = rows.findIndex((x, j) => j < idx && r.no && x.no === r.no && groupKey(x) === k);
     if (dup >= 0) w.push({ t: "bad", m: tr("pq.w.dupBatch", { n: dup + 1 }) });
@@ -412,6 +416,7 @@
       <div class="pq-row-head"><b>#${i + 1}</b> <span class="muted">${esc(r.file || "✍")}</span>
         <span class="pq-spacer"></span>
         ${r.scan ? `<button type="button" class="secondary pq-mini" data-act="ocr" data-i="${i}">${esc(tr("pq.ocr"))}</button>` : ""}
+        ${r.fileObj && window.AIX && window.AIX.ready && window.AIX.ready() ? `<button type="button" class="pq-mini" data-act="ai" data-i="${i}">${esc(tr("pq.ai"))}</button>` : ""}
         <button type="button" class="ghost pq-mini" data-act="del" data-i="${i}">${esc(tr("pq.remove"))}</button></div>
       <div class="pq-alerts" id="pqW${i}"></div>
       <div class="pq-grid">
@@ -537,6 +542,7 @@
     const i = +b.getAttribute("data-i");
     if (b.getAttribute("data-act") === "del") { rows.splice(i, 1); renderRows(); }
     else if (b.getAttribute("data-act") === "ocr") ocrRow(i);
+    else if (b.getAttribute("data-act") === "ai") aiRow(i);
   });
   $("pqGroups").addEventListener("input", e => {
     const el = e.target, gk = el.getAttribute("data-g"), f = el.getAttribute("data-gf"); if (!gk || !f) return;
@@ -638,6 +644,31 @@
       renderRows();
     } catch (err) {
       st.textContent = tr("pq.ocrFail", { err: err.message });
+    }
+  }
+
+  // AI (Claude, structured outputs) đọc thẳng file PDF/ảnh gốc qua AI Worker (ai.js) —
+  // dùng khi regex không nhận dạng được, PDF scan, hoặc muốn đối chiếu lại số liệu.
+  // Kết quả có cùng dạng với PrPay.parseInvoiceText nên đi qua đúng fromGeneric()/settleAmounts() như cũ.
+  async function aiRow(i) {
+    const r = rows[i]; if (!r || !r.fileObj || !window.AIX) return;
+    const st = $("pqStatus");
+    st.textContent = tr("pq.aiBusy");
+    const btn = document.querySelector(`[data-act="ai"][data-i="${i}"]`); if (btn) btn.disabled = true;
+    try {
+      const g = await window.AIX.extractInvoice(r.fileObj);
+      if (!g.ok) throw new Error(tr("pq.unreadRow", { f: r.file }));
+      const row = fromGeneric(g, r.file);
+      if (g.docKind === "notice") row.docType = "notice";
+      if (g.period) row.period = g.period;
+      const warnings = (g.warnings || []).slice();
+      if (g.docKind === "quote" || g.docKind === "attachment" || g.docKind === "other") warnings.unshift(tr("pq.aiKind", { k: g.docKind }));
+      rows[i] = Object.assign(row, { file: r.file, fileObj: r.fileObj, ai: { confidence: g.confidence, warnings } });
+      st.textContent = tr("pq.aiDone");
+      renderRows();
+    } catch (err) {
+      st.textContent = tr("pq.aiFail", { err: err.message });
+      if (btn) btn.disabled = false;
     }
   }
 
