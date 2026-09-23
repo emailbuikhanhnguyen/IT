@@ -1,8 +1,8 @@
-/* ai.js — Tích hợp AI (Claude) cho IT-main
+/* ai.js — Tích hợp AI (Google Gemini, gói miễn phí — qua Worker) cho IT-main
    ------------------------------------------------------------------
    Kiến trúc (xem thêm README mục "🤖 Trợ lý AI" và ai-worker/worker.js):
 
-     app (trình duyệt) ──Firebase ID token──▶ Cloudflare Worker ──API key──▶ Claude
+     app (trình duyệt) ──Firebase ID token──▶ Cloudflare Worker ──API key──▶ Gemini API
        │                                        (giữ prompt, JSON Schema, danh sách tool,
        │                                         kiểm tra role, lọc tool theo role)
        └─ TOOL chạy NGAY TRÊN TRÌNH DUYỆT trên dữ liệu đã đồng bộ sẵn
@@ -81,7 +81,7 @@
     "ai.dup.mac": ["Trùng MAC", "Same MAC", "MAC重复"],
     "ai.dup.ip": ["Trùng IP (có thể do DHCP — chỉ tham khảo)", "Same IP (may be DHCP — for reference)", "IP重复（可能因DHCP——仅供参考）"],
     "ai.cfg.title": ["⚙ Cấu hình AI", "⚙ AI settings", "⚙ AI配置"],
-    "ai.cfg.hint": ["Dán địa chỉ Cloudflare Worker (vd https://it-main-ai.xxx.workers.dev). Lưu vào Firestore nên mọi máy/tài khoản dùng chung. API key Claude chỉ nằm trong Worker, không bao giờ nằm trong app.", "Paste the Cloudflare Worker URL (e.g. https://it-main-ai.xxx.workers.dev). Saved to Firestore, shared by all devices/accounts. The Claude API key lives only in the Worker, never in the app.", "粘贴Cloudflare Worker地址（如 https://it-main-ai.xxx.workers.dev）。保存到Firestore，所有设备/账户共用。Claude API密钥只存在于Worker中，绝不放在应用里。"],
+    "ai.cfg.hint": ["Dán địa chỉ Cloudflare Worker (vd https://it-main-ai.xxx.workers.dev). Lưu vào Firestore nên mọi máy/tài khoản dùng chung. API key Gemini chỉ nằm trong Worker, không bao giờ nằm trong app. Lưu ý: gói miễn phí của Google được dùng dữ liệu gửi lên để cải thiện sản phẩm.", "Paste the Cloudflare Worker URL (e.g. https://it-main-ai.xxx.workers.dev). Saved to Firestore, shared by all devices/accounts. The Gemini API key lives only in the Worker, never in the app. Note: on the free tier Google may use submitted data to improve its products.", "粘贴Cloudflare Worker地址（如 https://it-main-ai.xxx.workers.dev）。保存到Firestore，所有设备/账户共用。Gemini API密钥只存在于Worker中，绝不放在应用里。注意：免费版中Google可能使用提交的数据改进其产品。"],
     "ai.cfg.endpoint": ["Địa chỉ AI Worker", "AI Worker URL", "AI Worker地址"],
     "ai.cfg.save": ["💾 Lưu", "💾 Save", "💾 保存"],
     "ai.cfg.test": ["🔌 Kiểm tra kết nối", "🔌 Test connection", "🔌 测试连接"],

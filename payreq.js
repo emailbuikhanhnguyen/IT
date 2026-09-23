@@ -647,7 +647,7 @@
     }
   }
 
-  // AI (Claude, structured outputs) đọc thẳng file PDF/ảnh gốc qua AI Worker (ai.js) —
+  // AI (Gemini qua Worker, structured outputs) đọc thẳng file PDF/ảnh gốc qua AI Worker (ai.js) —
   // dùng khi regex không nhận dạng được, PDF scan, hoặc muốn đối chiếu lại số liệu.
   // Kết quả có cùng dạng với PrPay.parseInvoiceText nên đi qua đúng fromGeneric()/settleAmounts() như cũ.
   async function aiRow(i) {

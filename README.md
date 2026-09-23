@@ -302,39 +302,38 @@ Vào **Vận hành & Hỗ trợ IT → Network**. Chỉ Admin/Viewer thấy (Col
 - **Công nợ cước Internet**: hóa đơn từng tháng, ghi nhận thanh toán, quá hạn.
 - Firestore: `net_providers`, `net_lines`, `net_invoices` — **nhớ Publish lại `firestore.rules`**.
 
-## 🤖 Trợ lý AI (ai.js + ai-worker/)
+## 🤖 Trợ lý AI (ai.js + ai-worker/) — Google Gemini gói miễn phí
 
-Dùng Claude (Anthropic) cho 5 việc. **AI không bao giờ tự ghi Firestore**: mọi thay đổi đều đi qua form hoặc bảng duyệt, người dùng bấm Lưu/Áp dụng, rồi Firestore Rules kiểm tra như bình thường.
+Dùng Gemini API (gói miễn phí, không cần thẻ) cho 5 việc. **AI không bao giờ tự ghi Firestore**: mọi thay đổi đều đi qua form hoặc bảng duyệt, người dùng bấm Lưu/Áp dụng, rồi Firestore Rules kiểm tra như bình thường.
 
 | Chức năng | Ở đâu | Vai trò | Kỹ thuật |
 |---|---|---|---|
-| Đọc hóa đơn/chứng từ | Đề nghị thanh toán → nút **🤖 Đọc bằng AI** trên từng dòng | admin, viewer, reportonly | Structured outputs (JSON Schema), đọc thẳng PDF/scan |
-| Tạo ticket từ tin nhắn | Form ticket → khung 🤖 → **✨ Phân tích & điền form** | admin, collector | Structured outputs + few-shot, thang ưu tiên |
+| Đọc hóa đơn/chứng từ | Đề nghị thanh toán → nút **🤖 Đọc bằng AI** trên từng dòng | admin, viewer, reportonly | Structured output (responseSchema), đọc thẳng PDF/scan |
+| Tạo ticket từ tin nhắn | Form ticket → khung 🤖 → **✨ Phân tích & điền form** | admin, collector | Structured output + few-shot, thang ưu tiên |
 | Gợi ý nguyên nhân / cách xử lý / ticket lặp lại | Form ticket → **💡 Gợi ý** | admin, collector, viewer | RAG đơn giản (app tự lọc ticket cũ tương tự) + hậu kiểm chống bịa mã ticket |
-| Hỏi đáp dữ liệu IT | Tổng quan → **🤖 Trợ lý AI** | admin, collector, viewer | Agent + tool calling (strict tools), tool chạy trên trình duyệt |
+| Hỏi đáp dữ liệu IT | Tổng quan → **🤖 Trợ lý AI** | admin, collector, viewer | Agent + function calling, tool chạy trên trình duyệt |
 | Tóm tắt điều hành | Trang Trợ lý AI | admin, viewer | App tự tính số liệu → AI chỉ diễn đạt |
-| Chuẩn hóa Model/Cấu hình + tìm trùng Serial/MAC/IP | Trang Trợ lý AI | admin | Structured outputs, duyệt từng thay đổi, có ghi lịch sử |
+| Chuẩn hóa Model/Cấu hình + tìm trùng Serial/MAC/IP | Trang Trợ lý AI | admin | Structured output, duyệt từng thay đổi, có ghi lịch sử |
+
+### ⚠ Lưu ý gói miễn phí
+- **Google được dùng dữ liệu gửi lên để cải thiện sản phẩm** (hóa đơn NCC, tên/mã nhân viên, nội dung ticket...). Nếu không chấp nhận, bật billing cho project trong Google AI Studio (chuyển sang gói trả phí, Google không dùng dữ liệu nữa) — không cần sửa code.
+- Giới hạn khoảng 10–15 request/phút và khoảng 1.000 request/ngày cho mỗi model. Mỗi câu hỏi Trợ lý có thể tốn 2–4 request (mỗi lần gọi tool là 1 request). Hết hạn mức thì app báo "thử lại sau ít phút"; Worker tự chuyển sang model dự phòng `MODEL_FALLBACK`.
 
 ### Kiến trúc
 ```
-Trình duyệt ──Firebase ID token──▶ Cloudflare Worker ──API key──▶ Claude API
+Trình duyệt ──Firebase ID token──▶ Cloudflare Worker ──API key──▶ Gemini API
    └─ tool của agent chạy ngay trên dữ liệu đã đồng bộ (assets, tickets, ...)
 ```
-- **Worker** (`ai-worker/worker.js`) giữ API key, prompt, JSON Schema và danh sách tool. Worker xác minh chữ ký token Firebase, đọc `users/{uid}` để lấy vai trò, lọc tool theo vai trò (Collector không có tool công nợ/máy in) và giới hạn 20 request/phút cho mỗi tài khoản.
-- Sửa prompt chỉ cần deploy lại Worker, không cần bump phiên bản PWA.
-- Mô hình: `MODEL_FAST` (mặc định Haiku 4.5) cho trích xuất, `MODEL_SMART` (mặc định Sonnet 5) cho agent và tóm tắt. Đổi được trong biến môi trường của Worker.
-- Tool không bao giờ gửi ảnh base64 hay lịch sử dài lên AI. Kết quả lớn bị cắt và đánh dấu `truncated`.
+- **Worker** (`ai-worker/worker.js`) giữ API key, prompt, schema và danh sách tool. Worker xác minh chữ ký token Firebase, đọc `users/{uid}` để lấy vai trò, lọc tool theo vai trò (Collector không có tool công nợ/máy in) và giới hạn 10 request/phút cho mỗi tài khoản.
+- Worker chuyển đổi định dạng hội thoại của app sang định dạng Gemini (functionCall/functionResponse, giữ nguyên thoughtSignature). Muốn đổi sang nhà cung cấp AI khác chỉ cần sửa Worker, không phải sửa app.
+- Mô hình mặc định: `MODEL_FAST` = `gemini-3.5-flash-lite` (trích xuất), `MODEL_SMART` = `gemini-3.8-flash` (agent, tóm tắt), `MODEL_FALLBACK` = `gemini-3.1-flash-lite`. Đổi trong biến môi trường của Worker.
 
-### Cài đặt (1 lần, khoảng 10 phút, miễn phí phía Cloudflare)
-1. Tạo API key tại console.anthropic.com (nạp credit).
-2. Tạo Worker theo **một trong hai cách**:
-   - **Dashboard:** dash.cloudflare.com → Workers & Pages → Create → Worker → dán nội dung `ai-worker/worker.js` → Deploy. Vào Settings → Variables and Secrets → thêm Secret `ANTHROPIC_API_KEY`. Nếu muốn thử ở máy local, thêm Text `ALLOWED_ORIGINS` = `https://emailbuikhanhnguyen.github.io,http://localhost:8080`.
-   - **CLI:** trong thư mục `ai-worker/` chạy `npx wrangler deploy`, rồi `npx wrangler secret put ANTHROPIC_API_KEY`.
-3. Đăng nhập app bằng Admin → **🤖 Trợ lý AI → Cấu hình AI** → dán URL Worker → **Lưu** (URL được lưu vào Firestore `meta/ai`, mọi máy dùng chung) → **Kiểm tra kết nối**.
+### Cài đặt (1 lần, miễn phí)
+1. **Lấy API key Gemini:** vào **aistudio.google.com/apikey** → đăng nhập Google → **Create API key** → copy key.
+2. **Tạo Worker:** dash.cloudflare.com → Workers & Pages → Create → Create Worker → tên `it-main-ai` → Deploy → **Edit code** → xóa code mẫu, dán toàn bộ `ai-worker/worker.js` → Deploy. Vào Settings → Variables and Secrets → Add → loại **Secret**, tên `GEMINI_API_KEY`, giá trị là key ở bước 1.
+3. Trong app, đăng nhập Admin → **🤖 Trợ lý AI → Cấu hình AI** → dán URL Worker (`https://it-main-ai.<tên>.workers.dev`) → **Lưu** → **Kiểm tra kết nối**.
 4. Tài khoản `reportonly` không đọc được `meta/ai`. Muốn họ dùng AI đọc hóa đơn thì điền URL vào hằng `AI_ENDPOINT_DEFAULT` đầu file `ai.js`.
-5. Không cần sửa `firestore.rules`: `meta/{docId}` đã cho Admin ghi và 3 vai trò đọc. Field `aiCleanedAt` trên tài sản do Admin ghi, cũng đã được phép.
+5. Không cần sửa `firestore.rules`.
 
-### Chi phí & quyền riêng tư
-- Chi phí ước tính: đọc 1 hóa đơn hoặc tạo 1 ticket khoảng vài chục đồng; 1 câu hỏi agent vài trăm đồng. Số token của phiên hiện tại hiển thị ở mục Cấu hình AI.
-- Khi bấm **🤖 Đọc bằng AI**, file PDF **được gửi** qua Worker tới Anthropic. Đây là thao tác chủ động; luồng đọc bằng pdf.js vẫn chạy 100% trên máy như trước.
-- Test: `node` chạy được các hàm thuần `window.AIX.pure` (tool, chọn ticket tương tự, tìm trùng, số liệu tóm tắt) và `handle()` của Worker với fetch giả.
+### Test
+Có thể chạy bằng `node`: các hàm thuần trong `window.AIX.pure` và hàm `handle()` của Worker (dùng fetch giả, gồm cả chuyển đổi định dạng Gemini).
