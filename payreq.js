@@ -570,29 +570,21 @@
     rows = []; cfgs = {}; $("pqStatus").textContent = ""; renderRows();
   });
 
-  /* ---------- Đọc PDF ---------- */
+  /* ---------- Đọc PDF ----------
+     ensurePdfJs/ensureJSZip/pdfToText dùng chung từ window.PrPay (định nghĩa ở
+     printers-payreq.js, nạp trước file này) — trước đây payreq.js, network-isp.js
+     và printers-payreq.js mỗi file tự cài 1 bản riêng của 3 hàm này, giống hệt
+     nhau, nay gộp lại 1 chỗ. loadScript() vẫn giữ ở đây vì còn dùng riêng để nạp
+     Tesseract.js (OCR) — không liên quan tới pdf.js/jszip. */
   function loadScript(src) {
     return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error(src)); document.head.appendChild(s); });
   }
-  async function ensurePdfJs() {
-    if (window.pdfjsLib) return window.pdfjsLib;
-    await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
-    try { // worker cross-origin -> nạp qua blob
-      const code = await (await fetch("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js")).text();
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
-    } catch (e) { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }
-    return window.pdfjsLib;
-  }
-  async function ensureJSZip() { if (!window.JSZip) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"); }
+  const ensurePdfJs = () => window.PrPay.ensurePdfJs();
+  const ensureJSZip = () => window.PrPay.ensureJSZip();
+  const pdfToText = file => window.PrPay.pdfToText(file);
   async function openPdf(file) {
     const lib = await ensurePdfJs();
     return lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-  }
-  async function pdfToText(file) {
-    const doc = await openPdf(file);
-    const pages = [];
-    for (let i = 1; i <= Math.min(doc.numPages, 3); i++) pages.push((await (await doc.getPage(i)).getTextContent()).items);
-    return window.PrPay.itemsToText(pages);
   }
 
   $("pqFile").addEventListener("change", async e => {

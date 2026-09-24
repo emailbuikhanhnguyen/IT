@@ -501,28 +501,14 @@
     try { await db.collection(B_COL).doc(id).delete(); } catch (e) { alert(tr("nw.errSave", { err: e.message })); }
   };
 
-  /* ---------- Đề nghị thanh toán ---------- */
-  let pdfDone = null;
-  async function ensurePdfJs() {
-    if (window.pdfjsLib) return window.pdfjsLib;
-    await new Promise((res, rej) => { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"; s.onload = res; s.onerror = () => rej(new Error("pdf.js")); document.head.appendChild(s); });
-    try {
-      const code = await (await fetch("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js")).text();
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
-    } catch (e) { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }
-    return window.pdfjsLib;
-  }
-  async function ensureJSZip() {
-    if (window.JSZip) return;
-    await new Promise((res, rej) => { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"; s.onload = res; s.onerror = () => rej(new Error("jszip")); document.head.appendChild(s); });
-  }
-  async function pdfToText(file) {
-    const lib = await ensurePdfJs();
-    const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-    const pages = [];
-    for (let i = 1; i <= Math.min(doc.numPages, 3); i++) pages.push((await (await doc.getPage(i)).getTextContent()).items);
-    return window.PrPay.itemsToText(pages);
-  }
+  /* ---------- Đề nghị thanh toán ----------
+     ensurePdfJs/ensureJSZip/pdfToText dùng chung từ window.PrPay (định nghĩa ở
+     printers-payreq.js, nạp trước file này) — trước đây network-isp.js,
+     payreq.js và printers-payreq.js mỗi file tự cài 1 bản riêng của 3 hàm này,
+     giống hệt nhau, nay gộp lại 1 chỗ để đỡ phải sửa 3 nơi khi đổi version. */
+  const ensurePdfJs = () => window.PrPay.ensurePdfJs();
+  const ensureJSZip = () => window.PrPay.ensureJSZip();
+  const pdfToText = file => window.PrPay.pdfToText(file);
 
   function rowFromParsed(p, file) {
     const prov = matchProvider(p, providers);

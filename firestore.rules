@@ -44,6 +44,25 @@ service cloud.firestore {
       return isAdmin() || isCollector() || isViewer();
     }
 
+    // ---------- Validate dữ liệu (trước đây Rules chỉ kiểm tra "ai được ghi",
+    // không kiểm tra "ghi cái gì" — 1 request hợp lệ về quyền vẫn có thể nhét
+    // số âm/chuỗi khổng lồ vào field. Các hàm dưới đây thêm 1 lớp kiểm tra tối
+    // thiểu về kiểu dữ liệu cho các field tài chính/định danh quan trọng, áp
+    // dụng cho request.resource.data (dữ liệu SẮP được ghi). Không kiểm tra
+    // toàn bộ field (một số field tự do như "note" cố tình để lỏng) — mục tiêu
+    // là chặn các giá trị rõ ràng sai (âm, sai kiểu), không phải validate đầy
+    // đủ schema. ----------
+    function isNonEmptyString(v, maxLen) {
+      return v is string && v.size() > 0 && v.size() <= maxLen;
+    }
+    function isNonNegNumber(v) {
+      return v is number && v >= 0;
+    }
+    // Với field optional: hoặc không có trong request, hoặc có và hợp lệ.
+    function optionalNonNegNumber(d, key) {
+      return !(key in d) || isNonNegNumber(d[key]);
+    }
+
     // Roles collection: users/{uid} -> { role: "admin" | "collector" | "viewer" }
     // Create one doc per account manually in Firebase Console > Firestore.
     // An account with no doc here has no access to anything below.
@@ -56,12 +75,15 @@ service cloud.firestore {
       // Admin, Collector và Viewer đều browse/search được toàn bộ.
       allow read: if isAdmin() || isCollector() || isViewer();
       // Chỉ Collector (và Admin) được TẠO tài sản mới — Viewer không được
-      // tạo bất kỳ tài sản nào, kể cả nháp.
-      allow create: if isAdmin() || isCollector();
+      // tạo bất kỳ tài sản nào, kể cả nháp. Bắt buộc "code" là chuỗi không
+      // rỗng ngay từ lúc tạo (trước đây Rules chỉ kiểm tra vai trò, không
+      // kiểm tra dữ liệu — 1 request hợp lệ quyền vẫn tạo được tài sản
+      // không mã, rất khó dọn dẹp sau này).
+      allow create: if (isAdmin() || isCollector()) && isNonEmptyString(request.resource.data.code, 100);
       // Chỉ Admin được sửa/xóa tài sản đã có — kể cả tài sản Collector vừa
       // tạo. Đây là cơ chế "ghi 1 lần" cho Collector; Viewer không nằm
       // trong danh sách này nên tất nhiên cũng không sửa/xóa được.
-      allow update: if isAdmin();
+      allow update: if isAdmin() && isNonEmptyString(request.resource.data.code, 100);
       allow delete: if isAdmin();
     }
 
@@ -70,7 +92,9 @@ service cloud.firestore {
       // được toàn bộ; chỉ Collector (và Admin) tạo được ticket mới; chỉ
       // Admin sửa/xóa được ticket đã có (kể cả ticket của chính mình).
       allow read: if isAdmin() || isCollector() || isViewer();
-      allow create: if isAdmin() || isCollector();
+      // Bắt buộc "ticketId" là chuỗi không rỗng ngay từ lúc tạo — cùng lý do
+      // với "code" của assets (tránh ticket rỗng/không định danh được).
+      allow create: if (isAdmin() || isCollector()) && isNonEmptyString(request.resource.data.ticketId, 100);
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -157,7 +181,16 @@ service cloud.firestore {
     }
     match /printer_invoices/{invoiceId} {
       allow read: if isAdmin() || isViewer();
-      allow write: if isAdmin();
+      // "amount" (số tiền hóa đơn) không được âm, "vendorId" bắt buộc có —
+      // trước đây chỉ kiểm tra vai trò Admin, không kiểm tra giá trị.
+      // LƯU Ý: create/update tách riêng khỏi delete — lúc delete không có
+      // request.resource (không có dữ liệu mới), nếu gộp chung "allow write"
+      // với điều kiện đọc request.resource.data thì thao tác xóa sẽ luôn bị
+      // từ chối (lỗi, không phải chỉ mất tính năng xóa mà còn khó nhận ra).
+      allow create, update: if isAdmin()
+        && isNonNegNumber(request.resource.data.amount)
+        && isNonEmptyString(request.resource.data.vendorId, 200);
+      allow delete: if isAdmin();
     }
 
     // ---------- Network › cước Internet (network-isp.js) ----------
@@ -175,7 +208,13 @@ service cloud.firestore {
     }
     match /net_invoices/{id} {
       allow read: if isAdmin() || isViewer();
-      allow write: if isAdmin();
+      // Cùng lý do với printer_invoices: "amount" không âm, "providerId" bắt
+      // buộc có; create/update tách riêng khỏi delete (xem giải thích ở
+      // printer_invoices phía trên).
+      allow create, update: if isAdmin()
+        && isNonNegNumber(request.resource.data.amount)
+        && isNonEmptyString(request.resource.data.providerId, 200);
+      allow delete: if isAdmin();
     }
 
     // ---------- Đề nghị thanh toán (payreq.js) ----------
@@ -184,7 +223,13 @@ service cloud.firestore {
     // Cùng quy tắc với Máy in/Network: Admin ghi; Admin + Viewer đọc; Collector không thấy.
     match /pay_requests/{id} {
       allow read: if isAdmin() || isViewer();
-      allow write: if isAdmin();
+      // "total" (tổng tiền giấy đề nghị) không được âm, "code" (mã đề nghị,
+      // dùng để cảnh báo trùng) bắt buộc có; create/update tách riêng khỏi
+      // delete (xem giải thích ở printer_invoices phía trên).
+      allow create, update: if isAdmin()
+        && isNonNegNumber(request.resource.data.total)
+        && isNonEmptyString(request.resource.data.code, 100);
+      allow delete: if isAdmin();
     }
 
     // ---------- meta/{docId} — các "cờ trạng thái" nhỏ dùng nội bộ app,

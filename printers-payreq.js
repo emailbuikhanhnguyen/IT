@@ -301,7 +301,11 @@
     return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
   }
 
-  window.PrPay = { viWords, enWords, parseInvoiceText, itemsToText, buildPaymentXlsx, moneyOf, excelSerial };
+  // ensurePdfJs/ensureJSZip/pdfToText được export qua PrPay để network-isp.js và
+  // payreq.js dùng chung (trước đây mỗi file tự cài 1 bản riêng — 3 bản giống hệt
+  // nhau, sửa version pdf.js/jszip phải sửa 3 chỗ). Định nghĩa thật ở dưới (được
+  // hoisted nên tham chiếu được ngay tại đây dù đứng trước theo thứ tự dòng).
+  window.PrPay = { viWords, enWords, parseInvoiceText, itemsToText, buildPaymentXlsx, moneyOf, excelSerial, ensurePdfJs, ensureJSZip, pdfToText };
 
   /* ================= UI ================= */
   const C = () => window.PrCore;
