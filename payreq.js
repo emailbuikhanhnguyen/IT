@@ -102,6 +102,9 @@
     "pq.building": ["Đang tạo file Excel...", "Building Excel...", "正在生成Excel..."],
     "pq.done": ["Đã tạo {{n}} file ({{sum}}).", "Created {{n}} file(s) ({{sum}}).", "已生成 {{n}} 个文件（{{sum}}）。"],
     "pq.doneSaved": [" Đã lưu lịch sử.", " History saved.", " 已保存记录。"],
+    "pq.synced": [" Đã tự thêm {{n}} hóa đơn vào Công nợ Máy in/Network.", " Auto-added {{n}} invoice(s) to Printer/Network debt tracking.", " 已自动将 {{n}} 张发票加入打印机/网络的应付账款。"],
+    "pq.syncedMissed": [" {{n}} hóa đơn chưa khớp được NCC ở Máy in/Network — vào tạo NCC rồi lập lại giấy đề nghị.", " {{n}} invoice(s) had no matching Printer/Network vendor — add the vendor there, then redo the request.", " {{n}} 张发票未能匹配打印机/网络的供应商 — 请先在那里创建供应商，再重新生成申请。"],
+    "pq.syncedErr": [" (không tự thêm được vào Công nợ Máy in/Network: {{err}})", " (could not auto-add to Printer/Network debt tracking: {{err}})", " (无法自动加入打印机/网络的应付账款：{{err}})"],
     "pq.errBuild": ["Không tạo được file Excel: {{err}}", "Could not build Excel: {{err}}", "无法生成Excel：{{err}}"],
     "pq.errSave": ["File đã tạo nhưng không lưu được lịch sử: {{err}}", "File created but history could not be saved: {{err}}", "文件已生成，但无法保存记录：{{err}}"],
     "pq.h.title": ["🕘 Lịch sử đề nghị đã lập", "🕘 Request history", "🕘 已制作的申请记录"],
@@ -166,7 +169,10 @@
     Object.assign(r, {
       kind: n.kind, category: "net", docType: n.docType, vendorName: n.sellerName || (seed && seed.receiverName) || "",
       vendorTax: n.sellerTax || (seed && seed.taxCode) || "", serial: n.serial || "", no: n.no || "", date: n.date || "",
-      period: n.period || "", due: n.due || "", desc: n.desc || "", ex: n.ex, rate: n.rate || 10, vat: n.vat
+      period: n.period || "", due: n.due || "", desc: n.desc || "", ex: n.ex, rate: n.rate || 10, vat: n.vat,
+      // Giữ lại chứng từ gốc (có customerCode/contractNo/subscriber) để lúc lưu có thể
+      // khớp đúng đường truyền qua window.NetIsp.matchProvider/matchLine — xem syncModuleDebts().
+      _netRaw: n
     });
     return settleAmounts(r, n.total);
   }
@@ -716,7 +722,15 @@
       const sum = outs.reduce((t, o) => t + groupTotal(o.g), 0);
       let msg = tr("pq.done", { n: outs.length, sum: money(sum) });
       if (canSaveHistory() && $("pqSaveHist").checked) {
-        try { await saveHistory(outs, s); msg += tr("pq.doneSaved"); }
+        try {
+          await saveHistory(outs, s);
+          msg += tr("pq.doneSaved");
+          try {
+            const sync = await syncModuleDebts(outs);
+            if (sync.n) msg += " " + tr("pq.synced", { n: sync.n });
+            if (sync.missed.length) msg += " " + tr("pq.syncedMissed", { n: sync.missed.length });
+          } catch (e2) { msg += " " + tr("pq.syncedErr", { err: e2.message }); }
+        }
         catch (err) { msg += " " + tr("pq.errSave", { err: err.message }); }
       }
       st.textContent = msg;
@@ -724,6 +738,82 @@
       st.textContent = "";
       alert(tr("pq.errBuild", { err: err.message }));
     }
+  }
+
+  /* ---------- Tự thêm vào Công nợ Máy in / Network ----------
+     Máy in và Network không còn trang "Đề nghị thanh toán" riêng nữa (đã bỏ) —
+     giờ đây là nơi DUY NHẤT để lập giấy đề nghị thanh toán cho MỌI NCC. Khi
+     Admin lưu 1 giấy đề nghị mà NCC khớp với NCC đã có trong Máy in
+     (window.PrCore.vendors) hoặc Network (window.NetIsp.state().providers),
+     hóa đơn được TỰ ĐỘNG thêm/cập nhật vào printer_invoices/net_invoices để
+     Công nợ ở 2 module đó tự cập nhật theo, không cần nhập lại.
+     NCC CHƯA TỪNG tạo ở Máy in/Network thì KHÔNG tự tạo hóa đơn "mồ côi"
+     (printer_invoices/net_invoices bắt buộc vendorId/providerId khác rỗng —
+     xem firestore.rules) — báo cho người dùng biết để tự tạo NCC trước rồi
+     lập lại giấy đề nghị (Máy in vẫn còn form "Thêm hóa đơn" thủ công cho
+     trường hợp cần nhập tay ngay). */
+  function matchByTaxOrName(list, tax, name) {
+    const t = digits(tax), n = norm(name);
+    const byTax = t && (list || []).find(v => digits(v.taxCode) && digits(v.taxCode) === t);
+    if (byTax) return byTax;
+    if (n.length < 5) return null;
+    return (list || []).find(v => { const a = norm(v.name || v.receiverName); return a.length >= 5 && (a.includes(n) || n.includes(a)); }) || null;
+  }
+  // Đoán loại hóa đơn máy in theo nội dung — cùng bộ từ khóa đã dùng ở reasonFor() phía trên.
+  function guessPrinterKindIdx(desc) {
+    const d = String(desc || "");
+    if (/thuê/i.test(d)) return 0;           // E.ik[0] = Tiền thuê
+    if (/sửa|thay|bảo trì|bảo dưỡng|vệ sinh|linh kiện/i.test(d)) return 1; // E.ik[1] = Sửa chữa
+    if (/mực|toner|drum|vật tư/i.test(d)) return 2; // E.ik[2] = Mực & vật tư
+    return 4;                                 // E.ik[4] = Khác
+  }
+  async function syncModuleDebts(outs) {
+    const ts = firebase.firestore.FieldValue.serverTimestamp;
+    const by = (typeof currentEmail !== "undefined" && currentEmail) || "?";
+    const batch = db.batch();
+    let n = 0; const missed = [];
+    outs.forEach(o => {
+      o.g.rows.forEach(r => {
+        if (r.category === "printer" && window.PrCore) {
+          const v = matchByTaxOrName(window.PrCore.vendors, r.vendorTax, r.vendorName);
+          if (!v) { missed.push(Object.assign({ mod: "printer" }, r)); return; }
+          const existing = r.no ? window.PrCore.invoices.find(i => i.vendorId === v._id && (i.invoiceNo || "") === String(r.no).trim()) : null;
+          const ref = existing ? db.collection(window.PrCore.INVOICE_COLLECTION).doc(existing._id) : db.collection(window.PrCore.INVOICE_COLLECTION).doc();
+          const ik = (window.PrCore.E && window.PrCore.E.ik) || [];
+          const data = {
+            vendorId: v._id, vendorName: v.name || r.vendorName,
+            printerId: existing ? (existing.printerId || "") : "", printerCode: existing ? (existing.printerCode || "") : "",
+            kind: existing ? existing.kind : (ik[guessPrinterKindIdx(r.desc)] || ik[ik.length - 1] || ""),
+            invoiceNo: r.no || "", invoiceSerial: r.serial || "", invoiceDate: r.date || "",
+            period: r.period || "", dueDate: r.due || o.c.due || "",
+            amount: r.total || 0, amountExVat: r.ex || 0, vatRate: r.rate || 0, vatAmount: r.vat || 0,
+            desc: r.desc || "", note: existing ? (existing.note || "") : (r.desc || ""), updatedAt: ts()
+          };
+          if (!existing) Object.assign(data, { payments: [], source: "payreq", createdBy: by, createdAt: ts() });
+          batch.set(ref, data, { merge: true }); n++;
+        } else if (r.category === "net" && window.NetIsp && window.NetIsp.state) {
+          const st = window.NetIsp.state();
+          let prov = r._netRaw ? window.NetIsp.matchProvider(r._netRaw, st.providers) : null;
+          if (!prov) prov = matchByTaxOrName(st.providers, r.vendorTax, r.vendorName);
+          if (!prov) { missed.push(Object.assign({ mod: "net" }, r)); return; }
+          const line = r._netRaw ? window.NetIsp.matchLine(r._netRaw, st.lines, prov._id) : null;
+          const existing = r.no ? st.bills.find(b => b.providerId === prov._id && (b.invoiceNo || "") === String(r.no).trim()) : null;
+          const lineId = line ? line._id : (existing ? (existing.lineId || "") : "");
+          const lineName = line ? line.name : (existing ? (existing.lineName || "") : "");
+          const ref = existing ? db.collection("net_invoices").doc(existing._id) : db.collection("net_invoices").doc();
+          const data = {
+            providerId: prov._id, providerName: prov.name || r.vendorName, lineId, lineName,
+            docType: r.docType || "invoice", invoiceNo: r.no || "", invoiceSerial: r.serial || "", invoiceDate: r.date || "",
+            period: r.period || "", dueDate: r.due || o.c.due || "",
+            amount: r.total || 0, amountExVat: r.ex || 0, vatRate: r.rate || 0, vatAmount: r.vat || 0, desc: r.desc || "", updatedAt: ts()
+          };
+          if (!existing) Object.assign(data, { payments: [], source: "payreq", createdBy: by, createdAt: ts() });
+          batch.set(ref, data, { merge: true }); n++;
+        }
+      });
+    });
+    if (n) await batch.commit();
+    return { n, missed };
   }
 
   /* ---------- Lịch sử (Firestore pay_requests, chỉ Admin ghi) ---------- */

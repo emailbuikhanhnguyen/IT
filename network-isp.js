@@ -1,8 +1,19 @@
 /* network-isp.js — Network › Thanh toán cước Internet / viễn thông (VNPT, Viettel...).
 
-   Nạp SAU app.js và printers-payreq.js (dùng lại window.PrPay.buildPaymentXlsx
-   để xuất "Giấy đề nghị thanh toán" nhiều dòng chứng từ, và pdf.js/JSZip do
-   printers-payreq.js nạp).
+   TRƯỚC ĐÂY module này còn có trang UI riêng "Đề nghị thanh toán cước" (đọc
+   PDF hóa đơn mạng -> lưu công nợ + xuất Excel). Trang đó đã bị BỎ theo yêu
+   cầu. Giờ hóa đơn Network được thêm vào net_invoices theo 1 trong 2 cách:
+   1. TỰ ĐỘNG — lập "Giấy đề nghị thanh toán" ở trang chung (payreq.js) cho
+      NCC mạng: payreq.js tự thêm/cập nhật net_invoices qua
+      window.NetIsp.matchProvider/matchLine (xem addFromPayReq() bên dưới).
+   2. Chưa có NCC/đường truyền khớp thì phải vào "Đường truyền & NCC" tạo
+      trước, rồi lập lại giấy đề nghị ở trang chung để tự thêm được.
+   Module này (net_providers, net_lines) và phần Công nợ (xem/trả/xoá hóa
+   đơn) vẫn giữ nguyên như cũ.
+
+   Nạp SAU app.js và printers-payreq.js (dùng window.PrPay.pdfToText do
+   printers-payreq.js nạp — chỉ payreq.js còn thật sự đọc PDF, file này giờ
+   không đọc PDF nữa).
 
    Dữ liệu (Firestore) — 3 collection, xem firestore.rules:
    - net_providers/{autoId} : nhà cung cấp dịch vụ (VNPT, Viettel...) + tài khoản NH nhận tiền.
@@ -304,9 +315,13 @@
 
   /* ================= UI ================= */
   const $ = id => document.getElementById(id);
-  if (!$("nwPqFile")) return; // (harness/test không có trang này)
+  // Guard theo "nwLineList" (trang Đường truyền & NCC) chứ không phải theo
+  // trang "Đề nghị thanh toán cước" nữa — trang đó đã bị bỏ (xem ghi chú ở
+  // dưới), nếu vẫn guard theo phần tử của nó thì cả module Network (kể cả
+  // Đường truyền/NCC/Công nợ) sẽ ngừng chạy oan.
+  if (!$("nwLineList")) return; // (harness/test không có trang này)
 
-  const PAGES = ["netLines", "netLineForm", "netProviderForm", "netBills", "netPayReq"];
+  const PAGES = ["netLines", "netLineForm", "netProviderForm", "netBills"];
   const P_COL = "net_providers", L_COL = "net_lines", B_COL = "net_invoices";
   let providers = [], lines = [], bills = [], unsubs = [];
   let rows = [];          // các dòng chứng từ đang kiểm tra (chưa lưu)
@@ -322,8 +337,6 @@
   const statusOf = b => (Number(b.amount) > 0 && remaining(b) <= 0) ? IS[2] : paid(b) > 0 ? IS[1] : IS[0];
   const isOverdue = b => remaining(b) > 0 && !!b.dueDate && b.dueDate < todayStr();
   const lineTypeLabel = v => { const i = LINE_TYPES.indexOf(v); return i >= 0 ? tr("nw.lt." + i) : (v || ""); };
-  const loadSettings = () => { const D = { code: "ACC-001", requester: "BÙI KHÁNH NGUYÊN", dept: "IT", head: "Lê Nhật Thành", finance: "Chen Lai Chong – John" }; try { return Object.assign(D, JSON.parse(localStorage.getItem("prPayReqSettings") || "{}")); } catch (e) { return D; } };
-  const saveSettings = s => { try { const old = JSON.parse(localStorage.getItem("prPayReqSettings") || "{}"); localStorage.setItem("prPayReqSettings", JSON.stringify(Object.assign(old, s))); } catch (e) { /* bỏ qua */ } };
 
   /* ---------- Đồng bộ ---------- */
   window.initNetSync = function () {
@@ -500,189 +513,4 @@
     const b = bills.find(x => x._id === id); if (!b || !confirm(tr("nw.b.delConfirm", { no: b.invoiceNo }))) return;
     try { await db.collection(B_COL).doc(id).delete(); } catch (e) { alert(tr("nw.errSave", { err: e.message })); }
   };
-
-  /* ---------- Đề nghị thanh toán ----------
-     ensurePdfJs/ensureJSZip/pdfToText dùng chung từ window.PrPay (định nghĩa ở
-     printers-payreq.js, nạp trước file này) — trước đây network-isp.js,
-     payreq.js và printers-payreq.js mỗi file tự cài 1 bản riêng của 3 hàm này,
-     giống hệt nhau, nay gộp lại 1 chỗ để đỡ phải sửa 3 nơi khi đổi version. */
-  const ensurePdfJs = () => window.PrPay.ensurePdfJs();
-  const ensureJSZip = () => window.PrPay.ensureJSZip();
-  const pdfToText = file => window.PrPay.pdfToText(file);
-
-  function rowFromParsed(p, file) {
-    const prov = matchProvider(p, providers);
-    const line = matchLine(p, lines, prov ? prov._id : "");
-    return { file, providerId: prov ? prov._id : (line ? line.providerId : ""), lineId: line ? line._id : "", docType: p.docType, no: p.no, serial: p.serial || "", date: p.date, period: p.period,
-      ex: p.ex, vat: p.vat, rate: p.rate, due: p.due || dueFor(prov, p.date), desc: p.desc || "", src: "pdf" };
-  }
-  const rowTotal = r => (Number(r.ex) || 0) + (Number(r.vat) || 0);
-
-  $("nwPqFile").addEventListener("change", async ev => {
-    const files = Array.from(ev.target.files || []); if (!files.length) return;
-    if (!providers.length) alert(tr("nw.q.noProviders"));
-    $("nwPqStatus").textContent = tr("nw.q.reading", { n: files.length });
-    let ok = 0; const msgs = [];
-    for (const f of files) {
-      try {
-        const p = window.NetIsp.parseNetDoc(await pdfToText(f));
-        if (!p || !p.no) { msgs.push(tr("nw.q.unknown", { f: f.name })); continue; }
-        rows.push(rowFromParsed(p, f.name)); ok++;
-      } catch (e) { msgs.push(tr("nw.q.readErr", { f: f.name, err: e.message })); }
-    }
-    ev.target.value = "";
-    $("nwPqStatus").innerHTML = esc(tr("nw.q.readDone", { ok, n: files.length })) + msgs.map(m => `<div class="pr-alert warn">${esc(m)}</div>`).join("");
-    renderReview();
-  });
-  $("nwPqManualBtn").addEventListener("click", () => {
-    const prov = providers[0], d = todayStr();
-    rows.push({ file: "", providerId: prov ? prov._id : "", lineId: "", docType: "invoice", no: "", serial: "", date: d, period: d.slice(0, 7), ex: 0, vat: 0, rate: 10, due: dueFor(prov, d), desc: "", src: "manual" });
-    renderReview();
-  });
-
-  function rowWarn(r) {
-    const w = [];
-    if (r.lineId && r.period) {
-      const dup = bills.find(b => b.lineId === r.lineId && b.period === r.period && (b.invoiceNo || "") !== r.no && b.providerId === r.providerId);
-      if (dup) w.push(tr("nw.q.dupPeriod", { p: r.period.slice(5) + "/" + r.period.slice(0, 4), no: dup.invoiceNo }));
-    }
-    if (!r.lineId && r.src === "pdf") w.push(tr("nw.q.noLineMatch"));
-    if (r.providerId && r.no && bills.some(b => b.providerId === r.providerId && (b.invoiceNo || "") === r.no)) w.push(tr("nw.q.exists"));
-    return w;
-  }
-  function renderReview() {
-    $("nwPqReviewWrap").classList.toggle("hidden", !rows.length);
-    $("nwPqReview").innerHTML = rows.map((r, i) => {
-      const lineOpts = `<option value="">${esc(tr("nw.q.noLine"))}</option>` + optHtml(lines.filter(l => !r.providerId || l.providerId === r.providerId).map(l => ({ v: l._id, l: l.name })), r.lineId);
-      const inp = (f, type, extra) => `<input data-i="${i}" data-f="${f}" type="${type}" value="${esc(r[f] == null ? "" : r[f])}" ${extra || ""}>`;
-      return `<div class="card"><div class="muted">${esc(r.file || "✍")}</div>
-        <div>${rowWarn(r).map(w => `<div class="pr-alert warn">${esc(w)}</div>`).join("")}</div>
-        <label><span>${tr("nw.q.provider")}</span><select data-i="${i}" data-f="providerId">${optHtml(provItems(), r.providerId)}<option value=""${r.providerId ? "" : " selected"}>—</option></select></label>
-        <label><span>${tr("nw.q.line")}</span><select data-i="${i}" data-f="lineId">${lineOpts}</select></label>
-        <label><span>${tr("nw.q.docType")}</span><select data-i="${i}" data-f="docType"><option value="invoice"${r.docType === "invoice" ? " selected" : ""}>${tr("nw.b.doc.invoice")}</option><option value="notice"${r.docType === "notice" ? " selected" : ""}>${tr("nw.b.doc.notice")}</option></select></label>
-        <label><span>${tr("nw.q.no")}</span>${inp("no", "text")}</label>
-        <div class="filter-dates"><label class="filter-date"><span>${tr("nw.q.date")}</span>${inp("date", "date")}</label><label class="filter-date"><span>${tr("nw.q.due")}</span>${inp("due", "date")}</label></div>
-        <label style="margin-top:11px"><span>${tr("nw.q.period")}</span>${inp("period", "month")}</label>
-        <div class="filter-dates"><label class="filter-date"><span>${tr("nw.q.ex")}</span>${inp("ex", "number", 'min="0" step="1"')}</label><label class="filter-date"><span>${tr("nw.q.vat")}</span>${inp("vat", "number", 'min="0" step="1"')}</label></div>
-        <div style="margin:8px 0"><b>${tr("nw.q.total")}: <span id="nwRowTot${i}">${money(rowTotal(r))}</span></b></div>
-        <button type="button" class="secondary" data-rm="${i}">${tr("nw.q.remove")}</button></div>`;
-    }).join("");
-  }
-  $("nwPqReview").addEventListener("input", ev => {
-    const el = ev.target, i = el.dataset.i, f = el.dataset.f; if (i === undefined || !f) return;
-    const r = rows[+i]; r[f] = (f === "ex" || f === "vat") ? (Number(el.value) || 0) : el.value;
-    if (f === "ex" || f === "vat") { const t = $("nwRowTot" + i); if (t) t.textContent = money(rowTotal(r)); }
-  });
-  $("nwPqReview").addEventListener("change", ev => {
-    const el = ev.target, i = el.dataset.i, f = el.dataset.f; if (i === undefined || !f) return;
-    const r = rows[+i];
-    if (f === "providerId") { r.lineId = ""; const p = provById(r.providerId); if (p && r.date) r.due = dueFor(p, r.date); renderReview(); }
-    else if (f === "lineId" || f === "no") renderReview();
-    else if (f === "date") { const p = provById(r.providerId); if (p && r.docType === "invoice") r.due = dueFor(p, r.date); renderReview(); }
-  });
-  $("nwPqReview").addEventListener("click", ev => {
-    const b = ev.target.closest("[data-rm]"); if (!b) return;
-    rows.splice(+b.dataset.rm, 1); renderReview();
-  });
-
-  // Lưu các dòng đang kiểm tra vào công nợ. Trả về {ids, providerId} hoặc null nếu bị chặn/lỗi.
-  async function saveRows() {
-    if (!isAdmin) { alert(tr("nw.noperm")); return null; }
-    if (!rows.length) return { ids: [], providerId: "" };
-    if (rows.some(r => !r.providerId || !r.no.trim() || !r.date || rowTotal(r) <= 0)) { alert(tr("nw.q.needFields")); return null; }
-    const ts = firebase.firestore.FieldValue.serverTimestamp, batch = db.batch(), ids = [];
-    rows.forEach(r => {
-      const prov = provById(r.providerId), line = r.lineId ? lineById(r.lineId) : null;
-      const ex = bills.find(b => b.providerId === r.providerId && (b.invoiceNo || "") === r.no.trim());
-      const ref = ex ? db.collection(B_COL).doc(ex._id) : db.collection(B_COL).doc();
-      ids.push(ref.id);
-      const data = { providerId: r.providerId, providerName: prov ? prov.name : "", lineId: line ? line._id : "", lineName: line ? line.name : "", docType: r.docType,
-        invoiceNo: r.no.trim(), invoiceSerial: r.serial || "", invoiceDate: r.date, period: r.period || r.date.slice(0, 7), dueDate: r.due || dueFor(prov, r.date),
-        amount: rowTotal(r), amountExVat: Number(r.ex) || 0, vatRate: Number(r.rate) || 0, vatAmount: Number(r.vat) || 0, desc: r.desc || "", updatedAt: ts() };
-      if (!ex) Object.assign(data, { payments: [], source: r.src, createdBy: currentEmail || "?", createdAt: ts() });
-      batch.set(ref, data, { merge: true });
-    });
-    const providerId = rows[0].providerId, n = rows.length;
-    try {
-      await batch.commit(); rows = []; renderReview();
-      $("nwPqStatus").textContent = tr("nw.q.saved", { n });
-      return { ids, providerId };
-    } catch (e) { alert(tr("nw.errSave", { err: e.message })); return null; }
-  }
-  $("nwPqSaveRows").addEventListener("click", saveRows);
-
-  function pendingBills(pid) {
-    return bills.filter(b => b.providerId === pid && remaining(b) > 0)
-      .sort((a, b) => (a.invoiceDate || "").localeCompare(b.invoiceDate || "") || String(a.invoiceNo).localeCompare(String(b.invoiceNo)));
-  }
-  function renderPq() {
-    if (!$("nwPqProv")) return;
-    const keep = $("nwPqProv").value;
-    $("nwPqNoProv").classList.toggle("hidden", providers.length > 0);
-    $("nwPqProv").innerHTML = optHtml(provItems(), keep);
-    if (!$("nwPqProv").value && providers.length) $("nwPqProv").value = provItems()[0].v;
-    renderPending();
-    if (!$("nwPqRequester").value) { const s = loadSettings(); $("nwPqCode").value = s.code; $("nwPqRequester").value = s.requester; $("nwPqDept").value = s.dept; $("nwPqHead").value = s.head; $("nwPqFinance").value = s.finance; }
-    const keepM = $("nwPqMethod").value || "transfer";
-    $("nwPqMethod").innerHTML = `<option value="transfer">${esc(tr("nw.q.transfer"))}</option><option value="cash">${esc(tr("nw.q.cash"))}</option>`;
-    $("nwPqMethod").value = keepM;
-    if (!$("nwPqFrom").value) $("nwPqFrom").value = todayStr();
-    if ($("nwPqReviewWrap") && rows.length) { /* giữ nguyên các ô đang sửa */ }
-  }
-  let checked = {}; // id hóa đơn -> true/false (nhớ lựa chọn khi render lại)
-  function renderPending() {
-    const pid = $("nwPqProv").value, list = pid ? pendingBills(pid) : [];
-    list.forEach(b => { if (checked[b._id] === undefined) checked[b._id] = !b.payReqDate; });
-    $("nwPqPending").innerHTML = list.map(b => `<label class="checkbox-inline" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" style="width:auto;margin-top:4px" data-bid="${b._id}"${checked[b._id] ? " checked" : ""}>
-      <span><b>${esc(b.invoiceNo)}</b> · ${esc(b.lineName || "")} · ${esc(b.period ? b.period.slice(5) + "/" + b.period.slice(0, 4) : "")}<br><span class="muted">${money(remaining(b))} · ${tr("nw.b.due")} ${fmtDate(b.dueDate)}${b.payReqDate ? " · " + tr("nw.b.reqDone", { date: fmtDate(b.payReqDate) }) : ""}</span></span></label>`).join("") || `<p class="muted">${tr("nw.q.noBills")}</p>`;
-    recomputeSel();
-  }
-  function selectedBills() { return pendingBills($("nwPqProv").value).filter(b => checked[b._id]); }
-  function recomputeSel() {
-    const sel = selectedBills();
-    $("nwPqSelTotal").textContent = money(sel.reduce((s, b) => s + remaining(b), 0));
-    const due = sel.map(b => b.dueDate).filter(Boolean).sort()[0] || "";
-    if (due && !$("nwPqDue").dataset.touched) $("nwPqDue").value = due;
-    if (!$("nwPqReason").dataset.touched) $("nwPqReason").value = sel.length ? reasonFor(sel) : "";
-  }
-  $("nwPqProv").addEventListener("change", () => { $("nwPqDue").dataset.touched = ""; $("nwPqReason").dataset.touched = ""; renderPending(); });
-  $("nwPqPending").addEventListener("change", ev => {
-    const id = ev.target.dataset.bid; if (!id) return;
-    checked[id] = ev.target.checked; recomputeSel();
-  });
-  $("nwPqDue").addEventListener("input", () => { $("nwPqDue").dataset.touched = "1"; });
-  $("nwPqReason").addEventListener("input", () => { $("nwPqReason").dataset.touched = "1"; });
-
-  $("nwPqXlsxBtn").addEventListener("click", async () => {
-    if (!isAdmin) return alert(tr("nw.noperm"));
-    if (rows.length) { // còn chứng từ vừa tải lên chưa lưu -> tự lưu và tự tick để khỏi phải làm 2 lần
-      const r = await saveRows(); if (!r) return;
-      checked = {}; r.ids.forEach(id => { checked[id] = true; });
-      $("nwPqProv").value = r.providerId; $("nwPqDue").dataset.touched = ""; $("nwPqReason").dataset.touched = "";
-      for (let i = 0; i < 30 && !pendingBills(r.providerId).some(b => b._id === r.ids[0]); i++) await new Promise(res => setTimeout(res, 100));
-      renderPending();
-    }
-    const prov = provById($("nwPqProv").value), sel = selectedBills();
-    if (!prov || !sel.length) return alert(tr("nw.q.needSel"));
-    if ((!prov.bankAccount || !prov.bankName) && $("nwPqMethod").value === "transfer" && !confirm(tr("nw.q.noBank"))) return;
-    try {
-      await ensureJSZip();
-      const res = await fetch("pay-template.xlsx"); if (!res.ok) throw new Error("pay-template.xlsx");
-      const tpl = new Uint8Array(await res.arrayBuffer());
-      const s = { code: $("nwPqCode").value.trim() || "ACC-001", requester: $("nwPqRequester").value.trim(), dept: $("nwPqDept").value.trim(), head: $("nwPqHead").value.trim(), finance: $("nwPqFinance").value.trim(),
-        dateReq: todayStr(), method: $("nwPqMethod").value, from: $("nwPqFrom").value || todayStr(), due: $("nwPqDue").value, reason: $("nwPqReason").value.trim() };
-      saveSettings({ code: s.code, requester: s.requester, dept: s.dept, head: s.head, finance: s.finance });
-      const bytes = await window.PrPay.buildPaymentXlsx(tpl, buildRequestData(sel, prov, s));
-      const ts = firebase.firestore.FieldValue.serverTimestamp, batch = db.batch();
-      sel.forEach(b => batch.set(db.collection(B_COL).doc(b._id), { payReqDate: todayStr(), payReqMethod: s.method, updatedAt: ts() }, { merge: true }));
-      await batch.commit();
-      const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const a = document.createElement("a");
-      const per = Array.from(new Set(sel.map(b => b.period))).sort().pop() || "";
-      a.href = URL.createObjectURL(blob); a.download = `De-nghi-thanh-toan_${norm(prov.name.split(" (")[0]).toUpperCase()}_${per.replace("-", "")}.xlsx`;
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      $("nwPqStatus").textContent = tr("nw.q.done", { n: sel.length, sum: money(sel.reduce((t, b) => t + (Number(b.amount) || 0), 0)) });
-    } catch (e) { alert(tr("nw.q.errBuild", { err: e.message })); }
-  });
-  $("nwBOpenReq").addEventListener("click", () => goPage("netPayReq"));
 })();

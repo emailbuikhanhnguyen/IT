@@ -634,12 +634,8 @@
   <div class="section-head"><h2 data-i18n="network.title">🌐 Network</h2><button data-page="ops">←</button></div>
   <div class="card no-collector">
     <h3 data-i18n="nw.hub.title">💳 Thanh toán cước Internet</h3>
-    <p class="hint" data-i18n="nw.hub.hint">Hàng tháng: tải hóa đơn PDF của VNPT/Viettel lên, kiểm tra rồi xuất Excel “Giấy đề nghị thanh toán” để in trình ký.</p>
+    <p class="hint" data-i18n="nw.hub.hint">Lập giấy "Đề nghị thanh toán" từ hóa đơn PDF ở trang chung 🛠 Vận hành &amp; Hỗ trợ IT → 📝 Đề nghị thanh toán — hóa đơn NCC mạng sẽ tự được thêm vào Công nợ cước Internet ở đây.</p>
     <div class="module-nav">
-      <button class="module-nav-item" data-page="netPayReq">
-        <span class="module-nav-icon">📝</span>
-        <span class="module-nav-text"><b data-i18n="nw.hub.payreq">Đề nghị thanh toán cước</b><small data-i18n="nw.hub.payreq.desc">Tải hóa đơn PDF → xuất Excel trình ký</small></span>
-      </button>
       <button class="module-nav-item" data-page="netBills">
         <span class="module-nav-icon">💳</span>
         <span class="module-nav-text"><b data-i18n="nw.hub.bills">Công nợ cước Internet</b><small data-i18n="nw.hub.bills.desc">Hóa đơn hằng tháng, đã trả, còn nợ, quá hạn</small></span>
@@ -712,7 +708,6 @@
     <div class="stat"><b id="nwBOver" class="pr-money-stat">0</b><span data-i18n="nw.b.overdue">Trong đó quá hạn</span></div>
   </div>
   <div class="card"><h3 data-i18n="nw.b.byProvider">Công nợ theo NCC</h3><div id="nwBByProv"></div></div>
-  <div class="quick admin-only"><button type="button" id="nwBOpenReq" class="secondary" data-i18n="nw.b.openReq">📝 Lập đề nghị thanh toán</button></div>
   <div class="filters" style="margin-top:12px">
     <input id="nwBSearch" data-i18n-placeholder="nw.b.search" placeholder="Tìm số hóa đơn, NCC, đường truyền...">
     <select id="nwBProv"></select>
@@ -721,40 +716,6 @@
   <div id="nwBList"></div>
 </section>
 
-<section id="netPayReq" class="page">
-  <div class="section-head"><h2 data-i18n="nw.q.title">📝 Đề nghị thanh toán cước</h2><button data-page="network">←</button></div>
-  <p class="hint" data-i18n="nw.q.hint">Bước 1: chọn các hóa đơn PDF của tháng → kiểm tra → Lưu vào công nợ. Bước 2: chọn NCC, tick hóa đơn → Tạo file Excel.</p>
-  <div id="nwPqNoProv" class="pr-alert warn hidden" data-i18n="nw.q.noProviders">Chưa có NCC nào.</div>
-  <div class="card admin-only">
-    <label><span data-i18n="nw.q.pick">Chọn các file PDF (chọn được nhiều file)</span><input id="nwPqFile" type="file" accept="application/pdf,.pdf" multiple></label>
-    <div class="quick"><button type="button" id="nwPqManualBtn" class="secondary" data-i18n="nw.q.addManual">✍ Thêm dòng nhập tay</button></div>
-    <div id="nwPqStatus" class="muted"></div>
-  </div>
-  <div id="nwPqReviewWrap" class="hidden admin-only">
-    <div id="nwPqReview"></div>
-    <div class="quick"><button type="button" id="nwPqSaveRows" data-i18n="nw.q.saveRows">💾 Lưu vào công nợ</button></div>
-  </div>
-  <div class="card admin-only" style="margin-top:12px">
-    <h3 data-i18n="nw.q.step2">Bước 2 — Tạo giấy đề nghị thanh toán</h3>
-    <label><span data-i18n="nw.q.provider">NCC</span><select id="nwPqProv"></select></label>
-    <div class="muted" data-i18n="nw.q.pickBills">Chọn hóa đơn đưa vào giấy đề nghị</div>
-    <div id="nwPqPending" style="margin:8px 0"></div>
-    <div class="pr-summary"><span data-i18n="nw.q.selTotal">Tổng đã chọn</span>: <span id="nwPqSelTotal">0</span></div>
-    <label><span data-i18n="nw.q.method">Hình thức thanh toán</span><select id="nwPqMethod"></select></label>
-    <div class="filter-dates">
-      <label class="filter-date"><span data-i18n="nw.q.from">Từ ngày</span><input id="nwPqFrom" type="date"></label>
-      <label class="filter-date"><span data-i18n="nw.q.dueAll">Hạn chót</span><input id="nwPqDue" type="date"></label>
-    </div>
-    <label style="margin-top:11px"><span data-i18n="nw.q.reason">Lý do (Content)</span><textarea id="nwPqReason" rows="3"></textarea></label>
-    <label><span data-i18n="nw.q.code">Mã số (Code)</span><input id="nwPqCode"></label>
-    <label><span data-i18n="nw.q.requester">Người đề nghị</span><input id="nwPqRequester"></label>
-    <label><span data-i18n="nw.q.dept">Phòng ban</span><input id="nwPqDept"></label>
-    <label><span data-i18n="nw.q.head">Trưởng bộ phận</span><input id="nwPqHead"></label>
-    <label><span data-i18n="nw.q.finance">Quản lý tài chính</span><input id="nwPqFinance"></label>
-    <p class="hint" data-i18n="nw.q.settingsHint">Thông tin người ký được nhớ trên máy này cho lần sau.</p>
-    <div class="quick"><button type="button" id="nwPqXlsxBtn" data-i18n="nw.q.xlsx">📄 Tạo file Excel đề nghị thanh toán</button></div>
-  </div>
-</section>
 <!-- ==================== /NETWORK ==================== -->
 
 <section id="camera" class="page">
@@ -818,10 +779,6 @@
       <span class="module-nav-icon">📈</span>
       <span class="module-nav-text"><b data-i18n="pr.nav.report">Báo cáo sửa chữa</b><small data-i18n="pr.nav.report.desc">Lọc theo NCC, máy, thời gian</small></span>
     </button>
-    <button class="module-nav-item" data-page="printerPayReq">
-      <span class="module-nav-icon">📝</span>
-      <span class="module-nav-text"><b data-i18n="pr.nav.payreq">Đề nghị thanh toán</b><small data-i18n="pr.nav.payreq.desc">Tải hóa đơn PDF → xuất Excel trình ký</small></span>
-    </button>
     <button class="module-nav-item" data-page="printerDebts">
       <span class="module-nav-icon">💳</span>
       <span class="module-nav-text"><b data-i18n="pr.nav.debts">Công nợ &amp; thanh toán</b><small data-i18n="pr.nav.debts.desc">Hóa đơn phải trả, đã thanh toán, quá hạn</small></span>
@@ -830,54 +787,6 @@
   <div class="quick" style="margin-top:12px">
     <button type="button" id="prSeedBtn" class="secondary admin-only" data-i18n="pr.seed.btn">⬇ Nạp dữ liệu máy in DNP (từ file)</button>
     <button type="button" id="prExportBtn" class="secondary" data-i18n="pr.export">📊 Xuất Excel máy in &amp; công nợ</button>
-  </div>
-</section>
-
-<section id="printerPayReq" class="page">
-  <div class="section-head"><h2 data-i18n="pr.pq.title">📝 Đề nghị thanh toán</h2><button data-page="printers">←</button></div>
-  <p class="hint" data-i18n="pr.pq.hint">Tải hóa đơn điện tử PDF của NCC: app tự đọc số hóa đơn, ngày, nội dung, tiền/VAT, thông tin ngân hàng, kiểm tra rồi xuất file Excel “Giấy đề nghị thanh toán” theo mẫu để in trình ký.</p>
-  <div class="card admin-only">
-    <label><span data-i18n="pr.pq.pickPdf">Chọn hóa đơn PDF</span><input id="prPqFile" type="file" accept="application/pdf,.pdf"></label>
-    <div class="quick"><button type="button" id="prPqManualBtn" class="secondary" data-i18n="pr.pq.manualBtn">✍ Nhập tay (không có PDF)</button></div>
-    <div id="prPqStatus" class="muted"></div>
-  </div>
-  <div id="prPqForm" class="hidden admin-only">
-    <div id="prPqWarn" class="hidden"></div>
-    <div class="card">
-      <h3 data-i18n="pr.pq.invoice">🧾 Hóa đơn</h3>
-      <div class="muted" id="prPqSellerInfo"></div>
-      <label><span data-i18n="pr.i.vendor">NCC*</span><select id="prPqVendor"></select></label>
-      <label><span data-i18n="pr.pq.serial">Ký hiệu</span><input id="prPqSerial"></label>
-      <label><span data-i18n="pr.i.no">Số hóa đơn</span><input id="prPqNo"></label>
-      <label><span data-i18n="pr.i.date">Ngày hóa đơn</span><input id="prPqDate" type="date"></label>
-      <label><span data-i18n="pr.pq.desc">Nội dung hàng hóa/dịch vụ</span><textarea id="prPqDesc" rows="2"></textarea></label>
-      <div class="muted"><span data-i18n="pr.i.kind">Loại</span>: <b id="prPqKindTag"></b></div>
-      <label><span data-i18n="pr.pq.ex">Tiền trước thuế (VNĐ)</span><input id="prPqEx" type="number" min="0" step="1"></label>
-      <label><span data-i18n="pr.pq.vatRate">Thuế suất VAT (%)</span><input id="prPqVatRate" type="number" min="0" step="0.5"></label>
-      <label><span data-i18n="pr.pq.vat">Tiền thuế GTGT (VNĐ)</span><input id="prPqVat" type="number" min="0" step="1"></label>
-      <label><span data-i18n="pr.pq.total">Tổng tiền thanh toán (VNĐ)</span><input id="prPqTotal" type="number" min="0" step="1"></label>
-      <label><span data-i18n="pr.pq.printer">Máy in liên quan</span><select id="prPqPrinter"></select></label>
-    </div>
-    <div class="card">
-      <h3 data-i18n="pr.pq.request">📝 Giấy đề nghị</h3>
-      <label><span data-i18n="pr.pq.method">Hình thức thanh toán</span><select id="prPqMethod"></select></label>
-      <div class="filter-dates">
-        <label class="filter-date"><span data-i18n="pr.pq.from">Từ ngày</span><input id="prPqFrom" type="date"></label>
-        <label class="filter-date"><span data-i18n="pr.pq.due">Hạn chót</span><input id="prPqDue" type="date"></label>
-      </div>
-      <label><span data-i18n="pr.pq.reason">Lý do (Content)</span><textarea id="prPqReason" rows="2"></textarea></label>
-      <label><span data-i18n="pr.pq.code">Mã số (Code)</span><input id="prPqCode"></label>
-      <label><span data-i18n="pr.pq.requester">Người đề nghị</span><input id="prPqRequester"></label>
-      <label><span data-i18n="pr.pq.dept">Phòng ban</span><input id="prPqDept"></label>
-      <label><span data-i18n="pr.pq.head">Trưởng bộ phận</span><input id="prPqHead"></label>
-      <label><span data-i18n="pr.pq.finance">Quản lý tài chính</span><input id="prPqFinance"></label>
-      <p class="hint" data-i18n="pr.pq.settingsHint">Thông tin người ký được nhớ trên máy này cho lần sau.</p>
-    </div>
-    <div class="quick">
-      <button type="button" id="prPqXlsxBtn" data-i18n="pr.pq.xlsx">📄 Lưu công nợ &amp; tạo file Excel đề nghị thanh toán</button>
-      <button type="button" id="prPqSaveBtn" class="secondary" data-i18n="pr.pq.save">💾 Chỉ lưu vào công nợ</button>
-      <button type="button" id="prPqResetBtn" class="secondary" data-i18n="pr.pq.reset">↺ Làm lại</button>
-    </div>
   </div>
 </section>
 
@@ -1058,7 +967,7 @@
     <h3 data-i18n="pr.d.byVendor">Công nợ theo NCC</h3>
     <div id="prDebtByVendor"></div>
   </div>
-  <div class="quick admin-only"><button type="button" class="secondary" data-page="printerPayReq" data-i18n="pr.pq.open">📝 Lập đề nghị thanh toán từ hóa đơn PDF</button></div>
+  <p class="hint" data-i18n="pr.d.payreqHint">Lập giấy "Đề nghị thanh toán" từ hóa đơn PDF ở trang chung 🛠 Vận hành &amp; Hỗ trợ IT → 📝 Đề nghị thanh toán — hóa đơn NCC máy in sẽ tự được thêm vào Công nợ ở đây.</p>
   <div class="card admin-only">
     <p class="hint" data-i18n="pr.d.genRent.hint">Tự tạo hóa đơn tiền thuê.</p>
     <button type="button" id="prGenRentBtn" data-i18n="pr.d.genRent">⚙ Tạo tiền thuê tháng này</button>

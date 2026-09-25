@@ -268,7 +268,7 @@ Trang chung để lập **Giấy đề nghị thanh toán** từ hóa đơn/ch�
 - Vai trò `reportonly` (cũ: "Chuyển đổi báo cáo") giờ chỉ thấy đúng trang này; không cần đọc Firestore nên không thấy lịch sử.
 - Collector không thấy trang này (có số tiền/tài khoản NCC).
 - **Bắt buộc publish lại `firestore.rules`** (thêm collection `pay_requests`) nếu muốn lưu/xem lịch sử; nếu chưa publish, phần tạo Excel vẫn chạy bình thường, chỉ báo lỗi khi lưu lịch sử.
-- Trang "Đề nghị thanh toán" riêng của Máy in và Network vẫn giữ nguyên (các trang đó còn ghi vào công nợ của từng module).
+- **Đây là nơi DUY NHẤT để lập giấy đề nghị thanh toán** — Máy in và Network không còn trang "Đề nghị thanh toán" riêng nữa (đã bỏ). Khi Admin lưu 1 giấy đề nghị (tick "Lưu lịch sử đề nghị"), nếu NCC trên hóa đơn khớp với NCC đã có trong danh bạ Máy in (`printer_vendors`) hoặc Network (`net_providers`) — khớp theo mã số thuế trước, không có thì khớp gần đúng theo tên — hóa đơn được **tự động thêm/cập nhật vào `printer_invoices`/`net_invoices`** để Công nợ ở 2 module đó tự cập nhật theo, không cần nhập lại. Hóa đơn trùng số của cùng NCC chỉ cập nhật, không tạo trùng. NCC chưa từng tạo ở Máy in/Network thì **không tự tạo hóa đơn** (tránh hóa đơn "mồ côi" không có vendorId/providerId) — ứng dụng báo số hóa đơn chưa khớp được, vào tạo NCC ở Máy in/Network trước rồi lập lại giấy đề nghị. Máy in vẫn còn form "Thêm hóa đơn" thủ công riêng ở trang Công nợ cho trường hợp cần nhập tay ngay mà chưa qua Đề nghị thanh toán.
 
 ## Quy trình thực tế
 1. Import danh sách Lab nếu đã có.
@@ -286,20 +286,19 @@ Trang chung để lập **Giấy đề nghị thanh toán** từ hóa đơn/ch�
 - Mỗi lần sửa chữa có thêm: Tình trạng, Xử lý, Kết quả (🟩 Thành công / 🟨 Đang theo dõi / 🟥 Chưa thành công), Đề xuất tiếp theo.
 - Nút **Nạp dữ liệu máy in DNP** (admin) ở trang Máy in: tạo NCC DNP, 6 máy in và 16 lần sửa từ file theo dõi 18/09/2026 (dữ liệu trong `printers-seed.js`); bấm lại không bị trùng.
 
-### Máy in — Đề nghị thanh toán từ hóa đơn PDF
-- **Máy in → Đề nghị thanh toán** (hoặc nút 📝 trên từng hóa đơn ở trang Công nợ): tải hóa đơn điện tử PDF của NCC → app đọc số/ký hiệu/ngày, NCC (khớp theo MST/tên), nội dung, tiền trước thuế/VAT/tổng, STK ngân hàng → kiểm tra & chỉnh → **Lưu công nợ & tạo file Excel** “Giấy đề nghị thanh toán” theo mẫu `pay-template.xlsx` (logo, checkbox Tiền mặt/Chuyển khoản, khổ in giữ nguyên; số tiền bằng chữ VN/EN tự điền).
-- Hóa đơn trùng số của cùng NCC chỉ cập nhật, không tạo trùng. Thông tin ngân hàng/MST còn trống của NCC được bổ sung tự động từ hóa đơn.
+### Máy in — Đề nghị thanh toán
+- **Đã bỏ trang "Máy in → Đề nghị thanh toán"** (đọc PDF + xuất Excel riêng cho máy in). Lập giấy đề nghị thanh toán cho NCC máy in ở trang chung **🛠 Vận hành & Hỗ trợ IT → 📝 Đề nghị thanh toán** — hóa đơn sẽ tự được thêm vào Công nợ máy in nếu NCC khớp (xem mục "Đề nghị thanh toán" phía trên).
+- Trang Công nợ máy in vẫn còn nút **＋ Thêm hóa đơn** để nhập tay khi cần (không qua PDF).
 - Máy thuê có thêm **VAT (%)** (tiền thuê khai báo là giá chưa VAT); công nợ tiền thuê tính cả VAT. NCC có thêm số tài khoản/ngân hàng.
-- Người ký (người đề nghị, trưởng bộ phận, quản lý tài chính, mã số) được nhớ trên trình duyệt. Cần Internet lần đầu để tải pdf.js/JSZip.
-- Muốn đổi mẫu in: thay file `pay-template.xlsx` (giữ nguyên vị trí các ô: F1, C2–C8, C10–C13, D14, G14, A19–G19, G20, A28/B28/D28).
+- Muốn đổi mẫu in giấy đề nghị: thay file `pay-template.xlsx` (giữ nguyên vị trí các ô: F1, C2–C8, C10–C13, D14, G14, A19–G19, G20, A28/B28/D28).
 
 ## Network › Thanh toán cước Internet (network-isp.js)
 
 Vào **Vận hành & Hỗ trợ IT → Network**. Chỉ Admin/Viewer thấy (Collector thì không).
 
 - **Đường truyền & NCC**: bấm “Nạp NCC & đường truyền VNPT/Viettel” để tạo sẵn 2 NCC (kèm tài khoản nhận tiền) và 6 đường truyền. Sửa/thêm tùy ý.
-- **Đề nghị thanh toán cước**: (1) chọn nhiều PDF cùng lúc (hóa đơn VNPT, hóa đơn FTTH Viettel, Thông báo cước Viettel) → app tự nhận dạng, khớp đường truyền theo mã KH/số hợp đồng → kiểm tra → *Lưu vào công nợ*; (2) chọn NCC, tick các hóa đơn → *Tạo file Excel* (mỗi NCC 1 giấy, nhiều dòng chứng từ, cùng mẫu với module Máy in).
-- **Công nợ cước Internet**: hóa đơn từng tháng, ghi nhận thanh toán, quá hạn.
+- **Đã bỏ trang "Đề nghị thanh toán cước"** (đọc PDF + xuất Excel riêng cho Network). Lập giấy đề nghị thanh toán cho NCC mạng ở trang chung **🛠 Vận hành & Hỗ trợ IT → 📝 Đề nghị thanh toán** — hóa đơn sẽ tự được thêm vào Công nợ cước Internet nếu NCC khớp (khớp theo mã số thuế + mã KH/số hợp đồng/tên thuê bao để xác định đúng đường truyền — xem mục "Đề nghị thanh toán" phía trên).
+- **Công nợ cước Internet**: hóa đơn từng tháng, ghi nhận thanh toán, quá hạn. Không còn cách thêm hóa đơn thủ công riêng ở trang này — thêm qua trang Đề nghị thanh toán chung (NCC phải có sẵn trong "Đường truyền & NCC" ở trên thì mới tự khớp được).
 - Firestore: `net_providers`, `net_lines`, `net_invoices` — **nhớ Publish lại `firestore.rules`**.
 
 ## 🤖 Trợ lý AI (ai.js + ai-worker/) — Google Gemini gói miễn phí

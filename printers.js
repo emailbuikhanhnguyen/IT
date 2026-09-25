@@ -24,7 +24,7 @@
   const PRINTER_COLLECTION = "printers";
   const VENDOR_COLLECTION = "printer_vendors";
   const INVOICE_COLLECTION = "printer_invoices";
-  const PRINTER_PAGES = ["printers", "printerList", "printerForm", "printerVendors", "vendorForm", "printerDebts", "invoiceForm", "printerReport", "printerPayReq"];
+  const PRINTER_PAGES = ["printers", "printerList", "printerForm", "printerVendors", "vendorForm", "printerDebts", "invoiceForm", "printerReport"];
   const EXPIRING_DAYS = 60; // cảnh báo hợp đồng thuê còn <= N ngày
   const E = window.PR_ENUMS;
 
