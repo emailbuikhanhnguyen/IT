@@ -286,7 +286,6 @@
     <button class="module-nav-item" data-page="guides">
       <span class="module-nav-icon">📘</span>
       <span class="module-nav-text"><b data-i18n="nav.guides">Hướng dẫn kỹ thuật</b><small data-i18n="nav.guides.desc">Tài liệu, cách xử lý sự cố thường gặp</small></span>
-      <span class="module-nav-soon" data-i18n="common.soon">Sắp có</span>
     </button>
     <button class="module-nav-item no-collector" data-page="payReq">
       <span class="module-nav-icon">📝</span>
@@ -623,11 +622,32 @@
 </section>
 
 <section id="guides" class="page">
-  <div class="section-head"><h2 data-i18n="guides.title">📘 Hướng dẫn kỹ thuật</h2><button data-page="ops">←</button></div>
-  <div class="card empty">
-    <p data-i18n="common.building">🚧 Đang xây dựng — sẽ sớm có tại đây.</p>
-    <p class="muted" data-i18n="guides.desc">Dự kiến: tài liệu xử lý sự cố thường gặp, hướng dẫn cài đặt/cấu hình máy, quy trình chuẩn cho IT.</p>
+  <div class="section-head"><h2 data-i18n="guides.title">📘 Hướng dẫn kỹ thuật</h2><button id="guidesAddBtn" class="admin-only" data-page="guideForm" data-i18n="guides.add">＋ Thêm tài liệu</button></div>
+  <p class="hint" data-i18n="guides.hint">Tài liệu tham khảo, hướng dẫn xử lý sự cố thường gặp, quy trình chuẩn cho IT — PDF, Excel, Word, PowerPoint...</p>
+  <div class="filters">
+    <input id="guideSearch" data-i18n-placeholder="guides.searchPh" placeholder="Tìm tên tài liệu, mô tả...">
+    <select id="guideFilterCat"></select>
   </div>
+  <div id="guideList"></div>
+</section>
+
+<section id="guideForm" class="page">
+  <div class="section-head"><h2 id="guideFormTitle" data-i18n="guides.formTitle">📘 Thêm tài liệu</h2><button data-page="guides">←</button></div>
+  <form id="guideFormEl" class="card">
+    <input type="hidden" id="guideDocId">
+    <label><span data-i18n="guides.f.title">Tên tài liệu*</span><input id="guideTitle" required data-i18n-placeholder="guides.f.title.ph" placeholder="VD: Hướng dẫn cấu hình VLAN Ruijie"></label>
+    <label class="autocomplete-field"><span data-i18n="guides.f.cat">Danh mục</span>
+      <input id="guideCat" autocomplete="off" data-i18n-placeholder="guides.f.cat.ph" placeholder="VD: Mạng, Máy in, Camera, Quy trình chung...">
+      <div id="guideCatSuggest" class="suggest-list hidden"></div>
+    </label>
+    <label><span data-i18n="field.description">Mô tả</span><textarea id="guideDesc" rows="3"></textarea></label>
+    <label><span id="guideFileLabelTxt" data-i18n="guides.f.file">Chọn file*</span><input id="guideFile" type="file" accept=".pdf,.xls,.xlsx,.doc,.docx,.ppt,.pptx,.txt,.csv,.zip,.png,.jpg,.jpeg"></label>
+    <p class="hint" data-i18n="guides.f.fileHint">PDF, Excel, Word, PowerPoint, ảnh, file nén... tối đa 20MB.</p>
+    <div id="guideCurrentFile" class="muted hidden"></div>
+    <progress id="guideUploadBar" class="hidden" value="0" max="100" style="width:100%"></progress>
+    <div id="guideFormMsg" class="hidden"></div>
+    <div class="form-actions"><button type="submit" id="guideSubmitBtn" data-i18n="guides.f.submit">⬆ Tải lên</button><button type="button" class="secondary" data-page="guides" data-i18n="formActions.reset">Hủy</button></div>
+  </form>
 </section>
 
 <section id="network" class="page">
@@ -1228,9 +1248,12 @@
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-storage-compat.js"></script>
 <script src="i18n.js"></script>
 <script src="printers-i18n.js"></script>
+<script src="guides-i18n.js"></script>
 <script src="app.js"></script>
+<script src="guides.js"></script>
 <script src="printers-seed.js"></script>
 <script src="printers.js"></script>
 <script src="printers-payreq.js"></script>

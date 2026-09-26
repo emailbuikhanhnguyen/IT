@@ -232,6 +232,20 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ---------- guides/{id} — Hướng dẫn kỹ thuật (tài liệu PDF/Excel/Word...
+    // lưu file thật ở Firebase Storage, xem storage.rules match /guides/).
+    // Admin/Collector/Viewer đều đọc được (nav không ẩn với Collector); chỉ
+    // Admin thêm/sửa/xóa. "title" và "storagePath" (đường dẫn file thật ở
+    // Storage) bắt buộc có khác rỗng — tránh bản ghi "mồ côi" không trỏ tới
+    // file nào. ----------
+    match /guides/{id} {
+      allow read: if isAdmin() || isCollector() || isViewer();
+      allow create, update: if isAdmin()
+        && isNonEmptyString(request.resource.data.title, 200)
+        && isNonEmptyString(request.resource.data.storagePath, 300);
+      allow delete: if isAdmin();
+    }
+
     // ---------- meta/{docId} — các "cờ trạng thái" nhỏ dùng nội bộ app,
     // hiện chỉ có `homeLaptopExport` (chữ ký danh sách mang laptop về nhà
     // ở lần xuất báo cáo gần nhất, để phát hiện thay đổi và cảnh báo cần

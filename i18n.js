@@ -304,7 +304,6 @@ const I18N = {
     "camera.takePhotoTicket": "📷 Chụp ảnh hiện trạng",
 
     "guides.title": "📘 Hướng dẫn kỹ thuật",
-    "guides.desc": "Dự kiến: tài liệu xử lý sự cố thường gặp, hướng dẫn cài đặt/cấu hình máy, quy trình chuẩn cho IT.",
     "network.title": "🌐 Network",
     "network.desc": "Dự kiến: sơ đồ mạng, bảng IP, thông tin switch/port, wifi.",
     "camera.title": "📹 Camera",
@@ -921,7 +920,6 @@ const I18N = {
     "camera.takePhotoTicket": "📷 Take photo of current state",
 
     "guides.title": "📘 Technical Guides",
-    "guides.desc": "Planned: common troubleshooting docs, setup/configuration guides, standard IT procedures.",
     "network.title": "🌐 Network",
     "network.desc": "Planned: network diagram, IP table, switch/port info, wifi.",
     "camera.title": "📹 Camera",
@@ -1537,7 +1535,6 @@ const I18N = {
     "camera.takePhotoTicket": "📷 拍摄现场照片",
 
     "guides.title": "📘 技术指南",
-    "guides.desc": "计划功能：常见故障处理文档、安装/配置指南、IT标准流程。",
     "network.title": "🌐 网络",
     "network.desc": "计划功能：网络拓扑图、IP表、交换机/端口信息、WiFi。",
     "camera.title": "📹 摄像头",

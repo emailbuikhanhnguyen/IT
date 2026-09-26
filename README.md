@@ -242,6 +242,15 @@ file đánh số tay), app tự thêm hậu tố (VD: "IT-20260817-001-2") cho d
 trùng để không mất dữ liệu; sau khi import nên vào sửa lại Mã cho gọn nếu
 muốn.
 
+## Hướng dẫn kỹ thuật (🛠 Vận hành & Hỗ trợ IT → 📘 Hướng dẫn kỹ thuật)
+Kho tài liệu tham khảo của IT: PDF, Excel, Word, PowerPoint, ảnh, file nén... Code ở `guides.js` (+ chuỗi VI/EN/ZH ở `guides-i18n.js`).
+
+- **Upload file thật** lên Firebase Storage (`guides/{id}/{tên file}`), tối đa **20MB/file** — khác với "🔗 Liên kết tài liệu" ở Dự án CNTT (chỉ lưu link dán tay, không lưu file thật).
+- Mỗi tài liệu có: tên, **danh mục** (gõ tự do, có gợi ý từ danh mục đã dùng — VD: Mạng, Máy in, Camera, Quy trình chung...), mô tả, file đính kèm.
+- Tìm kiếm theo tên/mô tả/danh mục, lọc theo danh mục. Sửa metadata (tên/danh mục/mô tả) mà **không cần** tải lại file; chọn file mới thì file cũ tự bị xóa khỏi Storage.
+- **Phân quyền**: Admin/Collector/Viewer đều xem & tải xuống được; **chỉ Admin** thêm/sửa/xóa tài liệu (tài liệu tham khảo chung, kiểm soát chất lượng qua 1 đầu mối).
+- **Bắt buộc publish lại cả `firestore.rules` VÀ `storage.rules`** (thêm collection `guides` / path Storage `guides/`), nếu không sẽ báo permission-denied khi upload.
+
 ## Máy in (🛠 Vận hành & Hỗ trợ IT → 🖨 Máy in)
 Theo dõi máy in **thuê** và **tự mua**, nhà cung cấp (NCC), công nợ và lịch sử sửa chữa. Code ở `printers.js` (+ chuỗi VI/EN/ZH ở `printers-i18n.js`).
 

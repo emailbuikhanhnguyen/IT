@@ -293,6 +293,7 @@ function goPage(name) {
   if (typeof onNetPage === "function") onNetPage(name);
   if (typeof onPayReqPage === "function") onPayReqPage(name);
   if (typeof onAiPage === "function") onAiPage(name); // Trợ lý AI (ai.js)
+  if (typeof onGuidesPage === "function") onGuidesPage(name); // Hướng dẫn kỹ thuật (guides.js)
 }
 document.querySelectorAll("[data-page]").forEach(btn => {
   btn.addEventListener("click", () => goPage(btn.getAttribute("data-page")));
@@ -759,6 +760,7 @@ function renderAll() {
   renderCameraPage();
   if (typeof renderPrinterAll === "function") renderPrinterAll(); // module Máy in (printers.js)
   if (typeof renderNetAll === "function") renderNetAll(); // Network › cước Internet (network-isp.js)
+  if (typeof renderGuidesAll === "function") renderGuidesAll(); // Hướng dẫn kỹ thuật (guides.js)
 }
 
 /* ---------- Dashboard ---------- */
@@ -4738,6 +4740,7 @@ auth.onAuthStateChanged(async user => {
       if (typeof initPrinterSync === "function") initPrinterSync(); // Máy in: chỉ Admin/Viewer (tự kiểm tra bên trong)
       if (typeof initNetSync === "function") initNetSync(); // Network › cước Internet: chỉ Admin/Viewer
       if (typeof initPayReqSync === "function") initPayReqSync(); // Đề nghị thanh toán: lịch sử đề nghị, chỉ Admin/Viewer
+      if (typeof initGuidesSync === "function") initGuidesSync(); // Hướng dẫn kỹ thuật: Admin/Collector/Viewer đều đọc được
       initEmployeesSync();
       if (isAdmin) { initUsersSync(); initHomeLaptopExportMetaSync(); } // chỉ Admin đọc toàn bộ users + cần thấy cảnh báo xuất lại báo cáo mang laptop
       goPage("dashboard");

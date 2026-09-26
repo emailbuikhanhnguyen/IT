@@ -34,5 +34,17 @@ service firebase.storage {
       // create) nên không phát sinh rủi ro quyền mới.
       allow create, delete: if isAdmin() || isCollector();
     }
+
+    // Hướng dẫn kỹ thuật (guides.js) — tài liệu PDF/Excel/Word/PowerPoint...
+    // Admin/Collector/Viewer đều xem/tải xuống được (khớp firestore.rules
+    // match /guides/); CHỈ Admin tải lên/xóa — đây là tài liệu tham khảo
+    // chung, kiểm soát chất lượng qua 1 người thay vì để ai cũng thêm được.
+    // Giới hạn 20MB/file (request.resource.size) — khớp GUIDE_MAX_MB ở
+    // guides.js, sửa thì sửa cả 2 chỗ.
+    match /guides/{docId}/{fileName} {
+      allow read: if isAdmin() || isCollector() || isViewer();
+      allow create: if isAdmin() && request.resource.size < 20 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
   }
 }
